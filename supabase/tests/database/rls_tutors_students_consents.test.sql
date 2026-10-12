@@ -1,10 +1,11 @@
 begin;
-select plan(56);
+select plan(54);
 
 -- UUIDs de prueba:
 --   tutor A = aaaaaaaa-...-0001, alumno de A = a1000000-...-0001
 --   tutor B = bbbbbbbb-...-0002, alumno de B = b1000000-...-0001
 --   usuario anónimo de Auth = cccccccc-...-0003
+--   versiones legales vigentes: 1111...0001 (términos), ...0002 (privacidad), ...0003 (declaración)
 
 -- Datos de prueba (como superusuario). El trigger crea las filas de tutors.
 insert into auth.users (id, email, is_anonymous) values
@@ -12,13 +13,18 @@ insert into auth.users (id, email, is_anonymous) values
   ('bbbbbbbb-0000-0000-0000-000000000002', 'tutor-b@test.invalid', false),
   ('cccccccc-0000-0000-0000-000000000003', null,                   true);
 
-insert into public.students (id, tutor_id, nickname, grade) values
-  ('a1000000-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'Ana',  1),
-  ('b1000000-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000002', 'Beto', 3);
+insert into public.legal_document_versions (id, kind, version, content_sha256, is_current) values
+  ('11111111-0000-0000-0000-000000000001', 'terms',             'tos-1', repeat('a', 64), true),
+  ('11111111-0000-0000-0000-000000000002', 'privacy',           'pp-1',  repeat('b', 64), true),
+  ('11111111-0000-0000-0000-000000000003', 'adult_declaration', 'ad-1',  repeat('c', 64), true);
 
-insert into public.consents (tutor_id, terms_version, privacy_version) values
-  ('aaaaaaaa-0000-0000-0000-000000000001', 'tos-2026-10', 'pp-2026-10'),
-  ('bbbbbbbb-0000-0000-0000-000000000002', 'tos-2026-10', 'pp-2026-10');
+insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web'),
+  ('bbbbbbbb-0000-0000-0000-000000000002', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web');
+
+insert into public.students (id, tutor_id, nickname, grade, adult_declaration_accepted) values
+  ('a1000000-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'Ana',  1, true),
+  ('b1000000-0000-0000-0000-000000000001', 'bbbbbbbb-0000-0000-0000-000000000002', 'Beto', 3, true);
 
 -- ===== Estructura y trigger (como superusuario) =====
 select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid = 'public.tutors'::regclass),   'tutors: RLS activada y forzada');
@@ -48,12 +54,14 @@ select is((select array_agg(id) from public.students),
 select is_empty($$select 1 from public.students where tutor_id = 'bbbbbbbb-0000-0000-0000-000000000002'$$, 'A no ve alumnos de B');
 select is_empty($$select 1 from public.consents where tutor_id <> 'aaaaaaaa-0000-0000-0000-000000000001'$$, 'A no ve consentimientos de otros tutores');
 
--- students: aislamiento
+-- students: aislamiento (la compuerta de consentimiento lo detiene antes que RLS)
+-- Se afirma el efecto (denegado y nada insertado), no el mensaje: según el estado de la
+-- transacción de prueba, el rechazo lo da la compuerta (P0001) o la política RLS (42501).
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('bbbbbbbb-0000-0000-0000-000000000002', 'Intruso', 2)$$,
-  '42501', 'new row violates row-level security policy for table "students"', 'A no puede crear alumnos a nombre de B');
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('bbbbbbbb-0000-0000-0000-000000000002', 'Intruso', 2, true)$$,
+  null, null, 'A no puede crear alumnos a nombre de B');
 select lives_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Luis', 2)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Luis', 2, true)$$,
   'A puede crear su propio alumno');
 select lives_ok(
   $$update public.students set nickname = 'Anita' where id = 'a1000000-0000-0000-0000-000000000001'$$,
@@ -78,54 +86,45 @@ select throws_ok(
   $$update public.students set id = gen_random_uuid() where id = 'a1000000-0000-0000-0000-000000000001'$$,
   '42501', 'permission denied for table students', 'id no es actualizable por el cliente');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade, created_at) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pia', 1, '2000-01-01')$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted, created_at) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pia', 1, true, '2000-01-01')$$,
   '42501', 'permission denied for table students', 'created_at no es escribible al insertar');
 
 -- students: restricciones de datos
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pedro', 5)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pedro', 5, true)$$,
   '23514', 'new row for relation "students" violates check constraint "students_grade_range"', 'curso 5 es rechazado');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pedro', 0)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pedro', 0, true)$$,
   '23514', 'new row for relation "students" violates check constraint "students_grade_range"', 'curso 0 es rechazado');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pedro', null)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Pedro', null, true)$$,
   '23502', 'null value in column "grade" of relation "students" violates not-null constraint', 'curso nulo es rechazado');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', '   ', 1)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', '   ', 1, true)$$,
   '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo en blanco es rechazado');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', repeat('a', 31), 1)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', repeat('a', 31), 1, true)$$,
   '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo de 31 caracteres es rechazado');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', ' Ana', 1)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', ' Ana', 1, true)$$,
   '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo con espacios al borde es rechazado');
 
--- consents
+-- consents (registro de eventos)
 select lives_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version) values ('aaaaaaaa-0000-0000-0000-000000000001', 'tos-2027-01', 'pp-2027-01')$$,
+  $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'ios')$$,
   'A puede registrar un nuevo consentimiento propio');
 select throws_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version) values ('bbbbbbbb-0000-0000-0000-000000000002', 'tos-2027-01', 'pp-2027-01')$$,
+  $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('bbbbbbbb-0000-0000-0000-000000000002', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web')$$,
   '42501', 'new row violates row-level security policy for table "consents"', 'A no puede registrar consentimientos de B');
 select throws_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version) values ('aaaaaaaa-0000-0000-0000-000000000001', 'tos-2026-10', 'pp-2026-10')$$,
-  '23505', null, 'el mismo consentimiento (mismas versiones) no se duplica');
+  $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel, occurred_at) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web', '2000-01-01')$$,
+  '42501', 'permission denied for table consents', 'el cliente no puede fijar occurred_at');
 select throws_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version, accepted_at) values ('aaaaaaaa-0000-0000-0000-000000000001', 'tos-2028-01', 'pp-2028-01', '2000-01-01')$$,
-  '42501', 'permission denied for table consents', 'el cliente no puede fijar accepted_at');
-select throws_ok(
-  $$update public.consents set terms_version = 'otra'$$,
+  $$update public.consents set channel = 'web'$$,
   '42501', 'permission denied for table consents', 'consents es append-only: sin UPDATE');
 select throws_ok(
   $$delete from public.consents$$,
   '42501', 'permission denied for table consents', 'consents es append-only: sin DELETE');
-select throws_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version) values ('aaaaaaaa-0000-0000-0000-000000000001', '', 'pp-2029-01')$$,
-  '23514', 'new row for relation "consents" violates check constraint "consents_terms_version_len"', 'versión de términos vacía es rechazada');
-select throws_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version) values ('aaaaaaaa-0000-0000-0000-000000000001', 'tos-2029-01', repeat('p', 41))$$,
-  '23514', 'new row for relation "consents" violates check constraint "consents_privacy_version_len"', 'versión de política de más de 40 caracteres es rechazada');
 
 -- tutors: solo lectura para el cliente
 select throws_ok(
@@ -147,6 +146,8 @@ select throws_ok(
 reset role;
 select is((select nickname from public.students where id = 'b1000000-0000-0000-0000-000000000001'),
   'Beto', 'el alumno de B sigue intacto tras los intentos de A');
+select is_empty($$select 1 from public.students where nickname = 'Intruso'$$,
+  'el alumno "Intruso" no llegó a insertarse');
 
 -- ===== Actuando como tutor B (simetría) =====
 select set_config('request.jwt.claims', '{"sub":"bbbbbbbb-0000-0000-0000-000000000002","role":"authenticated"}', true);
@@ -166,15 +167,15 @@ select throws_ok($$select * from public.students$$, '42501', 'permission denied 
 select throws_ok($$select * from public.consents$$, '42501', 'permission denied for table consents', 'anon no puede leer consents');
 select throws_ok($$select * from public.tutors$$,   '42501', 'permission denied for table tutors',   'anon no puede leer tutors');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade) values ('aaaaaaaa-0000-0000-0000-000000000001', 'X', 1)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'X', 1, true)$$,
   '42501', 'permission denied for table students', 'anon no puede insertar en students');
 select throws_ok($$update public.students set nickname = 'X'$$, '42501', 'permission denied for table students', 'anon no puede actualizar students');
 select throws_ok($$delete from public.students$$,               '42501', 'permission denied for table students', 'anon no puede borrar students');
 select throws_ok(
-  $$insert into public.consents (tutor_id, terms_version, privacy_version) values ('aaaaaaaa-0000-0000-0000-000000000001', 'x', 'y')$$,
+  $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002')$$,
   '42501', 'permission denied for table consents', 'anon no puede insertar en consents');
-select throws_ok($$update public.consents set terms_version = 'x'$$, '42501', 'permission denied for table consents', 'anon no puede actualizar consents');
-select throws_ok($$delete from public.consents$$,                  '42501', 'permission denied for table consents', 'anon no puede borrar consents');
+select throws_ok($$update public.consents set channel = 'web'$$, '42501', 'permission denied for table consents', 'anon no puede actualizar consents');
+select throws_ok($$delete from public.consents$$,                 '42501', 'permission denied for table consents', 'anon no puede borrar consents');
 select throws_ok($$select public.handle_new_tutor()$$, '42501', 'permission denied for function handle_new_tutor', 'anon no puede ejecutar handle_new_tutor');
 
 -- ===== Cascada de supresión (como superusuario) =====

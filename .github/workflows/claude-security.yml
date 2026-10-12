@@ -1,0 +1,22 @@
+name: Claude Security Review
+# Revisión de seguridad con IA en cada PR. Requiere el secreto CLAUDE_API_KEY en el repositorio.
+# La acción no está endurecida contra prompt injection: activa en GitHub
+# "Require approval for all external contributors" y úsala solo con PRs de confianza.
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+      - uses: anthropics/claude-code-security-review@main
+        with:
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+          comment-pr: true

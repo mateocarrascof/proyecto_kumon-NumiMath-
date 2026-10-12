@@ -1,0 +1,67 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(npm --prefix app run lint *)",
+      "Bash(npm --prefix app run test:ci *)",
+      "Bash(npm --prefix app run build *)",
+      "Bash(ruff *)",
+      "Bash(pytest *)",
+      "Bash(supabase db lint *)",
+      "Bash(supabase test db *)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(npm i *)",
+      "Bash(pip install *)",
+      "Bash(supabase db push *)",
+      "Bash(supabase db reset *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*credentials*)",
+      "Read(./secrets/**)",
+      "Bash(cat *.env*)",
+      "Bash(rm -rf *)",
+      "Bash(sudo *)",
+      "Bash(git push --force *)",
+      "Bash(git push * --force)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ]
+  },
+  "sandbox": { "enabled": true },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Edit|Write|Bash",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-secrets.sh" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format.sh" },
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/privacy-touch.sh" },
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sdk-guard.sh" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/tests-on-stop.sh" }
+        ]
+      }
+    ]
+  }
+}

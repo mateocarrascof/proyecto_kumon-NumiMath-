@@ -1,0 +1,14 @@
+# Secretos: nunca versionar (CLAUDE.md). Solo se permite la plantilla de ejemplo.
+.env
+.env.*
+!.env.example
+
+# Configuración local de Claude Code
+.claude/settings.local.json
+.claude/worktrees/
+
+# Estado temporal local de la CLI de Supabase
+supabase/.temp/
+
+# Estado local de ramas de la CLI de Supabase
+supabase/.branches/

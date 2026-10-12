@@ -1,0 +1,2 @@
+# Los hooks de shell deben conservar finales de línea LF (con CRLF el shebang falla)
+*.sh text eol=lf

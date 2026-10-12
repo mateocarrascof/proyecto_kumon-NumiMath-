@@ -1,0 +1,42 @@
+name: Security scan (determinista)
+# Complementa la revisión con IA: secretos y dependencias vulnerables.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deps-app:
+    runs-on: ubuntu-latest
+    if: hashFiles('app/package-lock.json') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm --prefix app ci
+      - run: npm --prefix app audit --audit-level=high
+
+  deps-api:
+    runs-on: ubuntu-latest
+    if: hashFiles('api/requirements.txt') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - run: pip-audit -r api/requirements.txt

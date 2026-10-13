@@ -1,5 +1,5 @@
 begin;
-select plan(34);
+select plan(35);
 
 -- Evidencia mínima seudonimizada del consentimiento (Lote 2 paso 3 + Lote B).
 -- UUIDs: tutor A = aaaaaaaa-...-0001, tutor B = bbbbbbbb-...-0002
@@ -128,18 +128,23 @@ select is((select count(*) from public.consent_evidence), 2::bigint,
 -- ===== Alertas =====
 update public.app_settings set value = 'null'::jsonb where key = 'consent_evidence_retention_days';
 set local role service_role;
-select is((select count(*) from public.privacy_config_warnings()), 2::bigint,
-  'plazo de evidencia sin definir + plazo de bloqueados provisional = 2 alertas');
+select is((select count(*) from public.privacy_config_warnings()), 3::bigint,
+  'plazo de evidencia sin definir + plazos de bloqueados e inactividad provisionales = 3 alertas');
 reset role;
 update public.app_settings set value = '365'::jsonb where key = 'consent_evidence_retention_days';
 set local role service_role;
-select is((select count(*) from public.privacy_config_warnings()), 1::bigint,
-  'con el plazo de evidencia definido queda solo la alerta del plazo provisional de bloqueados');
+select is((select count(*) from public.privacy_config_warnings()), 2::bigint,
+  'con el plazo de evidencia definido quedan las alertas de los plazos provisionales');
 reset role;
 update public.app_settings set value = 'true'::jsonb where key = 'blocked_profile_retention_confirmed';
 set local role service_role;
+select is((select count(*) from public.privacy_config_warnings()), 1::bigint,
+  'confirmado el plazo de bloqueados, queda la alerta de inactividad');
+reset role;
+update public.app_settings set value = 'true'::jsonb where key = 'inactive_profile_retention_confirmed';
+set local role service_role;
 select is((select count(*) from public.privacy_config_warnings()), 0::bigint,
-  'con ambos plazos definidos y confirmados no hay alertas');
+  'con todos los plazos definidos y confirmados no hay alertas');
 reset role;
 
 -- ===== Validaciones =====

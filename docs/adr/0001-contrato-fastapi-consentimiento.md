@@ -58,6 +58,9 @@ Hoy se distinguen por el texto del mensaje (SQLSTATE `P0001`). FastAPI los tradu
 | `consent_event_rate_limited` | 429 | Máximo 10 **aceptaciones** por tutor en 24 h. **Las revocaciones nunca se limitan.** |
 | `student_create_rate_limited` | 429 | Máximo 10 altas de perfiles por tutor en 24 h (configurable), contando los perfiles ya borrados. |
 | `no_consent_to_revoke` | 409 | Sin consentimiento previo no hay nada que revocar. |
+| `isolation_level_not_allowed` | 500 | Error de configuración del pool: la conexión no usa `READ COMMITTED`. Alerta interna. |
+| `student_not_found` (de `consume_usage`) | 403 genérico | Perfil ajeno o inexistente. |
+| `pin_not_set` | 409 | El tutor aún no configuró su PIN. |
 | `invalid_block_reason` (22023) | 400 | Motivos válidos de bloqueo manual: `tutor_request` y `arcop_claim`. |
 | `truncate_not_allowed`, `consents_are_append_only` (borrado) | 500 | Error de programación o intento de manipulación: alerta interna. |
 | `tutor_mismatch` (42501) | 403 | Indica un cliente que intenta actuar a nombre de otro: registrar el evento de seguridad (sin datos personales). |
@@ -78,7 +81,7 @@ Pendiente (baja prioridad): sustituir el texto por códigos propios (`errcode`),
 **2.3 Aislamiento.** Las rutas que toman el bloqueo por tutor (`students_before_insert`, `consents_before_insert`, `on_consent_revoked`, `unblock_student`) son correctas bajo `READ COMMITTED`. Bajo `REPEATABLE READ` o `SERIALIZABLE`, el conteo del tope y el estado del consentimiento se leen con la vista del inicio de la transacción y dos altas concurrentes pueden superar el tope (se demuestra en `supabase/tests/concurrency/`). Por lo tanto:
 - FastAPI **debe** usar `READ COMMITTED` (el valor por defecto de PostgreSQL) en esas rutas;
 - la configuración del pool y del ORM debe fijarlo explícitamente y tener una prueba que lo verifique;
-- (propuesta futura) las funciones podrían rechazar `current_setting('transaction_isolation') <> 'read committed'`.
+- **la base lo exige** (migración `20261013100000_api_support`): las altas de perfiles, los eventos de consentimiento, los cambios de bloqueo y `consume_usage` fallan con `isolation_level_not_allowed` bajo cualquier otro nivel. La prueba de concurrencia lo verifica.
 
 **2.4 Revocación con una respuesta en streaming en curso.**
 - Al iniciar el stream se hacen las 5 comprobaciones.
@@ -156,8 +159,8 @@ La base no puede hacer todo sola: **la clave HMAC vive fuera de la base** y el b
 ## Pendientes antes de lanzar
 
 - **Borrado de cuenta sin evidencia:** hoy la base **no** impide borrar un tutor sin haber archivado su evidencia (panel de Supabase, Admin API, error de FastAPI). Se decidió por ahora que el borrado pase solo por FastAPI. Antes del lanzamiento hay que reevaluar un trigger que exija evidencia archivada, o una alerta de integración que detecte cuentas borradas sin evidencia.
-- **Aislamiento:** `READ COMMITTED` está solo documentado; propuesta de que las funciones lo verifiquen.
-- **Función única** `authorize_student_use` y códigos de error propios (`errcode`).
+- **Códigos de error propios** (`errcode`) en lugar de comparar el texto del mensaje.
+- *(Resuelto en la migración de apoyo del servidor: aislamiento exigido por la base y función única `authorize_student_use`.)*
 - **Backups:** plazo, región y registro de supresiones que se reaplique tras restaurar.
 - **Custodio de la clave HMAC** y política de rotación.
 

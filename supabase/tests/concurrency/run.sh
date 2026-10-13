@@ -10,8 +10,8 @@
 #   A  dos altas simultáneas con 4 alumnos      -> exactamente 1 entra, la otra recibe student_limit_reached
 #   B1 alta y revocación simultáneas (alta 1º)  -> el alumno queda y termina BLOQUEADO
 #   B2 revocación y alta simultáneas (revoc. 1º)-> la alta recibe consent_required, sin alumno
-#   C  REPEATABLE READ (limitación conocida)    -> informativo: el tope puede superarse; por eso
-#                                                  FastAPI debe usar READ COMMITTED (ADR 0001)
+#   C  REPEATABLE READ                          -> la base RECHAZA la alta (isolation_level_not_allowed);
+#                                                  antes el tope podía superarse (ADR 0001, 2.3)
 #
 # Requisitos: Docker y `supabase start` en marcha. Usa el contenedor de la base local.
 # Es una prueba de DESARROLLO: crea y luego elimina sus propios datos (usuarios dddddddd-...).
@@ -140,7 +140,7 @@ check "la alta posterior a la revocación recibe consent_required" "1" "$ERRS"
 check "no se creó ningún alumno" "0" "$N"
 
 # ---------------------------------------------------------------------------
-echo "== C. REPEATABLE READ (limitación conocida, informativa) =="
+echo "== C. REPEATABLE READ: la base rechaza la alta =="
 tutor_session "$T4" 2 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T4','C5a',1,true);" > "$OUT/c1" &
 wait_ready "$OUT/c1" 10
 cat <<SQL | session > "$OUT/c2" &
@@ -153,13 +153,10 @@ insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted)
 commit;
 SQL
 wait
+ERRS="$(grep -c 'isolation_level_not_allowed' "$OUT/c2")"
 N="$(sql -c "select count(*) from public.students where tutor_id = '$T4'")"
-if [ "$N" -gt 5 ]; then
-  echo "  INFO  con REPEATABLE READ el tutor terminó con $N alumnos (tope 5): el tope se supera."
-  echo "        Confirma la regla del ADR 0001: FastAPI debe usar READ COMMITTED en estas rutas."
-else
-  echo "  INFO  con REPEATABLE READ el tutor terminó con $N alumnos: el tope se respetó."
-fi
+check "la alta bajo REPEATABLE READ recibe isolation_level_not_allowed" "1" "$ERRS"
+check "el tutor termina con 5 alumnos (no 6)" "5" "$N"
 
 # ---------------------------------------------------------------------------
 echo

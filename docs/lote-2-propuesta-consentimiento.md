@@ -17,7 +17,16 @@
   - La evidencia, los textos legales publicados y `consents` son inmutables; la evidencia guarda la huella del texto aceptado.
   - Se limita el flujo de eventos de consentimiento (redundantes rechazados, máximo 20 en 24 h por tutor): resuelve R5 en la base.
   - Los perfiles bloqueados tienen plazo máximo (30 días provisionales) y se puede rectificar apodo y curso estando bloqueado; el historial de bloqueos queda en `student_status_events`; la declaración del adulto se archiva al borrar el perfil.
-  - **Sigue pendiente (Lote C):** ADR del contrato con FastAPI, prueba de concurrencia con dos conexiones y EIPD.
+  - **Lote C (hecho):** ADR del contrato con FastAPI (`docs/adr/0001-...`), prueba de concurrencia con dos conexiones (`supabase/tests/concurrency/`) y borrador de la EIPD (`docs/privacy/eipd/eipd-borrador.md`).
+  - **Lote D (hecho):**
+    - El tope de eventos de consentimiento cuenta solo **aceptaciones** (10 por 24 h); las revocaciones nunca se limitan y se registran sobre las versiones del último consentimiento.
+    - Límite de altas de perfiles por tutor (10 por 24 h, configurable), contando los ya borrados.
+    - TRUNCATE bloqueado en las tablas inmutables; `consents` solo se borra por cascada de la cuenta; la variable de purga ya no basta (el borrado exige ser el dueño de las funciones).
+    - La declaración archivada conserva el consentimiento original (`declaration_consent_seq`); el archivo corre en `AFTER DELETE`.
+    - **Bloqueo individual** con motivo (`tutor_request`, `arcop_claim`) y purga automática solo de los bloqueados por revocación.
+    - **Inactividad:** 12 meses provisionales, configurable (pendiente legal), con purga y listas de aviso.
+    - **Purgas con `pg_cron`** y alertas `privacy_config_warnings()` / `privacy_job_warnings()`.
+  - **Pendiente antes de lanzar:** impedir (o alertar) el borrado de un tutor sin evidencia archivada; backups; custodia de la clave HMAC; plazos legales. Ver `docs/privacy/pendientes-legales.md`.
 
 ---
 
@@ -93,13 +102,13 @@ Esta propuesta arregla eso con seis ideas simples:
 
 **La clave del HMAC vive fuera de la base** (variable de entorno del servidor). La base no puede recalcular el identificador por sí sola; por eso lo calcula FastAPI.
 
-**Flujo de borrado de cuenta (FastAPI, con `service_role`):**
-1. Calcular `tutor_ref = HMAC(clave, tutor_id)` y registrar la versión de la clave.
-2. Llamar a `archive_consent_evidence(tutor_id, tutor_ref, key_version)`: copia los eventos a `consent_evidence`.
-3. Borrar el usuario de Auth (la cascada elimina tutor, alumnos y consentimientos *vivos*).
-4. Un job periódico ejecuta `purge_expired_consent_evidence()` cuando se cumple `retain_until`.
+**Flujo de borrado de cuenta (FastAPI, con `service_role`):** el flujo vigente y completo está en `docs/adr/0001-contrato-fastapi-consentimiento.md` (Decisión 3). En resumen:
+1. Congelar la cuenta (revocación, ban en Auth) y calcular `tutor_ref` y `email_ref` con HMAC y la versión de la clave.
+2. Llamar a `archive_consent_evidence(tutor_id, tutor_ref, email_ref, key_version)`: copia los eventos a `consent_evidence`.
+3. Borrar el usuario de Auth (la cascada elimina tutor, alumnos y consentimientos *vivos*; un trigger archiva la declaración de cada perfil).
+4. `pg_cron` ejecuta a diario `purge_expired_consent_evidence()`.
 
-**Plazo.** `retain_until` se calcula con `app_settings.consent_evidence_retention_days`. Hoy es `null`: significa "sin plazo definido" y por tanto **no se purga nada** hasta que Legal lo fije. Ver riesgo R8.
+**Plazo.** Se calcula **al purgar** (`archived_at` + `app_settings.consent_evidence_retention_days`). Hoy es `null`: significa "sin plazo definido" y por tanto **no se purga nada** hasta que Legal lo fije. Ver riesgo R8.
 
 **Importante:** seudonimizado **no** es anonimizado. Sigue siendo dato personal mientras exista la clave.
 
@@ -111,9 +120,11 @@ Esta propuesta arregla eso con seis ideas simples:
 
 ---
 
-## SQL previsto (borrador, no aplicado)
+## SQL previsto (borrador original, **obsoleto**)
 
-Probado en una transacción deshecha contra el esquema del Lote 1. Se aplicaría como una migración nueva (`supabase/migrations/<timestamp>_consent_gate.sql`).
+> **Este bloque es el borrador original y ya no es la referencia.** Contiene, entre otras cosas, `retain_until` y una función de archivo de 3 parámetros, que cambiaron en los Lotes B y D. **La versión vigente está en `supabase/migrations/`.** Se conserva solo como historia del diseño.
+
+Probado en una transacción deshecha contra el esquema del Lote 1. Se aplicó como migraciones (`20261012190000_consent_gate.sql` y siguientes).
 
 **Precondición:** `public.consents` debe estar vacía (no hay datos reales). Si no lo estuviera, se necesita un backfill antes de dejar las columnas de versión como `NOT NULL`.
 
@@ -382,7 +393,7 @@ grant execute on function public.purge_expired_consent_evidence() to service_rol
 
 ---
 
-## Tests previstos (pgTAP, aún no escritos)
+## Tests previstos (pgTAP; **ya escritos y ejecutados**, ver `supabase/tests/database/`)
 
 **Compuerta y versiones**
 1. Sin eventos de consentimiento, insertar un alumno falla (`consent_required`), tanto como `authenticated` como como `service_role`.

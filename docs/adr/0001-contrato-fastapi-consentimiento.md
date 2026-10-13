@@ -41,6 +41,8 @@ Reglas:
 - **Una sola consulta:** las comprobaciones 2 y 3 se hacen en un solo viaje a la base (función única, a implementar en una migración posterior: `authorize_student_use(tutor_id, student_id)`, ejecutable solo por `service_role`, devolviendo un código de motivo o `ok`). Hasta entonces, dos consultas dentro de la misma transacción.
 - **Sin contenido en logs:** ni mensajes del niño, ni apodo, ni correo en logs, errores o trazas. Se registra solo un identificador de petición y el código de resultado.
 - **Mensajes genéricos:** al cliente nunca se le explica *por qué* otro tutor o perfil no existe.
+- **Cuotas de IA por tutor, no solo por perfil:** el tope "por perfil y por día" no basta, porque se puede crear y borrar perfiles para obtener identificadores nuevos. La base limita las altas (10 por 24 h), pero la cuota diaria y el tope de costo **también se calculan por tutor**.
+- **Actividad:** al atender una petición válida de un perfil, FastAPI llama a `touch_student_activity(tutor_id, student_id)` (como máximo una escritura al día por perfil); alimenta la regla de inactividad.
 - **Tablas hijas futuras** (progreso, uso, sesiones): las escribe **solo el servidor**; el cliente solo lee por RLS. Llevan `tutor_id` y FK compuesta `(student_id, tutor_id)` hacia `students` (la clave `students_id_tutor_uk` ya existe). Si más adelante el cliente debe escribirlas directamente, su política de INSERT deberá incluir `has_active_consent(auth.uid())` y `blocked_at is null`.
 
 ### Mapa de errores de la base
@@ -53,8 +55,11 @@ Hoy se distinguen por el texto del mensaje (SQLSTATE `P0001`). FastAPI los tradu
 | `student_limit_reached` | 409 `student_limit_reached` | |
 | `declaration_version_missing` | 503 | Error de configuración: no hay declaración vigente publicada. Alerta interna. |
 | `consent_event_redundant` | 200 idempotente | El estado ya era ese. |
-| `consent_event_rate_limited` | 429 | Máximo 20 eventos de consentimiento por tutor en 24 h. |
-| `no_consent_to_revoke` | 409 | |
+| `consent_event_rate_limited` | 429 | Máximo 10 **aceptaciones** por tutor en 24 h. **Las revocaciones nunca se limitan.** |
+| `student_create_rate_limited` | 429 | Máximo 10 altas de perfiles por tutor en 24 h (configurable), contando los perfiles ya borrados. |
+| `no_consent_to_revoke` | 409 | Sin consentimiento previo no hay nada que revocar. |
+| `invalid_block_reason` (22023) | 400 | Motivos válidos de bloqueo manual: `tutor_request` y `arcop_claim`. |
+| `truncate_not_allowed`, `consents_are_append_only` (borrado) | 500 | Error de programación o intento de manipulación: alerta interna. |
 | `tutor_mismatch` (42501) | 403 | Indica un cliente que intenta actuar a nombre de otro: registrar el evento de seguridad (sin datos personales). |
 | `evidence_is_immutable`, `consents_are_append_only`, `legal_versions_are_*` | 500 | Error de programación del servidor: nunca debería ocurrir. |
 
@@ -88,9 +93,9 @@ La base no puede hacer todo sola: **la clave HMAC vive fuera de la base** y el b
 | Paso | Qué hace FastAPI | Por qué en este orden |
 |---|---|---|
 | 0 | Verifica identidad y control parental (PIN o pregunta de adulto) y pide confirmación. | Evita borrados accidentales o por un niño. |
-| 1 | **Congela la cuenta**: registra una revocación (bloquea todos los perfiles), bloquea el acceso del usuario en Auth (ban) e invalida sus sesiones. | Impide eventos nuevos entre archivar y borrar. |
+| 1 | **Congela la cuenta**: registra una revocación (bloquea todos los perfiles; **las revocaciones nunca se limitan**), bloquea el acceso del usuario en Auth (ban) e invalida sus sesiones. Si la base responde `consent_event_redundant` o `no_consent_to_revoke`, se trata como "ya congelado" y se continúa. | Impide eventos nuevos entre archivar y borrar. |
 | 2 | Calcula `tutor_ref = HMAC(clave, tutor_id)` y `email_ref = HMAC(clave, lower(trim(correo)))`, con la versión de clave vigente. | La base no tiene la clave. |
-| 3 | Llama a `archive_consent_evidence(tutor_id, tutor_ref, email_ref, versión)`. Comprueba que la cantidad archivada coincide con la cantidad de eventos del tutor. | Si falla aquí, **no se borra nada**. |
+| 3 | Llama a `archive_consent_evidence(tutor_id, tutor_ref, email_ref, versión)`. **El valor devuelto es solo la cantidad de filas NUEVAS** (un reintento devuelve 0). La comprobación correcta es `count(consent_evidence donde tutor_ref = X) = count(consents del tutor)`. | Si falla aquí, **no se borra nada**. |
 | 4 | **Repite el paso 3** (es idempotente). | Cubre cualquier evento que hubiera entrado entre 3 y 5. |
 | 5 | Borra el usuario en Auth. La cascada elimina tutor, alumnos y consentimientos vivos; un trigger archiva la declaración del adulto de cada perfil. | Es el paso irreversible. |
 | 6 | Verifica: no queda fila del tutor; existe evidencia; existe evidencia de declaración. Registra el resultado (sin datos personales). | Cierra el procedimiento. |
@@ -119,14 +124,19 @@ La base no puede hacer todo sola: **la clave HMAC vive fuera de la base** y el b
 
 | Trabajo | Frecuencia | Qué ejecuta | Quién |
 |---|---|---|---|
-| Purga de evidencia vencida | diaria | `purge_expired_consent_evidence()` | FastAPI (cron) o `pg_cron` |
-| Purga de perfiles bloqueados vencidos | diaria | `purge_long_blocked_students()` | ídem |
-| Aviso previo a la purga | diaria | `blocked_students_due_soon(7)` → avisar a cada tutor | FastAPI |
-| Alertas de configuración | al arrancar, en el chequeo de salud y **en el despliegue** | `privacy_config_warnings()` | FastAPI y CI |
+| Purga de evidencia vencida | diaria, 03:10 UTC | `purge_expired_consent_evidence()` | **`pg_cron`** (job `privacy-purge-evidence`) |
+| Purga de perfiles bloqueados por revocación vencidos | diaria, 03:20 UTC | `purge_long_blocked_students()` | **`pg_cron`** (`privacy-purge-blocked`) |
+| Purga de perfiles inactivos | diaria, 03:30 UTC | `purge_inactive_students()` | **`pg_cron`** (`privacy-purge-inactive`) |
+| Aviso previo a la purga de bloqueados | diaria | `blocked_students_due_soon(7)` → avisar a cada tutor | FastAPI (la base no envía correos) |
+| Aviso previo a la purga por inactividad | diaria | `inactive_students_due_soon(30)` | FastAPI |
+| Cuentas inactivas | diaria | `inactive_tutors_due_soon(30)` → avisar y, vencido el plazo, **borrar la cuenta con el flujo de la Decisión 3** | FastAPI |
+| Alertas de configuración y de trabajos | al arrancar, en el chequeo de salud y **en el despliegue** | `privacy_config_warnings()` y `privacy_job_warnings()` | FastAPI y CI |
 
 - **Bloquear el despliegue a producción** si `privacy_config_warnings()` devuelve filas (plazos sin definir o provisionales).
-- Las purgas hoy no tienen tope de filas por ejecución: con volumen alto conviene ejecutarlas por lotes (pendiente).
-- Hoy no hay trabajo programado en la base: ninguna migración activa `pg_cron`.
+- **Alertar** si `privacy_job_warnings()` devuelve filas (trabajo no programado o sin una ejecución correcta en 48 h).
+- Las purgas no tienen tope de filas por ejecución: con volumen alto conviene ejecutarlas por lotes y con `lock_timeout` (pendiente).
+- En el proyecto alojado, `pg_cron` debe estar habilitado; la migración lo intenta y, si no está disponible, solo emite un aviso y `privacy_job_warnings()` lo reporta.
+- La purga automática de perfiles bloqueados **solo** afecta a los bloqueados por revocación; los bloqueados a petición del tutor o por un reclamo ARCOP no se purgan.
 
 ## Decisión 6 — Desbloqueo manual
 
@@ -134,6 +144,22 @@ La base no puede hacer todo sola: **la clave HMAC vive fuera de la base** y el b
 2. FastAPI llama a `unblock_student(tutor_id, student_id)` con `service_role`.
 3. La función exige consentimiento activo y que el alumno sea del tutor; deja el perfil ligado al consentimiento vigente y registra el evento en `student_status_events`.
 4. Si devuelve `false`, FastAPI explica al tutor que debe aceptar la versión vigente.
+
+## Decisión 7 — Bloqueo individual de perfiles
+
+1. El tutor (o quien atiende un reclamo) pide bloquear un perfil desde la zona protegida; FastAPI verifica el control parental **en el servidor**.
+2. FastAPI llama a `block_student(tutor_id, student_id, motivo)` con `service_role`; el motivo es `tutor_request` o `arcop_claim`.
+3. La base registra el motivo y el evento en `student_status_events`. No exige consentimiento activo: bloquear siempre debe ser posible.
+4. Un perfil bloqueado se puede leer, rectificar (apodo y curso) y borrar, pero FastAPI no lo usa con la IA ni escribe su progreso.
+5. Desbloquear (Decisión 6) limpia el motivo. Un bloqueo por `arcop_claim` debería cerrarse según el procedimiento que defina Legal.
+
+## Pendientes antes de lanzar
+
+- **Borrado de cuenta sin evidencia:** hoy la base **no** impide borrar un tutor sin haber archivado su evidencia (panel de Supabase, Admin API, error de FastAPI). Se decidió por ahora que el borrado pase solo por FastAPI. Antes del lanzamiento hay que reevaluar un trigger que exija evidencia archivada, o una alerta de integración que detecte cuentas borradas sin evidencia.
+- **Aislamiento:** `READ COMMITTED` está solo documentado; propuesta de que las funciones lo verifiquen.
+- **Función única** `authorize_student_use` y códigos de error propios (`errcode`).
+- **Backups:** plazo, región y registro de supresiones que se reaplique tras restaurar.
+- **Custodio de la clave HMAC** y política de rotación.
 
 ## Consecuencias
 

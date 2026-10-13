@@ -1,8 +1,8 @@
-# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.1
+# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.2
 
 **Apoyo técnico, no asesoría legal.** Debe revisarlo un abogado o el delegado de protección de datos antes de darlo por válido. Enfoque del art. 15 ter de la Ley 21.719 (verificar contra el texto oficial; el texto de la ley y su fecha de vigencia deben confirmarse: ver sección 8).
 
-**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.1 (borrador) · **Fecha:** 2026-10-12
+**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.2 (borrador) · **Fecha:** 2026-10-12
 **Responsable del tratamiento:** `<razón social y contacto: pendiente>` · **Contacto de privacidad:** `<correo: pendiente>`
 **Basado en:** `docs/privacy/inventario-datos.md`, `docs/adr/0001-contrato-fastapi-consentimiento.md`, `docs/lote-2-propuesta-consentimiento.md` y las migraciones de `supabase/`.
 
@@ -12,7 +12,7 @@
 
 - **Qué es la app:** una tutora de matemáticas con mascota para niños de 6 a 10 años. Los niños **no tienen cuenta**: solo el adulto (tutor) se registra y crea perfiles con **apodo y curso**.
 - **Por qué esta evaluación:** se tratan datos de **menores de 14 años** y una **IA** adapta la dificultad. Eso la hace una evaluación recomendada (la obligatoriedad la confirma un abogado).
-- **Lo que ya está resuelto técnicamente:** solo se guarda apodo y curso del niño; sin consentimiento vigente no se puede crear ni usar un perfil; el consentimiento se puede retirar y bloquea los perfiles; se guarda evidencia mínima y seudonimizada; hay plazos configurables y alertas; todo está cubierto por 231 pruebas automáticas.
+- **Lo que ya está resuelto técnicamente:** solo se guarda apodo y curso del niño; sin consentimiento vigente no se puede crear ni usar un perfil; el consentimiento se puede retirar y bloquea los perfiles; un perfil se puede bloquear por separado; se guarda evidencia mínima y seudonimizada; hay plazos configurables, purgas programadas y alertas; todo está cubierto por 316 pruebas automáticas y una prueba de concurrencia.
 - **Lo que falta:** los plazos legales de conservación, los acuerdos con proveedores (Supabase, IA, hosting), la región donde viven los datos, el filtro de la IA y los endpoints de FastAPI (aún no existen), la exportación de datos (portabilidad) y la validación legal.
 - **Riesgo residual global (evaluación preliminar):** **medio**, hasta que se cierren los pendientes de la sección 8. Con los pendientes cerrados se estima **bajo a medio**.
 
@@ -85,7 +85,10 @@ La app **nunca** llama a la IA directamente; las claves viven solo en variables 
 | Dato | Plazo | Estado |
 |---|---|---|
 | Perfil del alumno y su historial de bloqueos | Hasta que el tutor lo borre | Definido |
-| Perfil **bloqueado** | Máximo **30 días** y luego se suprime (con aviso previo al tutor) | **Provisional, pendiente legal** (alerta activa) |
+| Perfil **bloqueado por revocación** | Máximo **30 días** y luego se suprime automáticamente (con aviso previo al tutor, a cargo de FastAPI) | **Provisional, pendiente legal** (alerta activa) |
+| Perfil **bloqueado a petición del tutor o por un reclamo** | No se suprime automáticamente; se mantiene hasta que se desbloquee o se borre | Pendiente: cuánto puede durar un bloqueo por reclamo |
+| Perfil **inactivo** (sin uso) | **12 meses** y luego se suprime (con aviso previo); las cuentas sin inicio de sesión ni uso se listan para borrarlas con el flujo del ADR 0001 | **Provisional, pendiente legal** (alerta activa) |
+| Registro de altas de perfiles (`student_creation_log`) | 24 horas | Definido |
 | Consentimientos "vivos" | Mientras exista la cuenta (se borran en cascada) | Definido |
 | Evidencia seudonimizada y declaración archivada | **Sin definir**: no se purga nada mientras sea nulo | **Pendiente legal** (alerta activa; se calcula al purgar, aplica a lo ya archivado) |
 | Progreso y desempeño (futuro) | `<12 meses de inactividad: propuesta>` | Sin implementar |
@@ -105,13 +108,13 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R3 | **Respuesta inadecuada de la IA** (contenido, tono, pedir datos al niño). | Media | Alta | Prompt estricto y validación de salida (regla de diseño). | Implementar y probar filtros; revisión con `child-safety-ai-reviewer`; canal de reporte. | Medio |
 | R4 | **Perfilamiento o manipulación** del niño por la adaptación de dificultad. | Baja | Media | Sin publicidad ni analítica de terceros; sin ranking público; sin contacto entre niños. | Definir que la adaptación no excluye ni sanciona (art. 8 bis, verificar); explicación al tutor; sin patrones de diseño engañosos. | Bajo |
 | R5 | **Transferencia internacional sin garantías.** | Media | Media | — | Fijar región de Supabase y hosting (ADR); DPA y cláusulas con Supabase, proveedor de IA y hosting; confirmar que no entrenan con los datos. | Medio (hoy, sin acuerdos) |
-| R6 | **Retención excesiva** (evidencia sin plazo, bloqueados, backups). | Alta (hoy) | Media | Plazos configurables, calculados al purgar; purga de bloqueados con aviso; alertas `privacy_config_warnings()` que deben bloquear el despliegue a producción. | **Plazos definidos por Legal**; trabajos programados; política de backups. | Medio hasta cerrar plazos |
+| R6 | **Retención excesiva** (evidencia sin plazo, bloqueados, inactivos, backups). | Alta (hoy) | Media | Plazos configurables, calculados al purgar; **purgas programadas con `pg_cron`**; alertas `privacy_config_warnings()` y `privacy_job_warnings()` que deben bloquear el despliegue y vigilar los trabajos; plazo de inactividad de 12 meses (provisional). | **Plazos definidos por Legal**; avisos a tutores (FastAPI); política de backups y registro de supresiones que se reaplique tras restaurar. | Medio hasta cerrar plazos |
 | R7 | **Reidentificación de la evidencia seudonimizada** (cruce de fechas, canal y orden con backups, logs o Auth; o filtración de la clave HMAC). | Baja | Media | HMAC con clave fuera de la base; tabla accesible solo por el servidor; inmutable; sin datos del niño. | Gestión y rotación de la clave HMAC (custodio); reducir precisión de fechas si Legal lo recomienda; tratarla como dato personal en backups. | Bajo a medio |
 | R8 | **Apodo con datos personales** (nombre real, teléfono). | Media | Media | Longitud máxima de 30; advertencia pendiente en la UI. | Elegir de lista o validar en API (rechazar `@`, secuencias de dígitos); excluirlo del prompt y de los logs. | Medio |
-| R9 | **Pérdida de la evidencia** si se borra una cuenta por un canal distinto de FastAPI (panel, Admin API). | Media | Media | El runbook exige borrar solo vía FastAPI; flujo idempotente en el ADR. | Opcional: impedir en la base el borrado sin evidencia archivada; alerta de integración. | Medio |
+| R9 | **Pérdida de la evidencia** si se borra una cuenta por un canal distinto de FastAPI (panel, Admin API). | Media | Media | El runbook exige borrar solo vía FastAPI; flujo idempotente en el ADR. Decisión actual: **no impedirlo en la base por ahora**. | **Pendiente antes de lanzar:** reevaluar un trigger que exija evidencia archivada o una alerta de integración. | Medio |
 | R10 | **Un niño accede a la zona del tutor** y cambia consentimientos o borra datos. | Media | Alta | Zona protegida con control parental (PIN o pregunta de adulto); desbloqueo solo por servidor. | Implementar y probar el control parental con límite de intentos, verificado en servidor. | Medio hasta implementarlo |
 | R11 | **Uso de la IA tras una revocación** (stream en curso, caché). | Baja | Alta | Compuerta en la base; reglas de ADR (sin caché en memoria, re-chequeo ≤ 10 s en streams, fallar cerrado). | Implementarlo y probarlo en FastAPI. | Bajo tras implementar |
-| R12 | **Abuso del sistema de consentimiento** (inundar eventos, bloquear a otros tutores). | Media | Baja | Límite de 20 eventos por tutor/24 h; eventos redundantes rechazados; el cliente no puede actuar a nombre de otro. | Límite de frecuencia por IP/usuario en la API. | Bajo |
+| R12 | **Abuso del sistema de consentimiento y de perfiles** (inundar eventos, crear y borrar perfiles en bucle, bloquear a otros tutores). | Media | Baja | Máximo 10 aceptaciones por tutor/24 h (las revocaciones nunca se limitan); eventos redundantes rechazados; máximo 10 altas de perfiles por tutor/24 h, contando los borrados; el cliente no puede actuar a nombre de otro. | Límite de frecuencia por IP/usuario en la API; cuota de IA por tutor además de por perfil. | Bajo |
 | R13 | **Incidente de seguridad no detectado o mal gestionado.** | Baja | Alta | Sin datos personales en logs. | **Runbook de incidentes**, criterio de notificación a la Agencia y a los titulares, restauración de backups probada. | Medio (sin runbook) |
 
 ---
@@ -123,7 +126,10 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 - Compuerta de consentimiento y tope de alumnos aplicados también al servidor (triggers).
 - Evidencia, textos legales publicados y consentimientos inmutables; historial de bloqueos append-only.
 - Funciones sensibles `SECURITY DEFINER` con `search_path` fijo, ejecutables solo por `service_role`.
-- Límites de frecuencia en eventos de consentimiento; mensajes de error sin datos personales.
+- Límites de frecuencia en eventos de consentimiento y en altas de perfiles; mensajes de error sin datos personales.
+- Evidencia, textos legales y consentimientos inmutables también frente a `service_role` (TRUNCATE bloqueado, borrado solo por cascada o por las funciones de purga).
+- Purgas programadas con `pg_cron` y alertas de configuración y de trabajos.
+- Prueba de concurrencia con dos conexiones sobre el tope de perfiles y la carrera alta/revocación.
 - Revisión de código, seguridad, privacidad y escalabilidad en cada lote.
 
 **Pendientes (no implementadas todavía):**
@@ -142,7 +148,7 @@ Plazos de referencia a verificar con el texto vigente: respuesta en 30 días cor
 | **Acceso** | El tutor ve sus perfiles, sus consentimientos y el historial de bloqueos. Tras borrar la cuenta, acredita su correo y FastAPI localiza la evidencia por el HMAC del correo. | Falta el endpoint y el procedimiento documentado. |
 | **Rectificación** | Puede corregir apodo y curso, **también con el perfil bloqueado**. | — |
 | **Supresión** | Borra un perfil o la cuenta; el borrado de cuenta sigue el orden del ADR 0001. Se archiva solo evidencia mínima. | Plazos de la evidencia y de los backups sin definir; borrado selectivo de evidencia no implementado (solo por vencimiento). |
-| **Oposición / bloqueo** | La revocación bloquea **todos** los perfiles del tutor. | **No existe bloqueo de un solo perfil** a petición del tutor. |
+| **Oposición / bloqueo** | La revocación bloquea **todos** los perfiles del tutor, y un perfil se puede bloquear por separado (`tutor_request` o `arcop_claim`) vía servidor tras el control parental. Los bloqueados por reclamo no se purgan automáticamente. | Falta el endpoint y definir cuánto puede durar un bloqueo por reclamo (plazo de bloqueo temporal en 2 días hábiles: verificar). |
 | **Portabilidad** | — | **No implementada** (exportación JSON/CSV a cargo de FastAPI). |
 | **Decisiones automatizadas** | La adaptación de dificultad no excluye ni sanciona. | Explicación e intervención humana: a definir (art. 8 bis, verificar). |
 
@@ -176,7 +182,7 @@ Plazos de referencia a verificar con el texto vigente: respuesta en 30 días cor
 - Región de Supabase y del hosting (ADR pendiente); proveedor de IA y su configuración de no retención.
 - Custodia y rotación de la clave HMAC.
 - Apodo: lista cerrada o texto libre con validación.
-- Bloqueo individual de un perfil, exportación de datos (portabilidad).
+- Exportación de datos (portabilidad).
 - Función única `authorize_student_use` y códigos de error propios.
 - Trabajos programados (FastAPI o `pg_cron`) y purga por lotes.
 - Nivel de aislamiento `READ COMMITTED` fijado en el pool de FastAPI.

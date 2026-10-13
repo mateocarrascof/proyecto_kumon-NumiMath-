@@ -12,3 +12,10 @@ supabase/.temp/
 
 # Estado local de ramas de la CLI de Supabase
 supabase/.branches/
+
+# Python (api/)
+api/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/

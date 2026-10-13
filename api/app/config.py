@@ -1,0 +1,64 @@
+"""Configuración del servidor, leída de variables de entorno (ver api/env.example)."""
+
+from __future__ import annotations
+
+import json
+from typing import Literal
+
+from pydantic import Field, SecretStr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Todas las claves son `SecretStr`: no aparecen en `repr`, logs ni errores."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", populate_by_name=True, case_sensitive=False
+    )
+
+    app_env: Literal["local", "test", "production"] = "local"
+
+    supabase_url: str = "http://127.0.0.1:54321"
+    supabase_service_role_key: SecretStr = SecretStr("")
+    supabase_jwks_url: str = ""
+    supabase_jwt_secret: SecretStr = SecretStr("")
+    jwt_audience: str = "authenticated"
+
+    ai_provider: Literal["mock"] = "mock"
+
+    cost_per_explanation: int = Field(1, ge=1)
+    student_daily_limit: int = Field(30, ge=1)
+    tutor_daily_limit: int = Field(90, ge=1)
+
+    stream_max_seconds: int = Field(60, ge=1, le=600)
+    stream_recheck_seconds: int = Field(10, ge=1, le=60)
+
+    hmac_keys: SecretStr = SecretStr("")
+    hmac_active_version: int = Field(1, ge=1)
+
+    @model_validator(mode="after")
+    def _production_requires_secrets(self) -> Settings:
+        if self.app_env != "production":
+            return self
+        missing: list[str] = []
+        if not self.supabase_service_role_key.get_secret_value():
+            missing.append("SUPABASE_SERVICE_ROLE_KEY")
+        if not self.supabase_jwks_url and not self.supabase_jwt_secret.get_secret_value():
+            missing.append("SUPABASE_JWKS_URL o SUPABASE_JWT_SECRET")
+        if not self.hmac_keys.get_secret_value():
+            missing.append("HMAC_KEYS")
+        else:
+            try:
+                keys = json.loads(self.hmac_keys.get_secret_value())
+            except ValueError as exc:
+                raise ValueError("HMAC_KEYS no es un JSON válido") from exc
+            if str(self.hmac_active_version) not in keys:
+                raise ValueError("HMAC_ACTIVE_VERSION no existe en HMAC_KEYS")
+        if missing:
+            # Solo los NOMBRES de las variables, nunca sus valores.
+            raise ValueError("Faltan variables obligatorias en producción: " + ", ".join(missing))
+        return self
+
+
+def get_settings() -> Settings:
+    return Settings()

@@ -1,0 +1,26 @@
+[project]
+name = "mathtutor-api"
+version = "0.1.0"
+description = "Servidor FastAPI de la app de matemáticas para niños (ver docs/adr/0001-contrato-fastapi-consentimiento.md)"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+# E/F: errores básicos · I: imports · B: bugbear · UP: sintaxis moderna · S: seguridad · SIM: simplificar
+select = ["E", "F", "I", "B", "UP", "S", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+  "integration: requiere la base local de Supabase en marcha (supabase start)",
+]
+addopts = "-m 'not integration'"

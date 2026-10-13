@@ -55,11 +55,11 @@ select is_empty($$select 1 from public.students where tutor_id = 'bbbbbbbb-0000-
 select is_empty($$select 1 from public.consents where tutor_id <> 'aaaaaaaa-0000-0000-0000-000000000001'$$, 'A no ve consentimientos de otros tutores');
 
 -- students: aislamiento (la compuerta de consentimiento lo detiene antes que RLS)
--- Se afirma el efecto (denegado y nada insertado), no el mensaje: según el estado de la
--- transacción de prueba, el rechazo lo da la compuerta (P0001) o la política RLS (42501).
+-- El trigger rechaza de forma determinista al cliente que actúa a nombre de otro tutor.
+-- (La política RLS, como defensa en profundidad, se prueba aparte en lote_a.test.sql.)
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('bbbbbbbb-0000-0000-0000-000000000002', 'Intruso', 2, true)$$,
-  null, null, 'A no puede crear alumnos a nombre de B');
+  '42501', 'tutor_mismatch', 'A no puede crear alumnos a nombre de B');
 select lives_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Luis', 2, true)$$,
   'A puede crear su propio alumno');
@@ -110,12 +110,12 @@ select throws_ok(
   '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo con espacios al borde es rechazado');
 
 -- consents (registro de eventos)
-select lives_ok(
+select throws_ok(
   $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'ios')$$,
-  'A puede registrar un nuevo consentimiento propio');
+  'P0001', 'consent_event_redundant', 'un grant repetido sobre las mismas versiones es rechazado');
 select throws_ok(
   $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('bbbbbbbb-0000-0000-0000-000000000002', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web')$$,
-  '42501', 'new row violates row-level security policy for table "consents"', 'A no puede registrar consentimientos de B');
+  '42501', 'tutor_mismatch', 'A no puede registrar consentimientos de B');
 select throws_ok(
   $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel, occurred_at) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web', '2000-01-01')$$,
   '42501', 'permission denied for table consents', 'el cliente no puede fijar occurred_at');

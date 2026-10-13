@@ -121,8 +121,15 @@ select is(public.has_active_consent('aaaaaaaa-0000-0000-0000-000000000001'), fal
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Nuevo', 1, true)$$,
   'P0001', 'consent_required', 'sin aceptar la nueva versión no se crean alumnos');
+-- tos-1 ya no es vigente. Un grant idéntico al último sería "redundante" antes de llegar
+-- a RLS, así que se usa una versión antigua distinta (tos-0) para ejercitar la política.
+reset role;
+insert into public.legal_document_versions (id, kind, version, content_sha256, is_current) values
+  ('11111111-0000-0000-0000-000000000005', 'terms', 'tos-0', repeat('0', 64), false);
+select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
+set local role authenticated;
 select throws_ok(
-  $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000002', 'web')$$,
+  $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000005', '11111111-0000-0000-0000-000000000002', 'web')$$,
   '42501', 'new row violates row-level security policy for table "consents"', 'no se puede aceptar una versión que ya no es la vigente');
 select lives_ok(
   $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('aaaaaaaa-0000-0000-0000-000000000001', 'grant', '11111111-0000-0000-0000-000000000004', '11111111-0000-0000-0000-000000000002', 'web')$$,

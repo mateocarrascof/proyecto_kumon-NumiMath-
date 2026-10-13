@@ -114,7 +114,7 @@ select throws_ok(
   $$insert into public.zz_child_probe (student_id, tutor_id)
     select id, 'bbbbbbbb-0000-0000-0000-000000000002'
     from public.students where nickname = 'Alumno2'$$,
-  '23503', null, 'la FK compuesta impide ligar un alumno de A con el tutor B');
+  '23503', 'insert or update on table "zz_child_probe" violates foreign key constraint "zz_child_probe_student_id_tutor_id_fkey"', 'la FK compuesta impide ligar un alumno de A con el tutor B');
 
 select * from finish();
 rollback;

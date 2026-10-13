@@ -74,10 +74,11 @@ select throws_ok(
 -- ===== 2. Tipo de documento en los eventos =====
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-000000000007","role":"authenticated"}', true);
 set local role authenticated;
-select throws_ok(
+-- Desde el Lote D una revocación no confía en las versiones del cliente: el trigger las
+-- normaliza a las del último consentimiento (se comprueba en lote_d1.test.sql).
+select lives_ok(
   $$insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values ('eeeeeeee-0000-0000-0000-000000000007', 'revoke', '11111111-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000002', 'web')$$,
-  '42501', 'new row violates row-level security policy for table "consents"',
-  'un revoke con un documento de privacidad como "términos" es rechazado');
+  'un revoke con un documento de privacidad como "términos" no contamina la evidencia (se normaliza)');
 reset role;
 
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-000000000008","role":"authenticated"}', true);

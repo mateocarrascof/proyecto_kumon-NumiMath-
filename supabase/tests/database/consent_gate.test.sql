@@ -106,7 +106,7 @@ reset role;
 -- ===== 6. Una sola versión vigente por tipo =====
 select throws_ok(
   $$insert into public.legal_document_versions (kind, version, content_sha256, is_current) values ('terms', 'tos-dup', repeat('e', 64), true)$$,
-  '23505', null, 'no puede haber dos versiones vigentes del mismo tipo');
+  '23505', 'duplicate key value violates unique constraint "legal_document_versions_one_current_idx"', 'no puede haber dos versiones vigentes del mismo tipo');
 
 -- ===== 7. Cambia la versión vigente: hay que volver a aceptar =====
 update public.legal_document_versions set is_current = false where id = '11111111-0000-0000-0000-000000000001';

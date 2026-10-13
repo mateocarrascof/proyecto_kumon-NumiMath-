@@ -1,5 +1,5 @@
 begin;
-select plan(36);
+select plan(37);
 
 -- Lote B: inmutabilidad, historial de bloqueos, archivo de la declaración del adulto,
 -- desbloqueo ligado al consentimiento vigente y purga de perfiles bloqueados.
@@ -37,9 +37,10 @@ select throws_ok(
 select throws_ok(
   $$delete from public.legal_document_versions where kind = 'privacy'$$,
   'P0001', 'legal_versions_are_permanent', 'una versión publicada no se puede borrar');
+update public.legal_document_versions set is_current = false where kind = 'terms';
 select lives_ok(
   $$update public.legal_document_versions set is_current = true where kind = 'terms'$$,
-  'is_current sí puede cambiar');
+  'is_current sí puede cambiar (se apaga y se vuelve a encender)');
 
 -- ===== 2. consents es append-only para todos los roles =====
 select throws_ok(
@@ -109,6 +110,8 @@ select set_config('request.jwt.claims', '{"sub":"ffffffff-0000-0000-0000-0000000
 set local role authenticated;
 select lives_ok($$update public.students set nickname = 'Polo' where id = 'a0000000-0000-0000-0000-000000000002'$$,
   'P corrige el apodo de un perfil bloqueado');
+select is((select nickname from public.students where id = 'a0000000-0000-0000-0000-000000000002'),
+  'Polo', 'la corrección del apodo quedó aplicada (no fue una actualización vacía)');
 
 -- ===== 7. Borrar un perfil archiva la declaración del adulto (sin datos del niño) =====
 select lives_ok($$delete from public.students where id = 'a0000000-0000-0000-0000-000000000002'$$,

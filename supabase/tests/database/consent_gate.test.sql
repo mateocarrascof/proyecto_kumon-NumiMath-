@@ -1,5 +1,5 @@
 begin;
-select plan(45);
+select plan(47);
 
 -- Lote 2, paso 1: versiones legales, compuerta de consentimiento, revocación y desbloqueo.
 -- UUIDs: tutor A = aaaaaaaa-...-0001, tutor B = bbbbbbbb-...-0002, tutor D = dddddddd-...-0004
@@ -159,9 +159,15 @@ select throws_ok(
   'P0001', 'consent_required', 'tras revocar no se crean alumnos');
 select is((select count(*) from public.students where tutor_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
   1::bigint, 'un perfil bloqueado sigue siendo legible (derecho de acceso)');
-select is_empty(
-  $$update public.students set nickname = 'Cambio' where id = 'a1000000-0000-0000-0000-000000000001' returning 1$$,
-  'un perfil bloqueado no se puede editar');
+-- Rectificación: corregir apodo y curso está permitido aunque el perfil esté bloqueado.
+select lives_ok(
+  $$update public.students set nickname = 'Cambio', grade = 2 where id = 'a1000000-0000-0000-0000-000000000001'$$,
+  'un perfil bloqueado sí se puede rectificar (apodo y curso)');
+select is((select nickname || '/' || grade from public.students where id = 'a1000000-0000-0000-0000-000000000001'),
+  'Cambio/2', 'la rectificación quedó aplicada');
+select throws_ok(
+  $$update public.students set blocked_at = null where id = 'a1000000-0000-0000-0000-000000000001'$$,
+  '42501', 'permission denied for table students', 'rectificar no permite desbloquear');
 
 -- ===== 10. Volver a consentir NO desbloquea =====
 select lives_ok(

@@ -11,7 +11,13 @@
 - **Alerta R8:** `privacy_config_warnings()` (solo servidor) devuelve una alerta mientras el plazo esté sin definir, y `archive_consent_evidence` emite un `WARNING` sin datos personales. El plazo se valida (nulo o 1 a 36500 días).
 - **Precondición explícita:** el paso 1 aborta si `consents` o `students` tienen datos (no hay backfill).
 - **Orden de errores:** al intentar crear un alumno a nombre de otro tutor, el rechazo puede venir de la compuerta (`consent_required`) o de la política RLS según el estado de la transacción; en ambos casos no se inserta nada. Los tests afirman el efecto, no el mensaje.
-- **No cubierto todavía:** concurrencia real con dos conexiones, límite de frecuencia de eventos de consentimiento (R5) y el flujo de FastAPI.
+- **Cambios posteriores (Lote A y Lote B de la revisión):**
+  - `archive_consent_evidence(tutor_id, tutor_ref, email_ref, key_version)` recibe ahora **4 parámetros**: FastAPI calcula con la clave secreta `tutor_ref = HMAC(clave, tutor_id)` y `email_ref = HMAC(clave, lower(trim(correo)))`.
+  - La evidencia ya no tiene `retain_until`: el plazo se calcula **al purgar** (`archived_at` + plazo vigente).
+  - La evidencia, los textos legales publicados y `consents` son inmutables; la evidencia guarda la huella del texto aceptado.
+  - Se limita el flujo de eventos de consentimiento (redundantes rechazados, máximo 20 en 24 h por tutor): resuelve R5 en la base.
+  - Los perfiles bloqueados tienen plazo máximo (30 días provisionales) y se puede rectificar apodo y curso estando bloqueado; el historial de bloqueos queda en `student_status_events`; la declaración del adulto se archiva al borrar el perfil.
+  - **Sigue pendiente (Lote C):** ADR del contrato con FastAPI, prueba de concurrencia con dos conexiones y EIPD.
 
 ---
 

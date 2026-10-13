@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     supabase_jwks_url: str = ""
     supabase_jwt_secret: SecretStr = SecretStr("")
     jwt_audience: str = "authenticated"
+    # Emisor esperado del JWT. Vacío = `<SUPABASE_URL>/auth/v1` (el valor de GoTrue).
+    jwt_issuer: str = ""
 
     ai_provider: Literal["mock"] = "mock"
 
@@ -58,6 +60,10 @@ class Settings(BaseSettings):
             # Solo los NOMBRES de las variables, nunca sus valores.
             raise ValueError("Faltan variables obligatorias en producción: " + ", ".join(missing))
         return self
+
+    @property
+    def expected_issuer(self) -> str:
+        return self.jwt_issuer or self.supabase_url.rstrip("/") + "/auth/v1"
 
 
 def get_settings() -> Settings:

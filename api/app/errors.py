@@ -43,7 +43,8 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(request: Request, exc: ApiError) -> JSONResponse:
         log_event(logger, "api_error", code=exc.code, status=exc.status_code)
-        return JSONResponse(_body(request, exc.code), status_code=exc.status_code)
+        headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+        return JSONResponse(_body(request, exc.code), status_code=exc.status_code, headers=headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:

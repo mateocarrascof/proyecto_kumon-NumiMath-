@@ -46,6 +46,6 @@ permite explícitamente `.env.example`).
 |---|---|---|
 | 0 | Migración de apoyo en la base | hecha |
 | 1 | Esqueleto: configuración, logging sin datos personales, errores, `/healthz` | hecha |
-| 2 | Autenticación (JWT) | pendiente |
+| 2 | Autenticación (JWT de Supabase: JWKS o HS256, solo rol `authenticated`) | hecha |
 | 3 | Acceso al perfil (`authorize_student_use`) | pendiente |
 | 4 a 10 | Filtros, IA simulada, límites, streaming, control parental, borrado de cuenta, cierre | pendientes |

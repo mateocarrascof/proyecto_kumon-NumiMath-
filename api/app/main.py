@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.auth.jwt import TokenVerifier
 from app.config import Settings, get_settings
 from app.errors import install_error_handlers
 from app.logging import configure_logging
@@ -24,6 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url=None if production else "/openapi.json",
     )
     app.state.settings = settings
+    app.state.token_verifier = TokenVerifier(settings)
 
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)

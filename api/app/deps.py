@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 import anyio.to_thread
 from fastapi import Depends, Request
 
+from app.access.authorize import AuthorizedStudent, authorize_student
 from app.auth.jwt import AuthenticatedTutor, InvalidToken, TokenVerifier
+from app.db.gateway import Gateway
 from app.errors import ApiError
 from app.logging import get_logger, log_event
 
@@ -36,3 +39,15 @@ async def get_current_tutor(request: Request) -> AuthenticatedTutor:
 
 # Uso en rutas: `async def ruta(tutor: CurrentTutor): ...`
 CurrentTutor = Annotated[AuthenticatedTutor, Depends(get_current_tutor)]
+
+
+async def get_authorized_student(
+    student_id: uuid.UUID, tutor: CurrentTutor, request: Request
+) -> AuthorizedStudent:
+    """Comprobaciones 1 a 3 del ADR 0001 para rutas con `{student_id}` en la ruta."""
+    gateway: Gateway = request.app.state.gateway
+    return await authorize_student(gateway, tutor, student_id)
+
+
+# Uso en rutas: `async def ruta(student: AuthorizedStudentDep): ...`
+AuthorizedStudentDep = Annotated[AuthorizedStudent, Depends(get_authorized_student)]

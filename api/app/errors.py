@@ -15,6 +15,7 @@ MESSAGES: dict[str, str] = {
     "consent_required": "Debes aceptar la versión vigente de los términos y la política.",
     "rate_limited": "Alcanzaste el límite de uso por ahora. Intenta más tarde.",
     "invalid_request": "La solicitud no es válida.",
+    "service_unavailable": "No pudimos verificar tu acceso. Intenta de nuevo en un momento.",
     "internal_error": "Ocurrió un error. Intenta de nuevo más tarde.",
 }
 

@@ -1,0 +1,33 @@
+"""Interfaz de acceso a la base. El resto del servidor depende de ESTA interfaz, no de Supabase.
+
+Implementaciones: `SupabaseGateway` (producción y desarrollo) y un doble en memoria en las
+pruebas. Cambiar de transporte (p. ej. conexión directa a PostgreSQL) no toca el resto.
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Protocol
+
+
+class GatewayError(Exception):
+    """Fallo de infraestructura (red, timeout, respuesta inesperada). El llamador FALLA CERRADO."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+class Gateway(Protocol):
+    async def authorize_student_use(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> str:
+        """Comprobaciones 2 y 3 del ADR 0001 en una transacción.
+
+        Devuelve `ok`, `student_not_found`, `student_blocked` o `consent_required`.
+        """
+        ...
+
+    async def assert_read_committed(self) -> None:
+        """Falla si la base no atiende bajo READ COMMITTED (regla fija del ADR 0001, 2.3)."""
+        ...
+
+    async def aclose(self) -> None: ...

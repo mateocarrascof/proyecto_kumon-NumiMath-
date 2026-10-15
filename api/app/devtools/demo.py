@@ -8,6 +8,7 @@
     .venv/Scripts/python -m app.devtools.demo --revoke-after 3      # se revoca el consentimiento
     .venv/Scripts/python -m app.devtools.demo --requests 5 --student-limit 3   # límite diario
     .venv/Scripts/python -m app.devtools.demo --serve               # deja el servidor para curl
+    .venv/Scripts/python -m app.devtools.demo --logs                # muestra los registros
 
 Levanta el servidor real (todas las rutas, filtros, límites y streaming) con un tutor, un perfil y
 una base EN MEMORIA, y una IA simulada. El token se firma con un secreto aleatorio de esta corrida.
@@ -18,6 +19,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import os
 import secrets
 import socket
@@ -171,6 +173,9 @@ async def _main(args: argparse.Namespace) -> int:
         else MockProvider(chunk_delay=args.delay)
     )
     app = create_app(settings, gateway=gateway, provider=provider)
+    if not args.logs:
+        # Los registros del servidor (sin datos personales) se ocultan para leer mejor la demo.
+        logging.getLogger("mathtutor").setLevel(logging.ERROR)
 
     port = _free_port()
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
@@ -233,6 +238,7 @@ def main() -> None:
     parser.add_argument("--requests", type=int, default=1, help="cuántas peticiones hacer")
     parser.add_argument("--student-limit", type=int, default=30, help="límite diario del perfil")
     parser.add_argument("--serve", action="store_true", help="deja el servidor en marcha para curl")
+    parser.add_argument("--logs", action="store_true", help="muestra los registros del servidor")
     raise SystemExit(asyncio.run(_main(parser.parse_args())))
 
 

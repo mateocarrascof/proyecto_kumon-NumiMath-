@@ -41,4 +41,30 @@ Para usarlo con la base local: `supabase start` (desde la raíz).
 | 1 | Esqueleto: configuración, logging sin datos personales, errores, `/healthz` | hecha |
 | 2 | Autenticación (JWT de Supabase: JWKS o HS256, solo rol `authenticated`) | hecha |
 | 3 | Acceso al perfil (`authorize_student_use`, falla cerrado, 403 genérico) | hecha |
-| 4 a 10 | Filtros, IA simulada, límites, streaming, control parental, borrado de cuenta, cierre | pendientes |
+| 4 | Filtro de entrada (datos personales, groserías, temas, manipulación, fuera de tema) | hecha |
+| 5 | IA simulada (interfaz `AIProvider`), prompt, temas provisionales y filtro de salida | hecha |
+| 6 | Límites de uso por perfil y por tutor (atómicos, con `Retry-After`) | hecha |
+| 7 | Streaming SSE con re-chequeo de acceso cada pocos segundos | hecha |
+| 8 a 10 | Control parental (PIN), borrado de cuenta, cierre y revisión | pendientes |
+
+## Probarlo sin base ni claves (demostración local)
+
+Un solo comando levanta el servidor real con una base EN MEMORIA y la IA simulada:
+
+```bash
+cd api && .venv/Scripts/python -m app.devtools.demo
+```
+
+Variantes: `--exercise "23 - 9"`, `--exercise "me llamo pedro, 2+2"` (filtro de entrada),
+`--unsafe` (la IA responde algo inseguro), `--revoke-after 3` (consentimiento revocado a mitad de
+respuesta), `--requests 5 --student-limit 3` (límite diario), `--serve` (deja el servidor para
+`curl`) y `--logs` (muestra los registros). Es solo para desarrollo.
+
+## Endpoint principal
+
+`POST /v1/students/{student_id}/explanations` con `{"topic": "<id de topics.py>", "exercise": "<texto>"}`.
+Respuesta `text/event-stream` con eventos `chunk` (`{"text": ...}`), `done` o `error` (`{"code", "message"}`).
+Errores antes de empezar: 401 (sesión), 403 (perfil/consentimiento), 422 (tema o mensaje rechazado),
+429 (límite diario, con `Retry-After`) y 503 (no se pudo verificar: se deniega).
+
+La lista de temas por curso es **provisional y está pendiente de revisión** (`app/ai/topics.py`).

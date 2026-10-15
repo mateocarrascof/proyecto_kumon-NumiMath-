@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.ai.factory import build_provider
 from app.ai.provider import AIProvider
@@ -50,6 +51,17 @@ def create_app(
     app.state.ai_provider = ai_provider
 
     app.add_middleware(RequestContextMiddleware)
+    origins = settings.cors_origin_list
+    if origins:
+        # Último en agregarse = más externo: las respuestas de error también llevan cabeceras CORS.
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["GET", "POST"],
+            allow_headers=["Authorization", "Content-Type"],
+            allow_credentials=False,
+            max_age=600,
+        )
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(students.router)

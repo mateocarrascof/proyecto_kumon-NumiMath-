@@ -1,0 +1,25 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-title>Matemáticas con Numi</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="home">
+    <app-mascot [state]="mascot.state()"></app-mascot>
+
+    <h1>¡Hola! Soy Numi</h1>
+    <p>Voy a ayudarte a practicar matemáticas.</p>
+
+    <div class="status" role="status" aria-live="polite" [attr.data-status]="status">
+      @switch (status) {
+        @case ('checking') { <ion-spinner name="dots"></ion-spinner> Conectando con el servidor… }
+        @case ('ok') { <ion-icon name="checkmark-circle"></ion-icon> Servidor conectado }
+        @case ('down') { <ion-icon name="alert-circle"></ion-icon> No hay conexión con el servidor }
+      }
+    </div>
+
+    <ion-button fill="outline" size="small" (click)="refresh()">Volver a probar</ion-button>
+    <p class="note">Versión de demostración. Textos legales provisionales.</p>
+  </main>
+</ion-content>

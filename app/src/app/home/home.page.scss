@@ -1,0 +1,23 @@
+.home {
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+h1 {
+  margin: 8px 0 4px;
+}
+
+.status {
+  margin: 16px 0;
+  font-weight: 600;
+}
+
+.status[data-status='ok'] { color: var(--ion-color-success-shade); }
+.status[data-status='down'] { color: var(--ion-color-danger); }
+
+.note {
+  margin-top: 24px;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium-shade);
+}

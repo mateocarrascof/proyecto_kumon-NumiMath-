@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     jwt_issuer: str = ""
 
     ai_provider: Literal["mock"] = "mock"
+    # Sin valor por defecto a propósito: el nombre de versión estable lo elige la persona
+    # responsable (no se usan alias "-latest"). Se usa a partir del proveedor Gemini.
+    gemini_model: str = ""
+
+    # Orígenes que pueden llamar a la API desde un navegador, separados por comas (lista explícita).
+    cors_origins: str = "http://localhost:8100"
 
     cost_per_explanation: int = Field(1, ge=1)
     student_daily_limit: int = Field(30, ge=1)
@@ -60,6 +66,13 @@ class Settings(BaseSettings):
             # Solo los NOMBRES de las variables, nunca sus valores.
             raise ValueError("Faltan variables obligatorias en producción: " + ", ".join(missing))
         return self
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        origins = [o.strip().rstrip("/") for o in self.cors_origins.split(",") if o.strip()]
+        if "*" in origins:
+            raise ValueError("CORS_ORIGINS no admite '*': usa una lista explícita")
+        return origins
 
     @property
     def expected_issuer(self) -> str:

@@ -1,0 +1,26 @@
+.terms {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+}
+
+.doc {
+  background: var(--ion-color-step-100, #1e1e1e);
+  border-radius: 12px;
+  padding: 4px 16px;
+  margin: 12px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.error {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+}
+
+ion-button {
+  margin-top: 16px;
+}

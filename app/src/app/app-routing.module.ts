@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
 
 import { authGuard, guestGuard } from './core/auth/auth.guard';
+import { consentGuard } from './core/consent/consent.guard';
 
 const routes: Routes = [
   {
@@ -10,8 +11,13 @@ const routes: Routes = [
     loadChildren: () => import('./login/login.module').then((m) => m.LoginPageModule),
   },
   {
-    path: 'home',
+    path: 'terminos',
     canActivate: [authGuard],
+    loadChildren: () => import('./terms/terms.module').then((m) => m.TermsPageModule),
+  },
+  {
+    path: 'home',
+    canActivate: [authGuard, consentGuard],
     loadChildren: () => import('./home/home.module').then((m) => m.HomePageModule),
   },
   { path: '', redirectTo: 'home', pathMatch: 'full' },

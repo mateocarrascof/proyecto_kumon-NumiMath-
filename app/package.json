@@ -10,7 +10,12 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
-    "test:ci": "ng test --configuration ci"
+    "test:ci": "ng test --configuration ci",
+    "sync:legal": "node scripts/sync-legal.mjs",
+    "prestart": "npm run sync:legal",
+    "prebuild": "npm run sync:legal",
+    "pretest": "npm run sync:legal",
+    "pretest:ci": "npm run sync:legal"
   },
   "private": true,
   "dependencies": {

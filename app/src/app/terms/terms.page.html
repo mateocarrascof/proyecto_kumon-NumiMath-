@@ -1,0 +1,49 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-title>Términos y privacidad</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="signOut()">Cerrar sesión</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="terms">
+    <app-mascot [state]="mascot.state()"></app-mascot>
+    <h1>Antes de empezar</h1>
+    <p>Necesito que una persona adulta lea y acepte estos textos.</p>
+
+    @if (loading) {
+      <ion-spinner name="dots"></ion-spinner>
+    }
+
+    @if (bundle) {
+      <section class="doc" aria-label="Términos de uso">
+        <app-legal-text [text]="bundle.terms.text"></app-legal-text>
+      </section>
+      <section class="doc" aria-label="Política de privacidad">
+        <app-legal-text [text]="bundle.privacy.text"></app-legal-text>
+      </section>
+
+      <ion-item lines="none">
+        <ion-checkbox
+          [(ngModel)]="accepted"
+          [disabled]="!verified"
+          labelPlacement="end"
+          justify="start"
+        >
+          He leído y acepto los términos ({{ bundle.terms.version }}) y la política de privacidad
+          ({{ bundle.privacy.version }}).
+        </ion-checkbox>
+      </ion-item>
+    }
+
+    @if (error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+
+    <ion-button expand="block" [disabled]="!accepted || busy || !verified" (click)="accept()">
+      {{ busy ? 'Guardando…' : 'Aceptar y continuar' }}
+    </ion-button>
+  </main>
+</ion-content>

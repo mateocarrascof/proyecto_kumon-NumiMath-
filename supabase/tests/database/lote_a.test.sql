@@ -1,5 +1,6 @@
 begin;
 select plan(46);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Lote A: frenar el flujo de eventos, tipo de versión en revocaciones, tests discriminantes
 -- y casos faltantes de la revisión del Lote 2.

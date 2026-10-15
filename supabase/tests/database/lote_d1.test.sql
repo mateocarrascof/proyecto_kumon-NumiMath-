@@ -1,5 +1,6 @@
 begin;
 select plan(40);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Lote D, parte 1: arreglos de la revisión de los Lotes A y B.
 -- Tutores U1..U8 = aaaa1111-0000-0000-0000-00000000000N

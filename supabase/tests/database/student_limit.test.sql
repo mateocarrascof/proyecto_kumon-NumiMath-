@@ -1,5 +1,6 @@
 begin;
 select plan(14);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Lote 2, paso 2: tope de alumnos por tutor (5 por defecto, los bloqueados cuentan)
 -- y clave única (id, tutor_id).

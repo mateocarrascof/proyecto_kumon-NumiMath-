@@ -1,5 +1,6 @@
 begin;
 select plan(47);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Lote 2, paso 1: versiones legales, compuerta de consentimiento, revocación y desbloqueo.
 -- UUIDs: tutor A = aaaaaaaa-...-0001, tutor B = bbbbbbbb-...-0002, tutor D = dddddddd-...-0004

@@ -1,2 +1,5 @@
 # Los hooks de shell deben conservar finales de línea LF (con CRLF el shebang falla)
 *.sh text eol=lf
+
+# Textos legales provisionales: se hashean byte a byte, el final de línea debe ser LF
+docs/legal-provisional/*.md text eol=lf

@@ -1,5 +1,6 @@
 begin;
 select plan(43);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Lote D, parte 2: bloqueo individual con motivo, purga solo de bloqueados por revocación,
 -- inactividad configurable, pg_cron y alertas.

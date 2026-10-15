@@ -1,5 +1,6 @@
 begin;
 select plan(54);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- UUIDs de prueba:
 --   tutor A = aaaaaaaa-...-0001, alumno de A = a1000000-...-0001

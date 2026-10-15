@@ -25,6 +25,7 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 | Aceptaciones de consentimiento por tutor | 10 cada 24 h (las revocaciones nunca se limitan) | Técnico | en la función `consents_before_insert` |
 | Perfiles por tutor | 5 (los bloqueados cuentan) | Producto | `tutors.max_students` |
 | Fechas de la evidencia | Fecha-hora exacta | Decisión técnica; revisar | — |
+| Proveedor de IA | Gemini, **solo prototipo operado por adultos** (términos 18+; ver 9.1) | Condición legal sin resolver para publicar | `AI_PROVIDER` y `GEMINI_MODEL` |
 
 ---
 
@@ -99,6 +100,27 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 **Pregunta.** ¿Qué garantías, contratos y acuerdos de tratamiento (DPA) se exigen para **Supabase**, el **proveedor de IA** y el **hosting de FastAPI**, según la región o el país que se elija? ¿Hay que confirmar contractualmente que no retienen ni entrenan con los datos?
 **Estado actual.** Región y país sin decidir (`<región>` en el inventario); DPA y garantías "pendiente".
 **Qué cambia.** Elección de región; cláusulas contractuales; ADR de región.
+**Respuesta:** _pendiente_
+
+## 9.1 Términos de uso de la API de Gemini con menores (proveedor de IA del prototipo)
+**Fuente exacta consultada:** [Gemini API Additional Terms of Service](https://ai.google.dev/gemini-api/terms) (https://ai.google.dev/gemini-api/terms), con la nota "Last updated 2026-04-28 UTC" y vigencia indicada desde el 23-mar-2026. Secciones: *Age Requirements*, *Unpaid Services > How Google Uses Your Data* y *Paid Services > How Google Uses Your Data*. Léelas tú directamente: aquí hay un resumen, no una cita legal.
+
+**Qué dicen (resumen):**
+1. **Edad:** hay que tener 18 años o más para usar las APIs.
+2. **Apps dirigidas a menores:** no se pueden usar los servicios dentro de una app o servicio **dirigido a, o con probabilidad de ser usado por, menores de 18 años**.
+3. **Nivel gratuito (unpaid):** Google puede usar lo que se envía y las respuestas para mejorar sus productos y tecnologías de aprendizaje automático, y **revisores humanos pueden leer** entradas y salidas (se desvinculan antes de la cuenta, la llave y el proyecto). Los términos desaconsejan enviar información sensible o personal.
+4. **Nivel de pago (paid):** Google indica que no usa las entradas ni respuestas para mejorar sus productos; las registra por un tiempo limitado para detectar abusos y cumplir obligaciones legales, bajo su adenda de tratamiento de datos.
+
+**Por qué importa:** esta app **está dirigida a niños de 6 a 10 años**, así que, leyendo los términos tal como están, **usar la API de Gemini en la app para niños no cumple el punto 2**, aunque el texto enviado sea solo un ejercicio de matemáticas.
+
+**Estado actual:** decisión del usuario (2026-10-15): usar Gemini **solo como prototipo operado por adultos** para la demostración, sin niños reales ni datos personales, con la IA detrás de una interfaz reemplazable. **Esto NO resuelve la condición para publicar.**
+
+**Preguntas para Legal / para Google:**
+1. ¿Se puede usar la API de Gemini (o Vertex AI, con otros términos) en una app dirigida a menores? ¿Existe un acuerdo o una excepción por escrito?
+2. Si no, ¿qué proveedor o modelo alternativo se usa? (Hay que reemplazar el proveedor antes del lanzamiento.)
+3. Aun en un prototipo operado por adultos, ¿es aceptable el nivel gratuito (uso para mejorar productos y revisión humana) con textos de ejercicios escritos por un adulto que simula a un niño?
+
+**Qué cambia según la respuesta:** el proveedor de IA y su configuración (`AI_PROVIDER`, `GEMINI_MODEL`), el inventario (transferencia internacional y retención del proveedor), la EIPD (riesgo R14) y el texto de la política de privacidad.
 **Respuesta:** _pendiente_
 
 ---

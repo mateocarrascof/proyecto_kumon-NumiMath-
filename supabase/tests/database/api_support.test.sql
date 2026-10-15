@@ -1,5 +1,6 @@
 begin;
 select plan(45);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Migración de apoyo del servidor: authorize_student_use, consumo diario y PIN.
 -- Tutores T1..T4 = cccc3333-0000-0000-0000-00000000000N

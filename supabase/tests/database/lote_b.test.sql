@@ -1,5 +1,6 @@
 begin;
 select plan(37);
+update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Lote B: inmutabilidad, historial de bloqueos, archivo de la declaración del adulto,
 -- desbloqueo ligado al consentimiento vigente y purga de perfiles bloqueados.
@@ -37,9 +38,9 @@ select throws_ok(
 select throws_ok(
   $$delete from public.legal_document_versions where kind = 'privacy'$$,
   'P0001', 'legal_versions_are_permanent', 'una versión publicada no se puede borrar');
-update public.legal_document_versions set is_current = false where kind = 'terms';
+update public.legal_document_versions set is_current = false where id = '11111111-0000-0000-0000-000000000001';
 select lives_ok(
-  $$update public.legal_document_versions set is_current = true where kind = 'terms'$$,
+  $$update public.legal_document_versions set is_current = true where id = '11111111-0000-0000-0000-000000000001'$$,
   'is_current sí puede cambiar (se apaga y se vuelve a encender)');
 
 -- ===== 2. consents es append-only para todos los roles =====

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -94,6 +95,30 @@ class DemoGateway:
 
     async def aclose(self) -> None:
         return None
+
+
+def default_topic(grade: int, exercise: str) -> str:
+    """Tema por defecto de la DEMO, según la operación del ejercicio.
+
+    Solo existe para esta demostración. El servidor real nunca asigna temas: usa el que envía la
+    app y valida que corresponda al curso del perfil.
+    """
+    text = exercise.casefold()
+    keywords: tuple[str, ...] = ()
+    if "+" in text or "suma" in text:
+        keywords = ("suma",)
+    elif "×" in text or "*" in text or " x " in text or "multiplic" in text:
+        keywords = ("multiplic", "tabla")
+    elif "÷" in text or "/" in text or "divid" in text or "divis" in text:
+        keywords = ("divis",)
+    elif "-" in text or "resta" in text:
+        keywords = ("resta",)
+    topics = topics_for_grade(grade)
+    for keyword in keywords:
+        for topic in topics:
+            if keyword in topic.id:
+                return topic.id
+    return topics[0].id
 
 
 def _free_port() -> int:
@@ -185,7 +210,7 @@ async def _main(args: argparse.Namespace) -> int:
 
     base = f"http://127.0.0.1:{port}"
     token = _token(secret)
-    topic = args.topic or topics_for_grade(args.grade)[0].id
+    topic = args.topic or default_topic(args.grade, args.exercise)
     print(
         f"Servidor de demostración en {base}  (curso {args.grade}°, IA simulada, base en memoria)"
     )
@@ -199,7 +224,9 @@ async def _main(args: argparse.Namespace) -> int:
                 f"  -d '{payload}'"
             )
             print(f"\nDocumentación interactiva: {base}/docs")
-            await server_task
+            # Ctrl+C es la forma normal de terminar este modo, no un error.
+            with contextlib.suppress(asyncio.CancelledError):
+                await server_task
             return 0
 
         async with httpx.AsyncClient(timeout=30) as client:
@@ -208,7 +235,9 @@ async def _main(args: argparse.Namespace) -> int:
         return 0
     finally:
         server.should_exit = True
-        await server_task
+        # Si la tarea ya fue cancelada (Ctrl+C), esperarla vuelve a lanzar CancelledError.
+        with contextlib.suppress(asyncio.CancelledError):
+            await server_task
 
 
 def main() -> None:
@@ -222,7 +251,7 @@ def main() -> None:
         "--grade", type=int, default=1, choices=[1, 2, 3, 4], help="curso del perfil"
     )
     parser.add_argument(
-        "--topic", default=None, help="id del tema (por defecto, el primero del curso)"
+        "--topic", default=None, help="id del tema (por defecto, el de la operación del ejercicio)"
     )
     parser.add_argument(
         "--unsafe", action="store_true", help="la IA simulada responde algo inseguro"
@@ -239,7 +268,13 @@ def main() -> None:
     parser.add_argument("--student-limit", type=int, default=30, help="límite diario del perfil")
     parser.add_argument("--serve", action="store_true", help="deja el servidor en marcha para curl")
     parser.add_argument("--logs", action="store_true", help="muestra los registros del servidor")
-    raise SystemExit(asyncio.run(_main(parser.parse_args())))
+    try:
+        code = asyncio.run(_main(parser.parse_args()))
+    except KeyboardInterrupt:
+        # Ctrl+C durante la demostración: termina en silencio, sin traceback.
+        print("\nDemostración terminada.")
+        code = 0
+    raise SystemExit(code)
 
 
 if __name__ == "__main__":

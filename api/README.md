@@ -8,7 +8,7 @@ el plan por etapas, en el historial de commits (`api: etapa N`).
 ```bash
 python -m venv api/.venv                      # Python 3.12
 api/.venv/Scripts/python -m pip install -r api/requirements-dev.txt   # en Linux/macOS: api/.venv/bin/python
-cp api/env.example api/.env                   # y completa los valores; .env nunca se versiona
+cp api/.env.example api/.env                  # y completa los valores; .env nunca se versiona
 cd api && ../api/.venv/Scripts/python -m uvicorn app.main:app --reload
 ```
 
@@ -31,14 +31,7 @@ Para usarlo con la base local: `supabase start` (desde la raíz).
 3. **Sin datos personales en logs**: solo códigos y campos de la lista cerrada de `app/logging.py`.
    Nunca mensajes del niño, apodos, correos, cuerpos de petición ni respuestas de la IA.
 4. **La IA solo recibe** curso (leído de la base), tema (lista cerrada) y ejercicio (ya filtrado).
-5. **Las claves viven solo en variables de entorno** del servidor (ver `env.example`).
-
-## Nota sobre `env.example`
-
-La plantilla debería llamarse `.env.example`, pero una regla de permisos del proyecto
-(`Read(./.env.*)` en `.claude/settings.json`) bloquea escribir archivos `.env.*`. Para dejarla con
-su nombre estándar: `git mv api/env.example api/.env.example` (el hook `protect-secrets.sh` ya
-permite explícitamente `.env.example`).
+5. **Las claves viven solo en variables de entorno** del servidor (ver `.env.example`).
 
 ## Estado por etapas
 

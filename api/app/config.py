@@ -1,4 +1,4 @@
-"""Configuración del servidor, leída de variables de entorno (ver api/env.example)."""
+"""Configuración del servidor, leída de variables de entorno (ver api/.env.example)."""
 
 from __future__ import annotations
 

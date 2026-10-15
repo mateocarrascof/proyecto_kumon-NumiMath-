@@ -7,6 +7,8 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular/lazy';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
+import { AuthPort } from './core/auth/auth.port';
+import { SupabaseAuthService } from './core/auth/supabase-auth.service';
 import { MascotPort } from './core/mascot/mascot.port';
 import { MascotService } from './core/mascot/mascot.service';
 
@@ -15,8 +17,9 @@ import { MascotService } from './core/mascot/mascot.service';
   imports: [BrowserModule, IonicModule.forRoot(), AppRoutingModule],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    // Cambiar la mascota o su comportamiento = cambiar este proveedor.
+    // Cambiar la mascota o el proveedor de sesión = cambiar estos proveedores.
     { provide: MascotPort, useExisting: MascotService },
+    { provide: AuthPort, useExisting: SupabaseAuthService },
     provideHttpClient(),
   ],
   bootstrap: [AppComponent],

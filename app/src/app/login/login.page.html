@@ -1,0 +1,48 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-title>Matemáticas con Numi</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="login">
+    <app-mascot [state]="mascot.state()"></app-mascot>
+    <h1>{{ title }}</h1>
+    <p class="who">Esta cuenta es para una persona adulta (madre, padre o tutor/a).</p>
+
+    <form (ngSubmit)="submit()" novalidate>
+      <ion-item>
+        <ion-input
+          label="Correo"
+          labelPlacement="floating"
+          type="email"
+          name="email"
+          autocomplete="email"
+          [(ngModel)]="email"
+        ></ion-input>
+      </ion-item>
+      <ion-item>
+        <ion-input
+          label="Contraseña"
+          labelPlacement="floating"
+          type="password"
+          name="password"
+          [autocomplete]="mode === 'signin' ? 'current-password' : 'new-password'"
+          [(ngModel)]="password"
+        ></ion-input>
+      </ion-item>
+
+      @if (error) {
+        <p class="error" role="alert">{{ error }}</p>
+      }
+
+      <ion-button type="submit" expand="block" [disabled]="busy">
+        {{ busy ? 'Un momento…' : title }}
+      </ion-button>
+    </form>
+
+    <ion-button fill="clear" size="small" (click)="toggleMode()">
+      {{ mode === 'signin' ? '¿No tienes cuenta? Crear cuenta' : '¿Ya tienes cuenta? Iniciar sesión' }}
+    </ion-button>
+  </main>
+</ion-content>

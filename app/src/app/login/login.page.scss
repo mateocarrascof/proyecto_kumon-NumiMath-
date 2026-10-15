@@ -1,0 +1,25 @@
+.login {
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.who {
+  font-size: 0.9rem;
+  color: var(--ion-color-medium-shade);
+}
+
+form {
+  text-align: left;
+  margin-top: 8px;
+}
+
+ion-button[type='submit'] {
+  margin-top: 16px;
+}
+
+.error {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+  margin: 12px 0 0;
+}

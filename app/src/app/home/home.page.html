@@ -1,6 +1,9 @@
 <ion-header [translucent]="true">
   <ion-toolbar color="primary">
     <ion-title>Matemáticas con Numi</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="signOut()">Cerrar sesión</ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -10,6 +13,7 @@
 
     <h1>¡Hola! Soy Numi</h1>
     <p>Voy a ayudarte a practicar matemáticas.</p>
+    <p class="note">Sesión de {{ auth.user()?.email }}</p>
 
     <div class="status" role="status" aria-live="polite" [attr.data-status]="status">
       @switch (status) {

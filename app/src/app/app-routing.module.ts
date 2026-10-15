@@ -20,6 +20,11 @@ const routes: Routes = [
     canActivate: [authGuard, consentGuard],
     loadChildren: () => import('./home/home.module').then((m) => m.HomePageModule),
   },
+  {
+    path: 'perfiles',
+    canActivate: [authGuard, consentGuard],
+    loadChildren: () => import('./profiles/profiles.module').then((m) => m.ProfilesPageModule),
+  },
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: '**', redirectTo: 'home' },
 ];

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { NavController } from '@ionic/angular/lazy';
 
 import { AuthFailure, AuthPort } from '../core/auth/auth.port';
@@ -22,6 +22,7 @@ export class LoginPage {
   private readonly auth = inject(AuthPort);
   private readonly nav = inject(NavController);
   protected readonly mascot = inject(MascotPort);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   mode: 'signin' | 'signup' = 'signin';
   email = '';
@@ -58,6 +59,7 @@ export class LoginPage {
         : await this.auth.signUp(email, this.password);
     this.busy = false;
     this.password = '';
+    this.cdr.markForCheck();
     if (result.ok) {
       this.mascot.set('happy');
       await this.nav.navigateRoot('/home');
@@ -69,5 +71,6 @@ export class LoginPage {
   private fail(message: string): void {
     this.error = message;
     this.mascot.set('sad');
+    this.cdr.markForCheck();
   }
 }

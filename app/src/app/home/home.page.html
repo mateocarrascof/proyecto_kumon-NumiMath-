@@ -15,6 +15,8 @@
     <p>Voy a ayudarte a practicar matemáticas.</p>
     <p class="note">Sesión de {{ auth.user()?.email }}</p>
 
+    <ion-button expand="block" routerLink="/perfiles">Perfiles de niños</ion-button>
+
     <div class="status" role="status" aria-live="polite" [attr.data-status]="status">
       @switch (status) {
         @case ('checking') { <ion-spinner name="dots"></ion-spinner> Conectando con el servidor… }

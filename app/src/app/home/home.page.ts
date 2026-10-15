@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { NavController } from '@ionic/angular/lazy';
 import { addIcons } from 'ionicons';
 import { alertCircle, checkmarkCircle } from 'ionicons/icons';
@@ -19,6 +19,7 @@ export class HomePage implements OnInit {
   private readonly health = inject(ApiHealthService);
   private readonly nav = inject(NavController);
   protected readonly mascot = inject(MascotPort);
+  private readonly cdr = inject(ChangeDetectorRef);
   protected readonly auth = inject(AuthPort);
 
   constructor() {
@@ -31,9 +32,11 @@ export class HomePage implements OnInit {
 
   async refresh(): Promise<void> {
     this.status = 'checking';
+    this.cdr.markForCheck();
     this.mascot.set('thinking');
     this.status = await this.health.check();
     this.mascot.set(this.status === 'ok' ? 'happy' : 'sad');
+    this.cdr.markForCheck();
   }
 
   async signOut(): Promise<void> {

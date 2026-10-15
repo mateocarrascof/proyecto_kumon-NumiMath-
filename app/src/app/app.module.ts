@@ -11,6 +11,8 @@ import { AuthPort } from './core/auth/auth.port';
 import { SupabaseAuthService } from './core/auth/supabase-auth.service';
 import { ConsentPort } from './core/consent/consent.port';
 import { SupabaseConsentService } from './core/consent/supabase-consent.service';
+import { ProfilesPort } from './core/profiles/profiles.port';
+import { SupabaseProfilesService } from './core/profiles/supabase-profiles.service';
 import { MascotPort } from './core/mascot/mascot.port';
 import { MascotService } from './core/mascot/mascot.service';
 
@@ -23,6 +25,7 @@ import { MascotService } from './core/mascot/mascot.service';
     { provide: MascotPort, useExisting: MascotService },
     { provide: AuthPort, useExisting: SupabaseAuthService },
     { provide: ConsentPort, useExisting: SupabaseConsentService },
+    { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     provideHttpClient(),
   ],
   bootstrap: [AppComponent],

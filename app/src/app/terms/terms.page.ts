@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { NavController } from '@ionic/angular/lazy';
 
 import { AuthPort } from '../core/auth/auth.port';
@@ -16,6 +16,7 @@ export class TermsPage implements OnInit {
   private readonly auth = inject(AuthPort);
   private readonly nav = inject(NavController);
   protected readonly mascot = inject(MascotPort);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   bundle: LegalBundle | null = null;
   loading = true;
@@ -42,6 +43,7 @@ export class TermsPage implements OnInit {
       this.mascot.set('sad');
     } finally {
       this.loading = false;
+      this.cdr.markForCheck();
     }
   }
 
@@ -51,6 +53,7 @@ export class TermsPage implements OnInit {
     this.error = '';
     const result = await this.consent.accept(this.bundle);
     this.busy = false;
+    this.cdr.markForCheck();
     if (result.ok) {
       this.mascot.set('happy');
       await this.nav.navigateRoot('/home');

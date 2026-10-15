@@ -13,8 +13,9 @@ MESSAGES: dict[str, str] = {
     "unauthorized": "No se pudo verificar tu sesión.",
     "forbidden": "No tienes acceso a este recurso.",
     "consent_required": "Debes aceptar la versión vigente de los términos y la política.",
-    "rate_limited": "Alcanzaste el límite de uso por ahora. Intenta más tarde.",
+    "rate_limited": "Alcanzaste el límite de uso por hoy. Vuelve a intentarlo mañana.",
     "invalid_request": "La solicitud no es válida.",
+    "input_rejected": "No pude usar ese mensaje.",
     "service_unavailable": "No pudimos verificar tu acceso. Intenta de nuevo en un momento.",
     "internal_error": "Ocurrió un error. Intenta de nuevo más tarde.",
 }
@@ -23,19 +24,40 @@ logger = get_logger("mathtutor.errors")
 
 
 class ApiError(Exception):
-    def __init__(self, status_code: int, code: str) -> None:
+    """Error controlado.
+
+    - `message`: reemplaza el mensaje genérico (p. ej. el mensaje amable para el niño).
+    - `extra`: campos adicionales y NO sensibles dentro de `error` (p. ej. `reason`, `scope`).
+    - `headers`: cabeceras HTTP (p. ej. `Retry-After`).
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        *,
+        message: str | None = None,
+        extra: dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
         super().__init__(code)
         self.status_code = status_code
         self.code = code
+        self.message = message
+        self.extra = extra or {}
+        self.headers = headers or {}
 
 
-def _body(request: Request, code: str) -> dict[str, dict[str, str]]:
+def _body(
+    request: Request, code: str, message: str | None = None, extra: dict[str, str] | None = None
+) -> dict[str, dict[str, str]]:
     request_id = getattr(request.state, "request_id", "")
     return {
         "error": {
             "code": code,
-            "message": MESSAGES.get(code, MESSAGES["internal_error"]),
+            "message": message or MESSAGES.get(code, MESSAGES["internal_error"]),
             "request_id": request_id,
+            **(extra or {}),
         }
     }
 
@@ -44,8 +66,14 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api_error(request: Request, exc: ApiError) -> JSONResponse:
         log_event(logger, "api_error", code=exc.code, status=exc.status_code)
-        headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
-        return JSONResponse(_body(request, exc.code), status_code=exc.status_code, headers=headers)
+        headers = dict(exc.headers)
+        if exc.status_code == 401:
+            headers["WWW-Authenticate"] = "Bearer"
+        return JSONResponse(
+            _body(request, exc.code, exc.message, exc.extra),
+            status_code=exc.status_code,
+            headers=headers or None,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:

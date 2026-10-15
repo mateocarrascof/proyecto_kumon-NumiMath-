@@ -45,3 +45,14 @@ async def test_authorize_student_use_responde_por_el_transporte_real(
     code = await gateway.authorize_student_use(uuid.uuid4(), uuid.uuid4())
     assert code == "student_not_found"
     await gateway.aclose()
+
+
+async def test_consume_usage_rechaza_un_perfil_inexistente_en_la_base_real(
+    gateway: SupabaseGateway,
+) -> None:
+    from app.db.gateway import GatewayError
+
+    with pytest.raises(GatewayError) as error:
+        await gateway.consume_usage(uuid.uuid4(), uuid.uuid4(), 1, 30, 90)
+    assert error.value.reason == "status_400"  # la base lanza student_not_found
+    await gateway.aclose()

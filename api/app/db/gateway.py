@@ -26,6 +26,20 @@ class Gateway(Protocol):
         """
         ...
 
+    async def consume_usage(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        cost: int,
+        student_limit: int,
+        tutor_limit: int,
+    ) -> str:
+        """Consume cuota de forma atómica. Devuelve `ok`, `student_limit` o `tutor_limit`.
+
+        Si se superaría un límite, NO se registra nada.
+        """
+        ...
+
     async def assert_read_committed(self) -> None:
         """Falla si la base no atiende bajo READ COMMITTED (regla fija del ADR 0001, 2.3)."""
         ...

@@ -66,6 +66,28 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return result
 
+    async def consume_usage(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        cost: int,
+        student_limit: int,
+        tutor_limit: int,
+    ) -> str:
+        result = await self._rpc(
+            "consume_usage",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_cost": cost,
+                "p_student_limit": student_limit,
+                "p_tutor_limit": tutor_limit,
+            },
+        )
+        if result not in ("ok", "student_limit", "tutor_limit"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def assert_read_committed(self) -> None:
         await self._rpc("assert_read_committed", {})
 

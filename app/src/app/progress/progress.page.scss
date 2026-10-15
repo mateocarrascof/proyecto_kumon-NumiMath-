@@ -1,0 +1,69 @@
+.progress {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.summary div {
+  background: var(--ion-color-step-100, #1e1e1e);
+  border-radius: 12px;
+  padding: 12px 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary strong {
+  font-size: 1.6rem;
+}
+
+.summary span,
+.empty {
+  color: var(--ion-color-medium-shade);
+}
+
+.topics,
+.recent {
+  list-style: none;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.topics li {
+  margin-bottom: 12px;
+}
+
+.recent li {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  color: var(--ion-color-danger);
+}
+
+.recent li.ok {
+  color: var(--ion-color-success);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.error {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+}

@@ -13,6 +13,8 @@ import { ConsentPort } from './core/consent/consent.port';
 import { SupabaseConsentService } from './core/consent/supabase-consent.service';
 import { HttpPracticeService } from './core/practice/http-practice.service';
 import { PracticePort } from './core/practice/practice.port';
+import { HttpProgressService } from './core/progress/http-progress.service';
+import { ProgressPort } from './core/progress/progress.port';
 import { ProfilesPort } from './core/profiles/profiles.port';
 import { SupabaseProfilesService } from './core/profiles/supabase-profiles.service';
 import { MascotPort } from './core/mascot/mascot.port';
@@ -29,6 +31,7 @@ import { MascotService } from './core/mascot/mascot.service';
     { provide: ConsentPort, useExisting: SupabaseConsentService },
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: PracticePort, useExisting: HttpPracticeService },
+    { provide: ProgressPort, useExisting: HttpProgressService },
     provideHttpClient(),
   ],
   bootstrap: [AppComponent],

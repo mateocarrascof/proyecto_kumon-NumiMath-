@@ -10,12 +10,13 @@ validan la propiedad del perfil (ADR 0001). Nunca se registra la URL, el cuerpo 
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 import httpx
 
 from app.config import Settings
-from app.db.gateway import GatewayError
+from app.db.gateway import AttemptRow, GatewayError
 
 _TIMEOUT = httpx.Timeout(5.0, connect=2.0)
 
@@ -151,6 +152,42 @@ class SupabaseGateway:
         if result not in ("ok", "duplicate", "student_not_found"):
             raise GatewayError("unexpected_result")
         return str(result)
+
+    async def list_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, limit: int
+    ) -> list[AttemptRow]:
+        if not self._key:
+            raise GatewayError("not_configured")
+        try:
+            response = await self._get_client().get(
+                "/student_attempts",
+                # La llave de servidor ignora RLS: se acota a mano al tutor Y al perfil.
+                params={
+                    "select": "topic,correct,answered_at",
+                    "student_id": f"eq.{student_id}",
+                    "tutor_id": f"eq.{tutor_id}",
+                    "order": "answered_at.desc",
+                    "limit": str(limit),
+                },
+            )
+        except httpx.HTTPError:
+            raise GatewayError("transport") from None
+        if response.status_code != 200:
+            raise GatewayError(f"status_{response.status_code}")
+        try:
+            rows = response.json()
+            if not isinstance(rows, list):
+                raise TypeError
+            return [
+                AttemptRow(
+                    topic=str(r["topic"]),
+                    correct=bool(r["correct"]),
+                    answered_at=datetime.fromisoformat(str(r["answered_at"])),
+                )
+                for r in rows
+            ]
+        except (ValueError, TypeError, KeyError):
+            raise GatewayError("unexpected_result") from None
 
     async def assert_read_committed(self) -> None:
         await self._rpc("assert_read_committed", {})

@@ -7,6 +7,8 @@ pruebas. Cambiar de transporte (p. ej. conexión directa a PostgreSQL) no toca e
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 
@@ -16,6 +18,15 @@ class GatewayError(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+@dataclass(frozen=True)
+class AttemptRow:
+    """Un intento de práctica: solo tema, resultado y hora (nunca la respuesta del niño)."""
+
+    topic: str
+    correct: bool
+    answered_at: datetime
 
 
 class Gateway(Protocol):
@@ -64,6 +75,12 @@ class Gateway(Protocol):
 
         Cada ejercicio se registra UNA sola vez por perfil (restricción única en la base).
         """
+        ...
+
+    async def list_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, limit: int
+    ) -> list[AttemptRow]:
+        """Últimos intentos del perfil, del más reciente al más antiguo. Acotado al tutor."""
         ...
 
     async def assert_read_committed(self) -> None:

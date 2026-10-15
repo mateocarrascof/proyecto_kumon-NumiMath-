@@ -30,6 +30,11 @@ const routes: Routes = [
     canActivate: [authGuard, consentGuard],
     loadChildren: () => import('./practice/practice.module').then((m) => m.PracticePageModule),
   },
+  {
+    path: 'progreso/:id',
+    canActivate: [authGuard, consentGuard],
+    loadChildren: () => import('./progress/progress.module').then((m) => m.ProgressPageModule),
+  },
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: '**', redirectTo: 'home' },
 ];

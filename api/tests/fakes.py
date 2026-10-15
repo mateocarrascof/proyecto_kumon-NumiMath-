@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 
-from app.db.gateway import GatewayError
+from app.db.gateway import AttemptRow, GatewayError
 
 
 @dataclass
@@ -35,6 +35,7 @@ class FakeGateway:
     # intentos de práctica
     attempts: dict[tuple[uuid.UUID, uuid.UUID], tuple[str, str, bool]] = field(default_factory=dict)
     record_error: Exception | None = None
+    attempt_rows: dict[uuid.UUID, list[AttemptRow]] = field(default_factory=dict)
 
     # consumo
     usage_error: Exception | None = None
@@ -103,6 +104,16 @@ class FakeGateway:
             return "duplicate"
         self.attempts[key] = (topic, exercise, correct)
         return "ok"
+
+    async def list_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, limit: int
+    ) -> list[AttemptRow]:
+        if self.record_error is not None:
+            raise self.record_error
+        if (tutor_id, student_id) not in self.grades:
+            return []
+        rows = self.attempt_rows.get(student_id, [])
+        return sorted(rows, key=lambda r: r.answered_at, reverse=True)[:limit]
 
     async def assert_read_committed(self) -> None:
         if self.error is not None:

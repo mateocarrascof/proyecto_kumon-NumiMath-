@@ -1,0 +1,58 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/perfiles" text="Perfiles"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Progreso</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="progress">
+    <app-mascot [state]="mascot.state()"></app-mascot>
+
+    @if (loading) {
+      <ion-spinner name="dots"></ion-spinner>
+    }
+
+    @if (error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+
+    @if (progress) {
+      @if (progress.total === 0) {
+        <p class="empty">Todavía no hay intentos. ¡Practica un poco y vuelve!</p>
+      } @else {
+        <section class="summary" aria-label="Resumen">
+          <div><strong>{{ progress.correct }}</strong><span>de {{ progress.total }} correctas</span></div>
+          <div><strong>{{ percent }}%</strong><span>de aciertos</span></div>
+          <div><strong>{{ progress.streak }}</strong><span>seguidas</span></div>
+        </section>
+
+        <h2>Por tema</h2>
+        <ul class="topics">
+          @for (t of progress.byTopic; track t.topic) {
+            <li>
+              <div class="row">
+                <span>{{ t.label }}</span>
+                <span>{{ t.correct }}/{{ t.total }}</span>
+              </div>
+              <ion-progress-bar [value]="ratio(t.correct, t.total)"></ion-progress-bar>
+            </li>
+          }
+        </ul>
+
+        <h2>Últimos intentos</h2>
+        <ul class="recent">
+          @for (r of progress.recent; track $index) {
+            <li [class.ok]="r.correct">
+              <span aria-hidden="true">{{ r.correct ? '✔' : '✘' }}</span>
+              <span>{{ r.label }}</span>
+              <span class="sr-only">{{ r.correct ? 'correcto' : 'incorrecto' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </main>
+</ion-content>

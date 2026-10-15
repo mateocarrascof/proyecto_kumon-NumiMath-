@@ -52,7 +52,7 @@ class InputCheck:
     text: str = ""  # texto limpio (espacios colapsados, sin invisibles); solo si `allowed`
 
 
-def _matches_stem(
+def matches_stem(
     word: str, stems: tuple[str, ...], exact_only: frozenset[str] = frozenset()
 ) -> bool:
     for stem in stems:
@@ -95,10 +95,10 @@ def check_input(text: str) -> InputCheck:
     ):
         return InputCheck(False, "pii")
 
-    if any(_matches_stem(w, PROFANITY_STEMS, PROFANITY_EXACT_ONLY) for w in words):
+    if any(matches_stem(w, PROFANITY_STEMS, PROFANITY_EXACT_ONLY) for w in words):
         return InputCheck(False, "profanity")
 
-    if any(_matches_stem(w, UNSAFE_TOPIC_STEMS, UNSAFE_TOPIC_EXACT_ONLY) for w in words):
+    if any(matches_stem(w, UNSAFE_TOPIC_STEMS, UNSAFE_TOPIC_EXACT_ONLY) for w in words):
         return InputCheck(False, "unsafe_topic")
 
     if any(p.search(matching) for p in PROMPT_INJECTION):

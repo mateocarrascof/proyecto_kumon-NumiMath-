@@ -104,7 +104,8 @@ PII_NUMERIC: tuple[re.Pattern[str], ...] = tuple(
 ASKS_PERSONAL_DATA: tuple[re.Pattern[str], ...] = tuple(
     re.compile(p)
     for p in (
-        r"\b(dime|dinos|escribe|cuentame|comparte|envia|manda|pasame|dame)\b.{0,30}"
+        r"\b(dime|dinos|escribe|escribeme|cuentame|comparte|envia|enviame|manda|mandame|pasame|"
+        r"dame)\b.{0,30}"
         r"\b(tu|tus)\b.{0,15}\b(nombre|apellido|direccion|telefono|celular|correo|email|colegio|"
         r"escuela|edad|cumpleanos|foto|clave|contrasena|ubicacion|casa)\b",
         r"\bcomo te llamas\b",
@@ -112,7 +113,7 @@ ASKS_PERSONAL_DATA: tuple[re.Pattern[str], ...] = tuple(
         r"\bdonde (vives|estudias|queda tu)\b",
         r"\bcuantos anos tienes\b",
         r"\bde que (colegio|ciudad|comuna)\b",
-        r"\b(manda|envia|sube|toma)\b.{0,15}\b(una )?(foto|imagen|video|selfie)\b",
+        r"\b(manda|mandame|envia|enviame|sube|toma)\b.{0,15}\b(una )?(foto|imagen|video|selfie)\b",
         r"\bquedemos\b|\bnos vemos\b|\bencontremonos\b",
         r"\bno (le )?(digas|cuentes)\b.{0,25}\b(a )?(tus? |tu )?(papa|mama|padres|profe)\b",
     )

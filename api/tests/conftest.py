@@ -12,6 +12,31 @@ from app.config import Settings
 from app.logging import JsonFormatter
 from app.main import create_app
 
+_ENV_VARS = (
+    "APP_ENV",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_JWKS_URL",
+    "SUPABASE_JWT_SECRET",
+    "JWT_AUDIENCE",
+    "JWT_ISSUER",
+    "AI_PROVIDER",
+    "COST_PER_EXPLANATION",
+    "STUDENT_DAILY_LIMIT",
+    "TUTOR_DAILY_LIMIT",
+    "STREAM_MAX_SECONDS",
+    "STREAM_RECHECK_SECONDS",
+    "HMAC_KEYS",
+    "HMAC_ACTIVE_VERSION",
+)
+
+
+@pytest.fixture(autouse=True)
+def _hermetic_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Las pruebas no dependen de variables de entorno del sistema (ni de un .env local)."""
+    for name in _ENV_VARS:
+        monkeypatch.delenv(name, raising=False)
+
 
 @pytest.fixture
 def settings() -> Settings:

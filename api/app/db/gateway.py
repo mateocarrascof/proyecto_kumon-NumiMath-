@@ -51,6 +51,21 @@ class Gateway(Protocol):
         """Marca actividad del perfil (como máximo una escritura al día). Mejor esfuerzo."""
         ...
 
+    async def record_attempt(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        topic: str,
+        exercise: str,
+        correct: bool,
+    ) -> str:
+        """Registra el intento de un ejercicio. Devuelve `ok`, `duplicate` o `student_not_found`.
+
+        Cada ejercicio se registra UNA sola vez por perfil (restricción única en la base).
+        """
+        ...
+
     async def assert_read_committed(self) -> None:
         """Falla si la base no atiende bajo READ COMMITTED (regla fija del ADR 0001, 2.3)."""
         ...

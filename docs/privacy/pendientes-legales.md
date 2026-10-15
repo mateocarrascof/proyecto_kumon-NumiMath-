@@ -184,6 +184,20 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 
 ---
 
+## 23. Qué pasa con los intentos de práctica (`student_attempts`) cuando se borra un perfil
+**Hoy (técnico, sin decidir):** cada intento (tema, enunciado generado por código, si fue correcto, fecha-hora, perfil y tutor) se borra **en cascada** al borrar el perfil o la cuenta. No se conserva nada, ni siquiera agregados. Es el comportamiento por defecto de la migración `20261015120000_student_attempts`, **no una decisión legal**.
+
+**Preguntas:**
+1. ¿Está bien borrar todo junto con el perfil (minimización), o hay un motivo para conservar algo (por ejemplo, estadísticas agregadas anónimas para mejorar los ejercicios)?
+2. Si se conservan agregados, ¿cuándo dejan de ser datos personales? Un conteo por tema y curso, sin fechas ni perfil, ¿se considera anónimo con tan pocos perfiles?
+3. ¿Los intentos de un perfil **bloqueado** deben seguir visibles para el tutor mientras dura el bloqueo?
+4. Al purgar por inactividad (12 meses provisionales) o por bloqueo (30 días provisionales), ¿se aplica el mismo tratamiento?
+
+**Qué cambia según la respuesta:** la clave foránea de `student_attempts` (cascada u otro), una tabla de agregados y su purga, el inventario de datos y la EIPD.
+**Respuesta:** _pendiente_
+
+---
+
 # P3 — Después, con fecha
 
 ## 19. Información al niño (Ley 21.430)

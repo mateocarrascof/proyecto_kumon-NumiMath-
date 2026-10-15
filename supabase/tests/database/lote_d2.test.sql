@@ -116,9 +116,9 @@ update public.students set last_active_at = now() - interval '3 days'
 set local role service_role;
 select is(public.block_student('bbbb2222-0000-0000-0000-000000000005', 'b5000000-0000-0000-0000-000000000001', 'tutor_request'),
   true, 'V5 bloquea su perfil inactivo');
-select is((select count(*) from public.inactive_students_due_soon(0)), 1::bigint,
+select is((select count(*) from public.inactive_students_due_soon(0) where tutor_id::text like 'bbbb2222%'), 1::bigint,
   'solo el perfil activo-no-bloqueado con más de 12 meses sin uso está por vencer');
-select is((select count(*) from public.inactive_students_due_soon(400)), 4::bigint,
+select is((select count(*) from public.inactive_students_due_soon(400) where tutor_id::text like 'bbbb2222%'), 4::bigint,
   'con un aviso de 400 días figuran todos los perfiles no bloqueados que vencerán');
 reset role;
 

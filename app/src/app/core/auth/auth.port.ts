@@ -25,4 +25,6 @@ export abstract class AuthPort {
   abstract signUp(email: string, password: string): Promise<AuthResult>;
   abstract signIn(email: string, password: string): Promise<AuthResult>;
   abstract signOut(): Promise<void>;
+  /** JWT vigente para llamar a la API (FastAPI). `null` si no hay sesión. */
+  abstract accessToken(): Promise<string | null>;
 }

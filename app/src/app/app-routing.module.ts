@@ -25,6 +25,11 @@ const routes: Routes = [
     canActivate: [authGuard, consentGuard],
     loadChildren: () => import('./profiles/profiles.module').then((m) => m.ProfilesPageModule),
   },
+  {
+    path: 'practica/:id',
+    canActivate: [authGuard, consentGuard],
+    loadChildren: () => import('./practice/practice.module').then((m) => m.PracticePageModule),
+  },
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: '**', redirectTo: 'home' },
 ];

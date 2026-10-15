@@ -38,6 +38,7 @@ def test_la_documentacion_no_se_expone_en_produccion() -> None:
         app_env="production",
         supabase_service_role_key="k",
         supabase_jwt_secret="s",
+        exercise_signing_key="e",
         hmac_keys=json.dumps({"1": "a" * 64}),
     )
     production = TestClient(create_app(settings))

@@ -51,6 +51,13 @@ describe('SupabaseAuthService', () => {
     expect(s.user()).toEqual({ id: 'u1', email: 'a@b.test' });
   });
 
+  it('entrega el token de acceso para llamar a la API, o null sin sesión', async () => {
+    const con = service({ session: { access_token: 'jwt-1', user: { id: 'u1', email: 'a@b.test' } } });
+    expect(await con.accessToken()).toBe('jwt-1');
+    TestBed.resetTestingModule();
+    expect(await service({}).accessToken()).toBeNull();
+  });
+
   it('inicio de sesión correcto', async () => {
     expect(await service({}).signIn('a@b.test', 'clave-larga-1')).toEqual({ ok: true });
   });

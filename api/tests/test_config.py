@@ -25,6 +25,7 @@ def test_produccion_exige_las_claves() -> None:
     mensaje = str(error.value)
     assert "SUPABASE_SERVICE_ROLE_KEY" in mensaje
     assert "HMAC_KEYS" in mensaje
+    assert "EXERCISE_SIGNING_KEY" in mensaje
 
 
 def test_produccion_con_las_claves_es_valida() -> None:
@@ -33,6 +34,7 @@ def test_produccion_con_las_claves_es_valida() -> None:
         app_env="production",
         supabase_service_role_key=SECRETO,
         supabase_jwks_url="https://example.supabase.co/auth/v1/.well-known/jwks.json",
+        exercise_signing_key=SECRETO,
         hmac_keys=json.dumps({"1": "a" * 64}),
     )
     assert settings.app_env == "production"
@@ -45,6 +47,7 @@ def test_la_version_activa_de_hmac_debe_existir() -> None:
             app_env="production",
             supabase_service_role_key=SECRETO,
             supabase_jwt_secret=SECRETO,
+            exercise_signing_key=SECRETO,
             hmac_keys=json.dumps({"1": "a" * 64}),
             hmac_active_version=2,
         )

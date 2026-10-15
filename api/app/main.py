@@ -17,7 +17,7 @@ from app.db.supabase_gateway import SupabaseGateway
 from app.errors import install_error_handlers
 from app.logging import configure_logging
 from app.middleware import RequestContextMiddleware
-from app.routes import explanations, health, students
+from app.routes import exercises, explanations, health, students
 
 
 def create_app(
@@ -66,6 +66,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(students.router)
     app.include_router(explanations.router)
+    app.include_router(exercises.router)
     return app
 
 

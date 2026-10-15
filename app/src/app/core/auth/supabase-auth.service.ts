@@ -74,6 +74,16 @@ export class SupabaseAuthService extends AuthPort {
     }
   }
 
+  async accessToken(): Promise<string | null> {
+    try {
+      // getSession renueva el token si está por vencer.
+      const { data } = await this.client.auth.getSession();
+      return data.session?.access_token ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async signOut(): Promise<void> {
     try {
       await this.client.auth.signOut();

@@ -128,6 +128,30 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return result
 
+    async def record_attempt(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        topic: str,
+        exercise: str,
+        correct: bool,
+    ) -> str:
+        result = await self._rpc(
+            "record_attempt",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_exercise_id": str(exercise_id),
+                "p_topic": topic,
+                "p_exercise": exercise,
+                "p_correct": correct,
+            },
+        )
+        if result not in ("ok", "duplicate", "student_not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def assert_read_committed(self) -> None:
         await self._rpc("assert_read_committed", {})
 

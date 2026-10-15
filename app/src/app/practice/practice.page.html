@@ -1,0 +1,67 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/perfiles" text="Perfiles"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Practicar</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="practice">
+    <app-mascot [state]="mascot.state()"></app-mascot>
+
+    @if (loading) {
+      <ion-spinner name="dots"></ion-spinner>
+    }
+
+    @if (!loading && !topic) {
+      <h1>¿Qué quieres practicar?</h1>
+      <ul class="topics">
+        @for (t of topics; track t.id) {
+          <li>
+            <ion-button expand="block" fill="outline" (click)="choose(t)">{{ t.label }}</ion-button>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (topic) {
+      <p class="topic">{{ topic.label }} · {{ correctCount }} de {{ total }} correctas</p>
+
+      @if (exercise) {
+        <p class="exercise" data-testid="exercise-text">{{ exercise.text }}</p>
+
+        @if (!result) {
+          <form (ngSubmit)="submit()" novalidate>
+            <ion-input
+              class="answer"
+              type="text"
+              inputmode="numeric"
+              aria-label="Tu respuesta"
+              placeholder="Tu respuesta"
+              [value]="answer"
+              (ionInput)="onAnswerInput($any($event.target).value)"
+            ></ion-input>
+            <ion-button type="submit" expand="block" [disabled]="!canSubmit">Responder</ion-button>
+          </form>
+        } @else {
+          <div class="result" [class.ok]="result.correct" role="status">
+            @if (result.correct) {
+              <strong>¡Correcto! 🎉</strong>
+            } @else {
+              <strong>Casi. La respuesta era {{ result.correctAnswer }}.</strong>
+            }
+          </div>
+          <ion-button expand="block" (click)="next()">Siguiente</ion-button>
+        }
+      }
+
+      <ion-button fill="clear" size="small" (click)="changeTopic()">Cambiar de tema</ion-button>
+    }
+
+    @if (error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+  </main>
+</ion-content>

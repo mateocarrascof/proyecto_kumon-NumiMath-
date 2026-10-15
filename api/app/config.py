@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     stream_max_seconds: int = Field(60, ge=1, le=600)
     stream_recheck_seconds: int = Field(10, ge=1, le=60)
 
+    # Clave de firma de los ejercicios (aleatoria, solo del servidor). Sin ella no hay práctica.
+    exercise_signing_key: SecretStr = SecretStr("")
+    # Vida corta del ejercicio firmado: tiempo máximo para responderlo.
+    exercise_token_ttl_seconds: int = Field(600, ge=30, le=3600)
+
     hmac_keys: SecretStr = SecretStr("")
     hmac_active_version: int = Field(1, ge=1)
 
@@ -53,6 +58,8 @@ class Settings(BaseSettings):
             missing.append("SUPABASE_SERVICE_ROLE_KEY")
         if not self.supabase_jwks_url and not self.supabase_jwt_secret.get_secret_value():
             missing.append("SUPABASE_JWKS_URL o SUPABASE_JWT_SECRET")
+        if not self.exercise_signing_key.get_secret_value():
+            missing.append("EXERCISE_SIGNING_KEY")
         if not self.hmac_keys.get_secret_value():
             missing.append("HMAC_KEYS")
         else:

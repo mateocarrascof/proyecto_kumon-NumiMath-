@@ -1,0 +1,47 @@
+.practice {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.topics {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.topic {
+  color: var(--ion-color-medium-shade);
+}
+
+.exercise {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 16px 0;
+}
+
+.answer {
+  font-size: 1.8rem;
+  text-align: center;
+  --padding-start: 12px;
+  border: 2px solid var(--ion-color-primary);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.result {
+  font-size: 1.3rem;
+  padding: 12px;
+  border-radius: 12px;
+  margin: 12px 0;
+  background: rgba(255, 196, 9, 0.15);
+}
+
+.result.ok {
+  background: rgba(45, 211, 111, 0.18);
+}
+
+.error {
+  color: var(--ion-color-danger);
+  font-weight: 600;
+}

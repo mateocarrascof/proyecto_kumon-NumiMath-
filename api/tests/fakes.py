@@ -22,6 +22,16 @@ class FakeGateway:
     calls: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     closed: bool = False
 
+    # curso del perfil y actividad
+    grades: dict[tuple[uuid.UUID, uuid.UUID], int] = field(default_factory=dict)
+    grade_error: Exception | None = None
+    touches: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    touch_error: Exception | None = None
+
+    # respuestas sucesivas de authorize_student_use (se consumen en orden; luego rige `default`)
+    sequence: list[str] = field(default_factory=list)
+    error_after: int | None = None  # a partir de la llamada N (1-based) lanza `error`
+
     # consumo
     usage_error: Exception | None = None
     usage_override: str | None = None
@@ -31,9 +41,24 @@ class FakeGateway:
 
     async def authorize_student_use(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> str:
         self.calls.append((tutor_id, student_id))
-        if self.error is not None:
+        if self.error is not None and (
+            self.error_after is None or len(self.calls) >= self.error_after
+        ):
             raise self.error
+        if self.sequence:
+            return self.sequence.pop(0)
         return self.outcomes.get((tutor_id, student_id), self.default)
+
+    async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        if self.grade_error is not None:
+            raise self.grade_error
+        return self.grades.get((tutor_id, student_id))
+
+    async def touch_student_activity(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        self.touches.append((tutor_id, student_id))
+        if self.touch_error is not None:
+            raise self.touch_error
+        return True
 
     async def consume_usage(
         self,

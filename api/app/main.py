@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.ai.factory import build_provider
+from app.ai.provider import AIProvider
 from app.auth.jwt import TokenVerifier
 from app.config import Settings, get_settings
 from app.db.gateway import Gateway
@@ -14,14 +16,19 @@ from app.db.supabase_gateway import SupabaseGateway
 from app.errors import install_error_handlers
 from app.logging import configure_logging
 from app.middleware import RequestContextMiddleware
-from app.routes import health, students
+from app.routes import explanations, health, students
 
 
-def create_app(settings: Settings | None = None, gateway: Gateway | None = None) -> FastAPI:
-    """`gateway` permite inyectar un doble en las pruebas; por defecto, Supabase."""
+def create_app(
+    settings: Settings | None = None,
+    gateway: Gateway | None = None,
+    provider: AIProvider | None = None,
+) -> FastAPI:
+    """`gateway` y `provider` permiten inyectar dobles en pruebas y en la demo."""
     settings = settings or get_settings()
     configure_logging()
     db_gateway: Gateway = gateway or SupabaseGateway(settings)
+    ai_provider: AIProvider = provider or build_provider(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -40,11 +47,13 @@ def create_app(settings: Settings | None = None, gateway: Gateway | None = None)
     app.state.settings = settings
     app.state.token_verifier = TokenVerifier(settings)
     app.state.gateway = db_gateway
+    app.state.ai_provider = ai_provider
 
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(students.router)
+    app.include_router(explanations.router)
     return app
 
 

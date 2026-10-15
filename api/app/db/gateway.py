@@ -40,6 +40,17 @@ class Gateway(Protocol):
         """
         ...
 
+    async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        """Curso (1 a 4) del perfil, leído de la base. `None` si el perfil no es del tutor.
+
+        Es lo ÚNICO que se lee del perfil: nunca el apodo.
+        """
+        ...
+
+    async def touch_student_activity(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        """Marca actividad del perfil (como máximo una escritura al día). Mejor esfuerzo."""
+        ...
+
     async def assert_read_committed(self) -> None:
         """Falla si la base no atiende bajo READ COMMITTED (regla fija del ADR 0001, 2.3)."""
         ...

@@ -88,6 +88,46 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        if not self._key:
+            raise GatewayError("not_configured")
+        try:
+            response = await self._get_client().get(
+                "/students",
+                # Solo el curso, y acotado al tutor: la llave de servidor ignora RLS.
+                params={
+                    "select": "grade",
+                    "id": f"eq.{student_id}",
+                    "tutor_id": f"eq.{tutor_id}",
+                    "limit": "1",
+                },
+            )
+        except httpx.HTTPError:
+            raise GatewayError("transport") from None
+        if response.status_code != 200:
+            raise GatewayError(f"status_{response.status_code}")
+        try:
+            rows = response.json()
+        except ValueError:
+            raise GatewayError("bad_json") from None
+        if not isinstance(rows, list):
+            raise GatewayError("unexpected_result")
+        if not rows:
+            return None
+        grade = rows[0].get("grade") if isinstance(rows[0], dict) else None
+        if isinstance(grade, bool) or not isinstance(grade, int) or grade not in (1, 2, 3, 4):
+            raise GatewayError("unexpected_result")
+        return grade
+
+    async def touch_student_activity(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        result = await self._rpc(
+            "touch_student_activity",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
     async def assert_read_committed(self) -> None:
         await self._rpc("assert_read_committed", {})
 

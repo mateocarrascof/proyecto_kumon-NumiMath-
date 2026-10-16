@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -31,10 +32,20 @@ class Settings(BaseSettings):
     # Emisor esperado del JWT. Vacío = `<SUPABASE_URL>/auth/v1` (el valor de GoTrue).
     jwt_issuer: str = ""
 
-    ai_provider: Literal["mock"] = "mock"
+    ai_provider: Literal["mock", "gemini"] = "mock"
+    # Clave de Gemini: solo del servidor, nunca se imprime ni se registra (SecretStr).
+    gemini_api_key: SecretStr = SecretStr("")
     # Sin valor por defecto a propósito: el nombre de versión estable lo elige la persona
     # responsable (no se usan alias "-latest"). Se usa a partir del proveedor Gemini.
     gemini_model: str = ""
+
+    # Tope de tokens de salida y plazo máximo para el primer fragmento de Gemini.
+    # Los tokens de "razonamiento" del modelo cuentan contra este tope: con poco margen la respuesta
+    # sale cortada o vacía. `low` es un nivel válido en los modelos de texto de Gemini; vacío =
+    # el valor propio del modelo (más razonamiento, más costo).
+    gemini_max_output_tokens: int = Field(1024, ge=64, le=4096)
+    gemini_thinking_level: Literal["", "minimal", "low", "medium", "high"] = "low"
+    gemini_first_chunk_seconds: float = Field(12.0, ge=1.0, le=60.0)
 
     # Orígenes que pueden llamar a la API desde un navegador, separados por comas (lista explícita).
     cors_origins: str = "http://localhost:8100"
@@ -56,6 +67,27 @@ class Settings(BaseSettings):
 
     hmac_keys: SecretStr = SecretStr("")
     hmac_active_version: int = Field(1, ge=1)
+
+    @model_validator(mode="after")
+    def _gemini_requires_key_and_pinned_model(self) -> Settings:
+        if self.ai_provider != "gemini":
+            return self
+        problems: list[str] = []
+        if not self.gemini_api_key.get_secret_value():
+            problems.append("GEMINI_API_KEY")
+        model = self.gemini_model.strip()
+        if not model:
+            problems.append("GEMINI_MODEL")
+        elif model.lower().endswith("-latest"):
+            raise ValueError(
+                "GEMINI_MODEL no admite alias '-latest': usa un nombre de versión estable"
+            )
+        elif not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{2,79}", model):
+            raise ValueError("GEMINI_MODEL tiene caracteres no permitidos")
+        if problems:
+            # Solo los NOMBRES de las variables, nunca sus valores.
+            raise ValueError("Con AI_PROVIDER=gemini faltan: " + ", ".join(problems))
+        return self
 
     @model_validator(mode="after")
     def _production_requires_secrets(self) -> Settings:

@@ -122,7 +122,11 @@ async def stream_explanation(
                 result = pending.result()
             except Exception as exc:
                 outcome, code = "cut", "provider_error"
-                log_event(logger, "stream.provider_error", code=type(exc).__name__)
+                log_event(
+                    logger,
+                    "stream.provider_error",
+                    code=str(getattr(exc, "code", type(exc).__name__)),
+                )
                 yield _error_event("provider_error")
                 return
             finally:

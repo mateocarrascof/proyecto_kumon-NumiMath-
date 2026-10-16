@@ -45,7 +45,9 @@ Para usarlo con la base local: `supabase start` (desde la raíz).
 | 5 | IA simulada (interfaz `AIProvider`), prompt, temas provisionales y filtro de salida | hecha |
 | 6 | Límites de uso por perfil y por tutor (atómicos, con `Retry-After`) | hecha |
 | 7 | Streaming SSE con re-chequeo de acceso cada pocos segundos | hecha |
-| 8 a 10 | Control parental (PIN), borrado de cuenta, cierre y revisión | pendientes |
+| Recorrido real, etapa 8 | Seguridad antes de Gemini: camino de apoyo, filtros ampliados, prompt separado, límite de cuerpo, corpus adversarial | hecha |
+| Recorrido real, etapa 9 | Proveedor Gemini (`AI_PROVIDER=gemini`, `GEMINI_MODEL` sin alias `-latest`) | hecha |
+| PIN y borrado de cuenta | Control parental, borrado de cuenta | fuera de este recorrido |
 
 ## Probarlo sin base ni claves (demostración local)
 
@@ -68,3 +70,19 @@ Errores antes de empezar: 401 (sesión), 403 (perfil/consentimiento), 422 (tema 
 429 (límite diario, con `Retry-After`) y 503 (no se pudo verificar: se deniega).
 
 La lista de temas por curso es **provisional y está pendiente de revisión** (`app/ai/topics.py`).
+
+## Gemini (prototipo operado por adultos)
+
+Variables en `api/.env`: `AI_PROVIDER=gemini`, `GEMINI_API_KEY` y `GEMINI_MODEL` (nombre de versión
+estable; **sin alias `-latest` ni valor por defecto**: ver https://ai.google.dev/gemini-api/docs/models).
+Opcionales: `GEMINI_THINKING_LEVEL` (por defecto `low`; los tokens de razonamiento cuentan contra
+`GEMINI_MAX_OUTPUT_TOKENS`, por defecto 1024).
+
+Prueba real de UNA pregunta fija, sin datos personales (no imprime la clave):
+
+```bash
+api/.venv/Scripts/python api/scripts/probar_gemini.py
+```
+
+Los términos de la API de Gemini exigen 18+ y prohíben apps dirigidas a menores: ver
+`docs/privacy/pendientes-legales.md`, 9.1. **No usar con niños reales.**

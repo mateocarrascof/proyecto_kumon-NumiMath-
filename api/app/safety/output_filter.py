@@ -49,6 +49,8 @@ _LINKS: tuple[re.Pattern[str], ...] = (
 )
 
 _LEAK: tuple[re.Pattern[str], ...] = (
+    # Razonamiento interno del modelo que se cuela como texto (no es para el niño).
+    re.compile(r"\b(constraints?|the user|user input|system instruction|let me|i should)\b"),
     re.compile(r"\bsystem prompt\b"),
     re.compile(r"\binstrucciones (del sistema|internas|anteriores)\b"),
     re.compile(r"\bmis instrucciones\b"),
@@ -65,6 +67,22 @@ _SENSITIVE_OUTPUT: tuple[re.Pattern[str], ...] = tuple(
         r"\b(hacerte|hacerse) dano\b",
     )
 )
+
+
+_BOLD = re.compile(r"(\*\*|__)")
+_EMPHASIS = re.compile(r"(?<![\w*])\*(\S(?:[^*]*?\S)?)\*(?![\w*])")
+_BULLET = re.compile(r"^\s*(?:[*•-]|#{1,6})\s+")
+
+
+def strip_markdown(sentence: str) -> str:
+    """Quita el formato Markdown (negritas, énfasis, viñetas, títulos): la app muestra texto plano.
+
+    Se conservan los signos matemáticos: "3 * 4" y "5 - 2" no cambian.
+    """
+    text = _BOLD.sub("", sentence)
+    text = _EMPHASIS.sub(r"\1", text)
+    text = _BULLET.sub("", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 @dataclass(frozen=True)
@@ -124,7 +142,9 @@ class OutputGuard:
         if self._emitted_chars + len(sentence) > MAX_TOTAL_CHARS:
             return self._close("output_too_long")
         self._emitted_chars += len(sentence)
-        sentences.append(sentence)
+        cleaned = strip_markdown(sentence)
+        if cleaned:
+            sentences.append(cleaned)
         return None
 
     def feed(self, chunk: str) -> tuple[list[str], Violation | None]:

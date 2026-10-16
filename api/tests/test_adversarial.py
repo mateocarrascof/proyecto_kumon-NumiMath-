@@ -215,3 +215,40 @@ def test_salida_insegura_se_bloquea(sentence: str, reason: str) -> None:
 def test_el_texto_largo_o_sin_puntuacion_se_corta() -> None:
     assert check_sentence("palabra " * 60) is not None
     assert check_sentence("a" * 400) is not None
+
+
+# ---------------------------------------------------------------------------------------------
+# Formato de la respuesta de un modelo real (Gemini): texto plano para el niño
+# ---------------------------------------------------------------------------------------------
+def test_se_quita_el_markdown_pero_no_los_signos_matematicos() -> None:
+    from app.safety.output_filter import strip_markdown
+
+    assert strip_markdown("Vamos a sumar **7 + 5**.") == "Vamos a sumar 7 + 5."
+    assert strip_markdown("* **8** (un dedito)") == "8 (un dedito)"
+    assert strip_markdown("- 9") == "9"
+    assert strip_markdown("# Título") == "Título"
+    assert strip_markdown("Es *muy* fácil.") == "Es muy fácil."
+    assert strip_markdown("3 * 4 = 12") == "3 * 4 = 12"
+    assert strip_markdown("5 - 2 = 3") == "5 - 2 = 3"
+    assert strip_markdown("__12__") == "12"
+
+
+def test_el_guardia_entrega_texto_plano_aunque_el_modelo_use_markdown() -> None:
+    from app.safety.output_filter import OutputGuard
+
+    guard = OutputGuard()
+    sentences, violation = guard.feed("¡Hola! Vamos a sumar **7 + 5**.\n* **8**\n- 9\n")
+    flushed, _ = guard.flush()
+    assert violation is None
+    assert all("*" not in s and "**" not in s for s in [*sentences, *flushed])
+    assert "Vamos a sumar 7 + 5." in sentences
+
+
+def test_el_razonamiento_interno_del_modelo_no_llega_al_nino() -> None:
+    for sentence in (
+        "constraints: Short sentences? Yes.",
+        "Let me think about how the user asked this.",
+        "The user wants a simple explanation.",
+    ):
+        problem = check_sentence(sentence)
+        assert problem is not None and problem.reason == "prompt_leak", sentence

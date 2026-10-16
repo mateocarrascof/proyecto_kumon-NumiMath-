@@ -35,6 +35,9 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         await db_gateway.aclose()
+        provider_close = getattr(ai_provider, "aclose", None)
+        if provider_close is not None:
+            await provider_close()
 
     production = settings.app_env == "production"
     app = FastAPI(

@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     student_daily_limit: int = Field(30, ge=1)
     tutor_daily_limit: int = Field(90, ge=1)
 
+    # Tamaño máximo del cuerpo de una petición (las de este servidor son JSON cortos).
+    max_body_bytes: int = Field(8192, ge=1024, le=1_048_576)
+
     stream_max_seconds: int = Field(60, ge=1, le=600)
     stream_recheck_seconds: int = Field(10, ge=1, le=60)
 

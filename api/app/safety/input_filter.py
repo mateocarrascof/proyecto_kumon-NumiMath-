@@ -22,21 +22,45 @@ from app.safety.patterns import (
     PII_TEXT,
     PROFANITY_EXACT_ONLY,
     PROFANITY_STEMS,
+    PROFANITY_SUBSTRINGS,
     PROMPT_INJECTION,
+    SUPPORT_PATTERNS,
     UNSAFE_TOPIC_EXACT_ONLY,
+    UNSAFE_TOPIC_PHRASES,
     UNSAFE_TOPIC_STEMS,
 )
 
 MAX_INPUT_CHARS: Final = 200
 
 Reason = Literal[
-    "empty", "too_long", "pii", "profanity", "unsafe_topic", "prompt_injection", "off_topic"
+    "empty",
+    "too_long",
+    "needs_support",
+    "pii",
+    "profanity",
+    "unsafe_topic",
+    "prompt_injection",
+    "off_topic",
 ]
+
+# ╔══════════════════════════════════════════════════════════════════════════════════════════╗
+# ║  PENDIENTE DE VALIDACIÓN PROFESIONAL (psicología infantil / protección de la niñez).     ║
+# ║  Este mensaje es PROVISIONAL: lo escribió el asistente. No usar con niños reales sin     ║
+# ║  que lo revise una persona con la formación adecuada. No incluye teléfonos a propósito:  ║
+# ║  los números de ayuda deben verificarse y definirse con esa persona.                     ║
+# ╚══════════════════════════════════════════════════════════════════════════════════════════╝
+SUPPORT_MESSAGE: Final = (
+    "Gracias por contármelo. Lo que sientes importa. "
+    "Habla ahora con un adulto de confianza, como tu mamá, tu papá, tu profe o alguien de tu "
+    "familia. Si estás en peligro, avísale a un adulto de inmediato. "
+    "Cuando quieras, seguimos con matemáticas."
+)
 
 # Mensajes para el niño: amables, cortos, sin repetir lo que escribió y sin explicar el filtro.
 CHILD_MESSAGES: Final[dict[Reason, str]] = {
     "empty": "Escribe tu pregunta de matemáticas y te ayudo.",
     "too_long": "¡Qué mensaje tan largo! Cuéntamelo más cortito, por favor.",
+    "needs_support": SUPPORT_MESSAGE,
     "pii": "Por tu seguridad, no escribas datos personales. Pregúntame solo de matemáticas.",
     "profanity": "Hablemos con palabras amables. Pregúntame algo de matemáticas.",
     "unsafe_topic": "De eso no puedo hablar. Pregúntame algo de matemáticas.",
@@ -61,6 +85,22 @@ def matches_stem(
         if stem not in exact_only and len(stem) >= 4 and word.startswith(stem):
             return True
     return False
+
+
+def has_profanity(words: list[str]) -> bool:
+    """Prefijos y palabras exactas, más fragmentos fuertes dentro de la palabra ("aweonao")."""
+    for word in words:
+        if matches_stem(word, PROFANITY_STEMS, PROFANITY_EXACT_ONLY):
+            return True
+        if len(word) >= 5 and any(fragment in word for fragment in PROFANITY_SUBSTRINGS):
+            return True
+    return False
+
+
+def has_unsafe_topic(words: list[str], matching: str) -> bool:
+    if any(matches_stem(w, UNSAFE_TOPIC_STEMS, UNSAFE_TOPIC_EXACT_ONLY) for w in words):
+        return True
+    return any(p.search(matching) for p in UNSAFE_TOPIC_PHRASES)
 
 
 def _has_math_signal(cleaned: str, matching: str, words: list[str]) -> bool:
@@ -89,16 +129,21 @@ def check_input(text: str) -> InputCheck:
     plain = normalize.strip_accents(lowered)  # sin "leet": se usa para patrones y números
     words = normalize.words(cleaned)
 
+    # Primero el camino de apoyo: un niño que pide ayuda no debe recibir un "no puedo hablar de eso"
+    # ni un rechazo por datos personales. El texto nunca llega a la IA.
+    if any(p.search(matching) for p in SUPPORT_PATTERNS):
+        return InputCheck(False, "needs_support")
+
     # Los patrones con dígitos usan `plain`; el resto también se prueba sobre el texto "leet".
     if any(p.search(plain) for p in PII_NUMERIC) or any(
         p.search(plain) or p.search(matching) for p in PII_TEXT
     ):
         return InputCheck(False, "pii")
 
-    if any(matches_stem(w, PROFANITY_STEMS, PROFANITY_EXACT_ONLY) for w in words):
+    if has_profanity(words):
         return InputCheck(False, "profanity")
 
-    if any(matches_stem(w, UNSAFE_TOPIC_STEMS, UNSAFE_TOPIC_EXACT_ONLY) for w in words):
+    if has_unsafe_topic(words, matching):
         return InputCheck(False, "unsafe_topic")
 
     if any(p.search(matching) for p in PROMPT_INJECTION):

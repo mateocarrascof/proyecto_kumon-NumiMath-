@@ -16,7 +16,7 @@ from app.db.gateway import Gateway
 from app.db.supabase_gateway import SupabaseGateway
 from app.errors import install_error_handlers
 from app.logging import configure_logging
-from app.middleware import RequestContextMiddleware
+from app.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.routes import exercises, explanations, health, progress, students
 
 
@@ -50,6 +50,9 @@ def create_app(
     app.state.gateway = db_gateway
     app.state.ai_provider = ai_provider
 
+    # Orden: lo último que se agrega es lo más externo. El límite de tamaño va DENTRO del contexto
+    # de petición (para registrar y devolver el id) y CORS por fuera de todo.
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(RequestContextMiddleware)
     origins = settings.cors_origin_list
     if origins:

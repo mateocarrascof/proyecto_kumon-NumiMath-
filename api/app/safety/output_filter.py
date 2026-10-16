@@ -7,7 +7,8 @@ fragmentos igualmente se detecta.
 Reglas (solo matemáticas, apto para 6 a 10 años, sin pedir datos):
   - sin enlaces, correos, teléfonos ni RUT;
   - sin pedirle al niño datos personales ni pedirle guardar secretos;
-  - sin groserías ni temas de adultos;
+  - sin groserías ni temas de adultos, ni conversar sobre angustia o daño (eso es para un adulto);
+  - sin HTML, imágenes, enlaces con formato ni bloques de código;
   - sin revelar las instrucciones;
   - oraciones y respuesta de largo acotado (lenguaje simple).
 
@@ -22,14 +23,12 @@ from dataclasses import dataclass, field
 from typing import Final
 
 from app.safety import normalize
-from app.safety.input_filter import matches_stem
+from app.safety.input_filter import has_profanity, has_unsafe_topic
 from app.safety.patterns import (
     ASKS_PERSONAL_DATA,
     PII_NUMERIC,
-    PROFANITY_EXACT_ONLY,
-    PROFANITY_STEMS,
-    UNSAFE_TOPIC_EXACT_ONLY,
-    UNSAFE_TOPIC_STEMS,
+    SUPPORT_PATTERNS,
+    UNSAFE_OUTPUT_FORMAT,
 )
 
 MAX_SENTENCE_CHARS: Final = 280
@@ -56,6 +55,18 @@ _LEAK: tuple[re.Pattern[str], ...] = (
 )
 
 
+# Angustia o daño dicho en otras personas gramaticales ("uno se quiere morir").
+_SENSITIVE_OUTPUT: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p)
+    for p in (
+        r"\b(se|te) quiere(s|n)? (morir|matar)",
+        r"\bquieres? (morir|matarte|hacerte dano)\b",
+        r"\b(hacerte|hacerse|lastimarte|lastimarse) dano\b",
+        r"\b(hacerte|hacerse) dano\b",
+    )
+)
+
+
 @dataclass(frozen=True)
 class Violation:
     reason: str
@@ -73,12 +84,17 @@ def check_sentence(sentence: str) -> Violation | None:
         return Violation("link_or_contact")
     if any(p.search(plain) or p.search(matching) for p in ASKS_PERSONAL_DATA):
         return Violation("asks_personal_data")
-    if any(matches_stem(w, PROFANITY_STEMS, PROFANITY_EXACT_ONLY) for w in words):
+    if any(p.search(plain) or p.search(matching) for p in UNSAFE_OUTPUT_FORMAT):
+        return Violation("unsafe_format")
+    if has_profanity(words):
         return Violation("profanity")
-    if any(matches_stem(w, UNSAFE_TOPIC_STEMS, UNSAFE_TOPIC_EXACT_ONLY) for w in words):
+    if has_unsafe_topic(words, matching):
         return Violation("unsafe_topic")
     if any(p.search(matching) for p in _LEAK):
         return Violation("prompt_leak")
+    if any(p.search(matching) for p in (*SUPPORT_PATTERNS, *_SENSITIVE_OUTPUT)):
+        # La IA no debe dramatizar ni conversar sobre angustia o daño: eso es para un adulto.
+        return Violation("sensitive_topic")
     return None
 
 

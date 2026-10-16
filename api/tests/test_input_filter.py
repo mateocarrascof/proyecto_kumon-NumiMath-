@@ -155,6 +155,7 @@ def test_cada_motivo_tiene_un_mensaje_amable_que_no_repite_lo_escrito() -> None:
     motivos = {
         "empty",
         "too_long",
+        "needs_support",
         "pii",
         "profanity",
         "unsafe_topic",
@@ -162,8 +163,9 @@ def test_cada_motivo_tiene_un_mensaje_amable_que_no_repite_lo_escrito() -> None:
         "off_topic",
     }
     assert set(CHILD_MESSAGES) == motivos
-    for mensaje in CHILD_MESSAGES.values():
-        assert 10 < len(mensaje) < 120
+    for motivo, mensaje in CHILD_MESSAGES.items():
+        # El mensaje de apoyo es más largo a propósito: debe orientar a un adulto de confianza.
+        assert 10 < len(mensaje) < (300 if motivo == "needs_support" else 120)
         assert "http" not in mensaje
 
 

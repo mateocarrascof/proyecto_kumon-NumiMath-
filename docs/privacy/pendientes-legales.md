@@ -198,6 +198,23 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 
 ---
 
+## 24. Camino de apoyo cuando un niño parece angustiado o en peligro (PENDIENTE DE VALIDACIÓN PROFESIONAL)
+**Qué hace hoy (provisional):** si el texto del niño contiene frases de angustia, daño o maltrato (por ejemplo "me quiero morir", "me pegan", "estoy muy triste"), el servidor **no lo envía a la IA, no gasta cuota y no lo guarda ni lo registra**, y responde con un mensaje fijo que lo orienta a hablar con un adulto de confianza. Va **antes** de los filtros de groserías y datos personales. Las frases están en `SUPPORT_PATTERNS` (`api/app/safety/patterns.py`) y el mensaje en `SUPPORT_MESSAGE` (`api/app/safety/input_filter.py`), ambos marcados como pendientes.
+
+**Qué NO hace (a propósito):** no avisa al tutor, no deriva a ningún teléfono ni servicio, no conserva el mensaje. El mensaje **no incluye números de ayuda** porque no los verifiqué.
+
+**Preguntas para una persona con formación en psicología infantil y protección de la niñez (y para Legal):**
+1. ¿El texto del mensaje es adecuado para niños de 6 a 10 años? ¿Qué debe decir y qué no?
+2. ¿Qué frases deben activarlo y cuáles no? Hoy es conservador: puede activarse con "estoy triste" aunque sea un día malo, y no detecta todo (limitación conocida).
+3. ¿Debe avisarse al tutor? ¿Cómo, sin guardar el contenido del mensaje? ¿Hay deber legal de reportar ante sospecha de maltrato o abuso (Ley 21.430)?
+4. ¿Qué líneas de ayuda en Chile deben mostrarse (verificar vigencia y números con la fuente oficial)?
+5. ¿Se debe registrar solo que "hubo una alerta" (sin texto) para poder auditar? ¿Con qué plazo?
+
+**Qué cambia según la respuesta:** el texto del mensaje, la lista de frases, un posible aviso al tutor, el inventario de datos y la EIPD.
+**Respuesta:** _pendiente_
+
+---
+
 # P3 — Después, con fecha
 
 ## 19. Información al niño (Ley 21.430)

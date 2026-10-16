@@ -20,11 +20,42 @@ PROFANITY_STEMS: tuple[str, ...] = (
     "pendej", "pelotud", "imbecil", "estupid", "idiota", "chucha", "chuchetumare", "verga",
     "cagad", "cagar", "caga", "hdp", "ctm", "csm", "ctmre", "culo", "poto", "jodete", "joder",
     "mamon", "zorra", "perra", "baboso",
+    # jerga chilena adicional
+    "wea", "weas", "weada", "weadas", "huevada", "conchatumadre", "conchetumadre", "hijueputa",
+    "aweonao", "maraco", "maraca",
+    # inglés
+    "fuck", "shit", "bitch", "asshole", "dick", "cunt", "pussy", "whore", "slut", "bastard",
+    "nigg", "fag",
+)  # fmt: skip
+
+# Fragmentos tan fuertes que no tienen uso inocente: se buscan DENTRO de la palabra
+# ("aweonao", "reweon"). Solo para palabras de 5 letras o más.
+PROFANITY_SUBSTRINGS: tuple[str, ...] = (
+    "weon", "hueon", "culiao", "culiad", "conchetum", "conchatum", "conchesum", "hijueputa",
+    "hijodeput", "mierda", "fuck", "shit",
 )  # fmt: skip
 
 # Prefijos demasiado cortos o ambiguos para coincidir por prefijo: solo palabra completa.
 PROFANITY_EXACT_ONLY: frozenset[str] = frozenset(
-    {"hdp", "ctm", "csm", "ctmre", "poto", "caga", "perra", "culia", "concha", "marica"}
+    {
+        "hdp",
+        "ctm",
+        "csm",
+        "ctmre",
+        "poto",
+        "caga",
+        "perra",
+        "culia",
+        "concha",
+        "marica",
+        "wea",
+        "weas",
+        "maraca",
+        "maraco",
+        "dick",
+        "fag",
+        "nigg",
+    }
 )
 
 # --- Temas inapropiados para 6-10 años (sexual, violencia, drogas, apuestas) -----------------
@@ -33,12 +64,58 @@ UNSAFE_TOPIC_STEMS: tuple[str, ...] = (
     "matar", "asesin", "suicid", "morirse", "muerte", "sangre", "arma", "armas", "pistola",
     "cuchillo",
     "droga", "cocaina", "marihuana", "alcohol", "cerveza", "borrach", "cigarr", "fumar",
-    "apuesta", "casino", "secuestr", "bomba", "terroris",
+    "apuesta", "casino", "secuestr", "terroris",
+    "ahorcar", "degollar", "tortur", "violador", "pedofil", "veneno", "explosiv", "balazo",
+    "escopeta", "rifle", "metralleta",
+    # inglés
+    "porn", "sexy", "kill", "murder", "suicide", "cocaine", "nude", "naked", "drugs", "weed",
+    "gun", "guns", "sex",
 )  # fmt: skip
 
 # Palabras que solo cuentan completas: su prefijo aparece en palabras inocentes
 # ("armar", "penetrar").
-UNSAFE_TOPIC_EXACT_ONLY: frozenset[str] = frozenset({"arma", "armas", "pene", "penes"})
+UNSAFE_TOPIC_EXACT_ONLY: frozenset[str] = frozenset(
+    {"arma", "armas", "pene", "penes", "gun", "guns", "sex", "weed", "kill", "nude", "naked"}
+)
+
+# Frases peligrosas que no se pueden detectar por palabra suelta ("bomba de agua" es inocente).
+UNSAFE_TOPIC_PHRASES: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p)
+    for p in (
+        r"\bbomba (atomica|nuclear|molotov|casera|de tiempo)\b",
+        r"\b(hacer|armar|poner|fabricar|construir) (una )?bomba\b",
+        r"\bhow to (make|build) (a )?bomb\b",
+    )
+)
+
+# --- Camino de apoyo: el niño parece estar angustiado o en peligro ----------------------------
+# PROVISIONAL, PENDIENTE DE VALIDACIÓN PROFESIONAL (psicología infantil / protección de la niñez):
+# estas frases y el mensaje que reciben deben ser revisados antes de usar la app con niños reales.
+# Se evalúan ANTES que groserías y datos personales: un niño que pide ayuda no debe recibir un
+# "no puedo hablar de eso". El texto nunca llega a la IA ni se guarda.
+SUPPORT_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p)
+    for p in (
+        r"\b(me )?quiero (morir|morirme|matarme|desaparecer)\b",
+        r"\bme voy a (matar|morir)\b",
+        r"\bno quiero (vivir|seguir viviendo|estar vivo|estar viva)\b",
+        r"\b(quisiera|ojala) (estar muerto|estar muerta|no existir|morir)\b",
+        r"\b(hacerme dano|lastimarme|me (corto|lastimo|hago dano))\b",
+        r"\bme (pegan|pega|golpean|golpea|maltratan|maltrata|castigan|castiga|encierran|"
+        r"amenazan|amenaza)\b",
+        r"\bme (hacen|hace|hizo|hicieron) dano\b",
+        r"\bme (tocan|tocaron|toco|toca)\b.{0,25}\b(cuerpo|partes|privad|desnud)",
+        r"\bme (abusan|abuso|abusaron|abusa)\b",
+        r"\btengo (mucho )?miedo (de|a) (mi|mis|un|una|el|la|los|las)\b",
+        r"\b(estoy|me siento) (muy |super |tan )?(triste|solo|sola|mal|asustado|asustada|"
+        r"deprimido|deprimida)\b",
+        r"\bnadie me (quiere|escucha|ayuda)\b",
+        r"\b(me hacen bullying|me hacen burla|bullying)\b",
+        r"\bi want to die\b",
+        r"\bkill myself\b",
+        r"\b(someone |he |she |they )?(hurts?|hits?|beats?) me\b",
+    )
+)
 
 # --- Intentos de manipular al modelo -------------------------------------------------------
 PROMPT_INJECTION: tuple[re.Pattern[str], ...] = tuple(
@@ -57,6 +134,22 @@ PROMPT_INJECTION: tuple[re.Pattern[str], ...] = tuple(
         r"\b(repite|muestra|dime)\b.{0,25}\b(tus|las) (instruccion|regla)",
         r"\binstrucciones (anteriores|previas)\b",
         r"\bdo anything now\b",
+        # más variantes en español
+        r"\b(desobedece|desobedeceme|no sigas)\b.{0,25}\b(regla|instruccion|indicacion)",
+        r"\b(imagina|haz de cuenta|supon) que (eres|tu eres|no tienes)\b",
+        r"\b(reglas|instrucciones) del sistema\b",
+        r"\b(traduce|resume|copia|imprime)\b.{0,25}\b(tus|las) (instruccion|regla|prompt)",
+        r"\bnuevas? (regla|instruccion)",
+        r"\bresponde (como|sin)\b",
+        # inglés
+        r"\bignore\b.{0,30}\b(instruction|rule|prompt|previous|above|all)",
+        r"\byou are now\b",
+        r"\b(pretend|act) (to be|as|like)\b",
+        r"\b(reveal|show|print|repeat|tell me)\b.{0,25}\b(your|the) "
+        r"(prompt|instruction|rule|system)",
+        r"\b(developer|dan|god) mode\b",
+        r"\bdisregard\b.{0,25}\b(instruction|rule|prompt|previous)",
+        r"\bforget (everything|all|your)\b",
     )
 )
 
@@ -80,6 +173,11 @@ PII_TEXT: tuple[re.Pattern[str], ...] = tuple(
         r"\b(whatsapp|instagram|tiktok|facebook|snapchat|discord|telegram)\b",
         r"\b(mi )?cumpleanos\b",
         r"\bnaci (en|el)\b",
+        r"\bme dicen\b",
+        r"\bmi apodo\b",
+        r"\bmy name is\b",
+        r"\bi live (in|at)\b",
+        r"\bmy (phone|address|school|email)\b",
         r"\b(calle|avenida|pasaje|psje|camino|poblacion|villa|condominio|block|departamento|depto)\b"
         r".{0,40}\d",
     )
@@ -90,6 +188,7 @@ PII_NUMERIC: tuple[re.Pattern[str], ...] = tuple(
     re.compile(p)
     for p in (
         r"[\w.+-]+@[\w-]+\.[\w.-]+",  # correo
+        r"(?<![\w@])@[a-z0-9_.]{3,}",  # usuario de red social (@usuario)
         r"\b[a-z0-9-]+\.(?:com|cl|net|org|io|me|ly|gl|tv|app|xyz)\b",  # dominio
         r"\+\s?56[\s.-]?9?[\s.-]?\d{4}[\s.-]?\d{4}",  # +56 9 1234 5678
         r"(?<!\d)9[\s.-]?\d{4}[\s.-]?\d{4}(?!\d)",  # celular chileno
@@ -115,6 +214,11 @@ ASKS_PERSONAL_DATA: tuple[re.Pattern[str], ...] = tuple(
         r"\bde que (colegio|ciudad|comuna)\b",
         r"\b(manda|mandame|envia|enviame|sube|toma)\b.{0,15}\b(una )?(foto|imagen|video|selfie)\b",
         r"\bquedemos\b|\bnos vemos\b|\bencontremonos\b",
+        r"\b(what is|what's|tell me) your (name|address|phone|school|age)\b",
+        r"\bwhere do you (live|go to school)\b",
+        r"\bhow old are you\b",
+        r"\b(esto|esto es) (es )?(un )?secreto\b",
+        r"\bsecreto\b.{0,30}\b(entre nosotros|solo tu y yo|nadie)\b",
         r"\bno (le )?(digas|cuentes)\b.{0,25}\b(a )?(tus? |tu )?(papa|mama|padres|profe)\b",
     )
 )  # fmt: skip
@@ -143,3 +247,15 @@ MATH_KEYWORD_STEMS: tuple[str, ...] = (
 
 # Sin guion ni barra sueltos: "mamá-papá" no es una señal matemática.
 MATH_SYMBOLS = re.compile(r"[0-9+*=<>%^×÷]")
+
+# --- Salida: formato que nunca debe llegar al niño (enlaces, HTML, imágenes, código) -----------
+UNSAFE_OUTPUT_FORMAT: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p)
+    for p in (
+        r"\]\(",  # enlace o imagen de Markdown: [texto](destino)
+        r"!\[",
+        r"<\s*/?\s*[a-z!][^>]*>",  # etiqueta HTML (no confundir con "3 < 5")
+        r"```",
+        r"\b(mailto|javascript|data|ftp|file):",
+    )
+)

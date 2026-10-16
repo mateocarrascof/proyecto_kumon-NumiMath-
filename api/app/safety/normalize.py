@@ -12,6 +12,16 @@ import unicodedata
 _LEET = str.maketrans(
     {"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s"}
 )
+# Letras cirílicas y griegas que se ven igual que una latina ("рuta" con р cirílica). Se comparan
+# ya en minúsculas. No pretende ser una tabla completa de confundibles: cubre las más usadas.
+_CONFUSABLES = str.maketrans(
+    {
+        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i",
+        "ј": "j", "ѕ": "s", "ԁ": "d", "ӏ": "l", "к": "k", "м": "m", "т": "t", "н": "h",
+        "α": "a", "ε": "e", "ι": "i", "ο": "o", "ρ": "p", "υ": "u", "ν": "v", "τ": "t",
+        "κ": "k", "χ": "x", "μ": "u",
+    }
+)  # fmt: skip
 _WORD = re.compile(r"[a-zñ]+")
 _REPEATS = re.compile(r"(.)\1{2,}")
 
@@ -35,7 +45,7 @@ def to_matching_text(text: str) -> str:
 
     `ñ` se conserva como `n` para que "weón" y "weon" coincidan.
     """
-    base = strip_accents(clean(text).casefold())
+    base = strip_accents(clean(text).casefold()).translate(_CONFUSABLES)
     return base.translate(_LEET)
 
 

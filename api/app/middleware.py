@@ -6,6 +6,7 @@ No registra rutas con parámetros, consultas ni cuerpos: solo la plantilla de la
 
 from __future__ import annotations
 
+import json
 import re
 import time
 import uuid
@@ -58,3 +59,62 @@ class RequestContextMiddleware:
                 status=status_holder["status"],
                 duration_ms=round((time.perf_counter() - started) * 1000),
             )
+
+
+_BODY_METHODS = frozenset({"POST", "PUT", "PATCH"})
+
+
+class BodySizeLimitMiddleware:
+    """Rechaza cuerpos demasiado grandes ANTES de leerlos.
+
+    Política simple y a prueba de trampas: las peticiones con cuerpo deben declarar
+    `Content-Length` (411 si no) y no pasar de `max_bytes` (413). El servidor HTTP no entrega más
+    bytes que los declarados, así que no hace falta contarlos mientras llegan.
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def _reject(self, scope: Scope, send: Send, status: int, code: str) -> None:
+        request_id = scope.get("state", {}).get("request_id", "")
+        message = {
+            "payload_too_large": "El mensaje es demasiado grande.",
+            "length_required": "Falta el tamaño del mensaje.",
+        }[code]
+        body = json.dumps(
+            {"error": {"code": code, "message": message, "request_id": request_id}}
+        ).encode()
+        log_event(logger, "request.rejected", code=code)
+        await send(
+            {
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                    (b"connection", b"close"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("method") not in _BODY_METHODS:
+            await self.app(scope, receive, send)
+            return
+        length: int | None = None
+        for name, value in scope.get("headers", []):
+            if name == b"content-length":
+                try:
+                    length = int(value)
+                except ValueError:
+                    length = -1
+                break
+        if length is None or length < 0:
+            await self._reject(scope, send, 411, "length_required")
+            return
+        if length > self.max_bytes:
+            await self._reject(scope, send, 413, "payload_too_large")
+            return
+        await self.app(scope, receive, send)

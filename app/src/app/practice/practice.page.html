@@ -42,8 +42,10 @@
               placeholder="Tu respuesta"
               [value]="answer"
               (ionInput)="onAnswerInput($any($event.target).value)"
+              (keyup.enter)="submit()"
             ></ion-input>
-            <ion-button type="submit" expand="block" [disabled]="!canSubmit">Responder</ion-button>
+            <!-- Sin [disabled]: submit() ya ignora una respuesta vacía y el botón responde de inmediato. -->
+            <ion-button type="submit" expand="block" [class.dim]="!canSubmit">Responder</ion-button>
           </form>
         } @else {
           <div class="result" [class.ok]="result.correct" role="status">

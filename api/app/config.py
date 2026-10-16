@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
@@ -13,7 +14,11 @@ class Settings(BaseSettings):
     """Todas las claves son `SecretStr`: no aparecen en `repr`, logs ni errores."""
 
     model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", populate_by_name=True, case_sensitive=False
+        # Siempre el archivo de la carpeta api/, sin importar desde dónde se arranque el servidor.
+        env_file=str(Path(__file__).resolve().parents[1] / ".env"),
+        extra="ignore",
+        populate_by_name=True,
+        case_sensitive=False,
     )
 
     app_env: Literal["local", "test", "production"] = "local"

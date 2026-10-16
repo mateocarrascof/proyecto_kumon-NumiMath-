@@ -13,6 +13,7 @@ import {
 const ERRORS: Record<string, string> = {
   expired: 'Ese ejercicio ya venció. Te doy otro.',
   already_answered: 'Ese ejercicio ya estaba respondido. Te doy otro.',
+  session: 'Tu sesión no es válida, vuelve a iniciar sesión.',
   forbidden: 'No tienes acceso a este perfil. Vuelve a Perfiles e inténtalo de nuevo.',
   unavailable: 'No pude verificar el acceso. Inténtalo en un momento.',
   network: 'No pude conectar con el servidor. ¿Está encendido?',

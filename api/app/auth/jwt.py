@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import jwt
-from jwt import PyJWKClient
 
+from app.auth.jwks import CachedJwksClient
 from app.config import Settings
 
 _ASYMMETRIC_ALGS = frozenset({"ES256", "RS256", "EdDSA"})
@@ -53,12 +53,10 @@ class TokenVerifier:
         self._audience = settings.jwt_audience
         self._issuer = settings.expected_issuer
         self._leeway = 10  # segundos de tolerancia por diferencia de reloj
-        if jwks_client is not None:
-            self._jwks: JwksClient | None = jwks_client
-        elif settings.supabase_jwks_url:
-            self._jwks = PyJWKClient(settings.supabase_jwks_url, cache_keys=True, lifespan=300)
-        else:
-            self._jwks = None
+        # JWKS: la URL configurada o, por defecto, la del propio Supabase (`<SUPABASE_URL>/auth/v1/
+        # .well-known/jwks.json`), que es de donde sale el `iss` esperado. No se pide nada a la red
+        # hasta que llegue el primer token con algoritmo asimétrico.
+        self._jwks: JwksClient = jwks_client or CachedJwksClient(settings.expected_jwks_url)
 
     def verify(self, token: str) -> AuthenticatedTutor:
         try:
@@ -73,12 +71,15 @@ class TokenVerifier:
                 raise InvalidToken("alg_not_allowed")
             key = self._secret
         elif alg in _ASYMMETRIC_ALGS:
-            if self._jwks is None:
-                raise InvalidToken("alg_not_allowed")
             try:
-                key = self._jwks.get_signing_key_from_jwt(token).key
+                signing_key = self._jwks.get_signing_key_from_jwt(token)
             except jwt.PyJWTError as exc:
                 raise InvalidToken("unknown_key") from exc
+            # Si el JWKS declara el algoritmo de la clave, el token debe usar exactamente ese.
+            declared = getattr(signing_key, "algorithm_name", None)
+            if declared is not None and declared != alg:
+                raise InvalidToken("alg_not_allowed")
+            key = signing_key.key
         else:
             raise InvalidToken("alg_not_allowed")
 

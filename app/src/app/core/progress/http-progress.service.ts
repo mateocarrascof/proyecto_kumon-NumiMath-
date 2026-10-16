@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -22,7 +22,7 @@ export class HttpProgressService extends ProgressPort {
 
   async get(studentId: string): Promise<Progress> {
     const token = await this.auth.accessToken();
-    if (!token) throw new PracticeError('forbidden');
+    if (!token) throw new PracticeError('session');
     try {
       const dto = await firstValueFrom(
         this.http.get<ProgressDto>(
@@ -42,7 +42,12 @@ export class HttpProgressService extends ProgressPort {
           answeredAt: r.answered_at,
         })),
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpErrorResponse) {
+        if (error.status === 401) throw new PracticeError('session');
+        if (error.status === 403) throw new PracticeError('forbidden');
+        if (error.status === 0) throw new PracticeError('network');
+      }
       throw new PracticeError('unavailable');
     }
   }

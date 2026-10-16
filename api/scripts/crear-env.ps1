@@ -65,15 +65,26 @@ function New-Secret { $b = New-Object byte[] 48; [System.Security.Cryptography.R
 $null = Set-Var 'EXERCISE_SIGNING_KEY' (New-Secret)
 
 # 5. Llaves locales de Supabase
-try {
-    $status = supabase status -o env 2>$null
-    $map = @{}
-    foreach ($l in $status) { if ($l -match '^([A-Z_]+)="?([^"]*)"?$') { $map[$Matches[1]] = $Matches[2] } }
-    if ($map['SERVICE_ROLE_KEY']) { $null = Set-Var 'SUPABASE_SERVICE_ROLE_KEY' $map['SERVICE_ROLE_KEY'] }
-    if ($map['JWT_SECRET']) { $null = Set-Var 'SUPABASE_JWT_SECRET' $map['JWT_SECRET'] }
-    if ($map['ANON_KEY']) { Write-Host "ANON_KEY local (va en la app, no es secreta): ver 'supabase status'." }
-} catch {
-    Write-Host "Aviso: no pude leer 'supabase status'. ¿Está encendida la base local?" -ForegroundColor Yellow
+# Ojo: el CLI escribe avisos (p. ej. "hay una versión nueva") por stderr; con 'Stop' PowerShell 5.1
+# los convierte en error y abortaba la lectura sin avisar. Aquí se tolera y se verifica el resultado.
+$prevPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$status = & supabase status -o env 2>$null
+$ErrorActionPreference = $prevPreference
+$map = @{}
+foreach ($l in $status) {
+    if ("$l" -match '^([A-Z_]+)="?([^"]*)"?$') { $map[$Matches[1]] = $Matches[2] }
+}
+if ($map['SERVICE_ROLE_KEY']) { $null = Set-Var 'SUPABASE_SERVICE_ROLE_KEY' $map['SERVICE_ROLE_KEY'] }
+if ($map['JWT_SECRET']) { $null = Set-Var 'SUPABASE_JWT_SECRET' $map['JWT_SECRET'] }
+$faltan = @()
+foreach ($name in 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET') {
+    if (-not (Get-Value $name)) { $faltan += $name }
+}
+if ($faltan.Count -gt 0) {
+    Write-Host ('FALTAN en api/.env: ' + ($faltan -join ', ') + '. Enciende la base con "supabase start" y vuelve a ejecutar este script.') -ForegroundColor Red
+} else {
+    Write-Host 'Llaves locales de Supabase listas en api/.env.'
 }
 
 # 6. Clave de Gemini (entrada oculta, opcional)

@@ -18,6 +18,7 @@ export interface AnswerResult {
 
 export type PracticeErrorCode =
   | 'expired'
+  | 'session'
   | 'already_answered'
   | 'forbidden'
   | 'unavailable'

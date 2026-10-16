@@ -82,6 +82,13 @@ class Settings(BaseSettings):
         return origins
 
     @property
+    def expected_jwks_url(self) -> str:
+        return (
+            self.supabase_jwks_url
+            or self.supabase_url.rstrip("/") + "/auth/v1/.well-known/jwks.json"
+        )
+
+    @property
     def expected_issuer(self) -> str:
         return self.jwt_issuer or self.supabase_url.rstrip("/") + "/auth/v1"
 

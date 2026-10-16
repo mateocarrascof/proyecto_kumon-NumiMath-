@@ -70,6 +70,18 @@ describe('HttpPracticeService', () => {
     expect(await second).toBe('expired');
   });
 
+  it('401 = sesión no válida y 403 = sin acceso al perfil (mensajes distintos)', async () => {
+    const { service, http } = setup();
+    const a = service.topics('perfil-1').catch((e: PracticeError) => e.code);
+    await tick();
+    http.expectOne(`${BASE}/topics`).flush({}, { status: 401, statusText: 'Unauthorized' });
+    expect(await a).toBe('session');
+    const b = service.topics('perfil-1').catch((e: PracticeError) => e.code);
+    await tick();
+    http.expectOne(`${BASE}/topics`).flush({}, { status: 403, statusText: 'Forbidden' });
+    expect(await b).toBe('forbidden');
+  });
+
   it('sin sesión no llama al servidor', async () => {
     const { service, http } = setup(null);
     await expect(service.topics('perfil-1')).rejects.toBeInstanceOf(PracticeError);

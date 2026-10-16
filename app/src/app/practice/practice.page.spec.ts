@@ -95,6 +95,16 @@ describe('PracticePage', () => {
     expect(port.newExercise).toHaveBeenCalledTimes(2);
   });
 
+  it('un 401 dice que la sesión no es válida, no que falta acceso al perfil', async () => {
+    const { page } = setup({
+      topics: vi.fn(async () => {
+        throw new PracticeError('session');
+      }),
+    });
+    await page.ngOnInit();
+    expect(page.error).toBe('Tu sesión no es válida, vuelve a iniciar sesión.');
+  });
+
   it('si no hay red, muestra un mensaje amable', async () => {
     const { page } = setup({
       topics: vi.fn(async () => {

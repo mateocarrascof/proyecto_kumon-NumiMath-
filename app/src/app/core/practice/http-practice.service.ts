@@ -31,7 +31,7 @@ export class HttpPracticeService extends PracticePort {
 
   private async call<T>(request: (headers: Record<string, string>) => Promise<T>): Promise<T> {
     const token = await this.auth.accessToken();
-    if (!token) throw new PracticeError('forbidden');
+    if (!token) throw new PracticeError('session');
     try {
       return await request({ Authorization: `Bearer ${token}` });
     } catch (error) {
@@ -47,7 +47,8 @@ export class HttpPracticeService extends PracticePort {
       return new PracticeError('already_answered');
     }
     if (code === 'exercise_invalid') return new PracticeError('expired');
-    if (error.status === 401 || error.status === 403) return new PracticeError('forbidden');
+    if (error.status === 401) return new PracticeError('session');
+    if (error.status === 403) return new PracticeError('forbidden');
     return new PracticeError('unavailable');
   }
 

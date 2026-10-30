@@ -135,16 +135,20 @@ class OutputGuard:
         self._buffer = ""
         return self.violation
 
-    def _emit(self, sentences: list[str], sentence: str) -> Violation | None:
+    def _emit(self, sentences: list[str], sentence: str, newline: bool = False) -> Violation | None:
         problem = check_sentence(sentence)
         if problem is not None:
             return self._close(problem.reason)
-        if self._emitted_chars + len(sentence) > MAX_TOTAL_CHARS:
+        # El salto cuenta como un carácter más: muchas líneas cortas no pueden alargar la burbuja
+        # más allá del tope total.
+        size = len(sentence) + (1 if newline else 0)
+        if self._emitted_chars + size > MAX_TOTAL_CHARS:
             return self._close("output_too_long")
-        self._emitted_chars += len(sentence)
+        self._emitted_chars += size
         cleaned = strip_markdown(sentence)
         if cleaned:
-            sentences.append(cleaned)
+            # El salto final indica a la app que la línea termina aquí.
+            sentences.append(cleaned + "\n" if newline else cleaned)
         return None
 
     def feed(self, chunk: str) -> tuple[list[str], Violation | None]:
@@ -160,10 +164,23 @@ class OutputGuard:
                 break
             end = match.end()
             sentence = self._buffer[:end].strip()
-            self._buffer = self._buffer[end:].lstrip()
+            rest = self._buffer[end:]
+            spacing = rest[: len(rest) - len(rest.lstrip())]
+            # ¿La oración cierra una línea? Se conserva el salto (un paso por línea en la burbuja).
+            # Solo cambia la presentación: la oración se valida igual, sin el salto.
+            newline = "\n" in match.group() or "\n" in spacing
+            if not newline and not rest.strip():
+                # Tras ". " todavía no se sabe si viene un salto en el próximo fragmento: la entrega
+                # espera (si no llega nada más, `flush` la entrega), pero se valida YA, para cortar
+                # en el mismo momento que antes si es insegura.
+                problem = check_sentence(sentence) if sentence else None
+                if problem is not None:
+                    return sentences, self._close(problem.reason)
+                break
+            self._buffer = rest.lstrip()
             if not sentence:
                 continue
-            violation = self._emit(sentences, sentence)
+            violation = self._emit(sentences, sentence, newline)
             if violation is not None:
                 return sentences, violation
 

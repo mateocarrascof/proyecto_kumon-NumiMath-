@@ -213,7 +213,12 @@ select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-0000000
 set local role authenticated;
 select is((select count(*) from public.students), 4::bigint,
   'bajar el tope por debajo del conteo no oculta los alumnos existentes');
-select lives_ok($$delete from public.students where nickname = 'M1'$$, 'sí se pueden borrar alumnos');
+reset role;
+set local role service_role;
+select is(public.delete_student('eeeeeeee-0000-0000-0000-000000000014',
+  (select id from public.students where tutor_id = 'eeeeeeee-0000-0000-0000-000000000014' and nickname = 'M1')),
+  'ok', 'sí se pueden borrar alumnos (vía servidor)');
+set local role authenticated;
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('eeeeeeee-0000-0000-0000-000000000014', 'M7', 1, true)$$,
   'P0001', 'student_limit_reached', 'con el conteo sobre el tope solo se bloquean las altas');

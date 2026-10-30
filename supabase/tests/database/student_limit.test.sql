@@ -54,9 +54,12 @@ select throws_ok(
   'P0001', 'student_limit_reached', 'los perfiles bloqueados cuentan para el tope');
 
 -- ===== Borrar libera cupo =====
-select lives_ok(
-  $$delete from public.students where tutor_id = 'aaaaaaaa-0000-0000-0000-000000000001' and nickname = 'Alumno1'$$,
-  'A borra un perfil (aunque esté bloqueado)');
+reset role;
+set local role service_role;
+select is(public.delete_student('aaaaaaaa-0000-0000-0000-000000000001',
+  (select id from public.students where tutor_id = 'aaaaaaaa-0000-0000-0000-000000000001' and nickname = 'Alumno1')),
+  'ok', 'A borra un perfil (aunque esté bloqueado), vía servidor');
+set local role authenticated;
 select lives_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', 'Reemplazo', 1, true)$$,
   'al borrar uno queda cupo para crear otro');

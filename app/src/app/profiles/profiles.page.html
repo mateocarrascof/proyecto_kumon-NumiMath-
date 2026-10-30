@@ -3,92 +3,85 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/home" text="Inicio"></ion-back-button>
     </ion-buttons>
-    <ion-title>Perfiles de niños</ion-title>
+    <ion-title class="centered">¿Quién practica?</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
   <main class="profiles">
-    <p class="count">{{ profiles.length }} de {{ max }} perfiles</p>
+    <div class="hero">
+      <app-mascot [state]="mascot.state()" [message]="message"></app-mascot>
+    </div>
 
     @if (loading) {
       <ion-spinner name="dots"></ion-spinner>
     }
 
-    @if (!loading && profiles.length === 0 && !showForm) {
-      <p class="empty">Todavía no hay perfiles. Crea uno para empezar a practicar.</p>
-    }
-
-    <ul class="list">
-      @for (p of profiles; track p.id) {
-        <li class="card" [attr.data-testid]="'profile-' + p.nickname">
-          <div class="who">
-            <strong>{{ p.nickname }}</strong>
-            <span>{{ p.grade }}° básico</span>
-            @if (p.blocked) { <span class="blocked">Bloqueado</span> }
-          </div>
-          @if (pendingDelete === p.id) {
-            <div class="confirm">
-              <span>¿Borrar este perfil y sus datos?</span>
-              <ion-button size="small" color="danger" (click)="confirmDelete()">Sí, borrar</ion-button>
-              <ion-button size="small" fill="outline" (click)="pendingDelete = null">No</ion-button>
-            </div>
-          } @else {
-            <div class="actions">
-              <ion-button size="small" [disabled]="p.blocked" (click)="practice(p.id)">Practicar</ion-button>
-              <ion-button size="small" fill="outline" (click)="progress(p.id)">Progreso</ion-button>
-              <ion-button size="small" fill="clear" color="danger" (click)="askDelete(p.id)">Borrar</ion-button>
-            </div>
-          }
-        </li>
-      }
-    </ul>
-
-    @if (!showForm) {
-      <ion-button expand="block" [disabled]="full" (click)="openForm()">Crear perfil</ion-button>
-      @if (full) { <p class="hint">Llegaste al máximo de perfiles. Borra uno para crear otro.</p> }
-    } @else {
-      <form class="form" (ngSubmit)="create()" novalidate>
-        <h2>Nuevo perfil</h2>
-        <ion-item>
-          <ion-input
-            label="Apodo (no uses el nombre real completo)"
-            labelPlacement="floating"
-            name="nickname"
-            [maxlength]="nicknameMax"
-            [(ngModel)]="nickname"
-          ></ion-input>
-        </ion-item>
-        <ion-segment [(ngModel)]="grade" name="grade" aria-label="Curso">
-          @for (g of grades; track g) {
-            <ion-segment-button [value]="g"><ion-label>{{ g }}° básico</ion-label></ion-segment-button>
-          }
-        </ion-segment>
-
-        @if (declaration) {
-          <section class="decl" aria-label="Declaración del adulto">
-            <app-legal-text [text]="declaration.text"></app-legal-text>
-          </section>
-          <ion-checkbox
-            [(ngModel)]="declared"
-            name="declared"
-            labelPlacement="end"
-            justify="start"
-            [disabled]="!declaration.verified"
-          >
-            Hago esta declaración ({{ declaration.version }}).
-          </ion-checkbox>
-        }
-
-        <ion-button type="submit" expand="block" [disabled]="busy">
-          {{ busy ? 'Creando…' : 'Guardar perfil' }}
-        </ion-button>
-        <ion-button fill="clear" expand="block" (click)="cancelForm()">Cancelar</ion-button>
-      </form>
-    }
-
     @if (error) {
       <p class="error" role="alert">{{ error }}</p>
+    }
+
+    @if (!loading && !error && !cards.length) {
+      <p class="empty" data-testid="no-profiles">
+        Pide a un adulto que cree tu perfil en el <strong>Panel del tutor</strong>.
+      </p>
+    }
+
+    <!-- Carrusel: la tarjeta del centro es la elegida. Tocar una del lado la centra; tocar la del
+         centro (o "¡A practicar!") entra. Se desliza con el dedo, las flechas o los puntos. -->
+    @if (cards.length) {
+      <div class="carousel" [class.single]="cards.length === 1" role="region"
+        aria-roledescription="carrusel" aria-label="Perfiles" (keydown)="onKey($event)">
+        <ul class="kids" data-testid="carousel-track" (scroll)="onScroll()">
+          @for (c of cards; track c.profile.id; let i = $index) {
+            <li [class.active]="i === active" [style.--delay]="i * 80 + 'ms'">
+              <div
+                class="kid-card"
+                role="group"
+                [attr.aria-label]="cardLabel(c, i)"
+                [attr.data-tone]="c.avatar.tone"
+                [class.paused]="c.profile.blocked"
+                [attr.data-testid]="'kid-' + c.profile.nickname"
+                (click)="select(i)"
+              >
+                <span class="animal" aria-hidden="true">{{ c.avatar.emoji }}</span>
+                <strong class="name">{{ c.profile.nickname }}</strong>
+                <span class="grade">{{ c.profile.grade }}° básico</span>
+                @if (c.profile.blocked) {
+                  <span class="chip">En pausa</span>
+                } @else if (c.days !== null) {
+                  <span class="chip streak"><span aria-hidden="true">🔥</span> {{ daysLabel(c.days) }}</span>
+                }
+                @if (i === active && !c.profile.blocked) {
+                  <button type="button" class="go-btn" (click)="practice(c); $event.stopPropagation()"
+                    data-testid="practice-btn">¡A practicar!</button>
+                  <button type="button" class="progress-btn" (click)="progress(c, $event)">
+                    <span aria-hidden="true">⭐</span> Mi progreso
+                  </button>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+        @if (cards.length > 1) {
+          <!-- Navegación bajo las tarjetas: ‹ puntos › (no tapan ninguna tarjeta). -->
+          <div class="nav-row">
+            <button type="button" class="arrow" aria-label="Perfil anterior" [disabled]="active === 0"
+              (click)="goTo(active - 1)" data-testid="carousel-prev"><span aria-hidden="true">‹</span></button>
+            <div class="dots" role="group" aria-label="Elegir perfil">
+              @for (c of cards; track c.profile.id; let i = $index) {
+                <button type="button" class="dot" [class.on]="i === active"
+                  [attr.aria-current]="i === active ? 'true' : null"
+                  [attr.aria-label]="'Ir al perfil de ' + c.profile.nickname"
+                  (click)="goTo(i)" data-testid="carousel-dot"></button>
+              }
+            </div>
+            <button type="button" class="arrow" aria-label="Perfil siguiente"
+              [disabled]="active === cards.length - 1" (click)="goTo(active + 1)"
+              data-testid="carousel-next"><span aria-hidden="true">›</span></button>
+          </div>
+        }
+      </div>
     }
   </main>
 </ion-content>

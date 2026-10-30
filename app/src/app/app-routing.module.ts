@@ -3,6 +3,7 @@ import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
 
 import { authGuard, guestGuard } from './core/auth/auth.guard';
 import { consentGuard } from './core/consent/consent.guard';
+import { parentalGuard } from './core/parental/parental.guard';
 
 const routes: Routes = [
   {
@@ -34,6 +35,22 @@ const routes: Routes = [
     path: 'progreso/:id',
     canActivate: [authGuard, consentGuard],
     loadChildren: () => import('./progress/progress.module').then((m) => m.ProgressPageModule),
+  },
+  {
+    path: 'tareas/:id',
+    canActivate: [authGuard, consentGuard],
+    loadChildren: () => import('./kid-tasks/kid-tasks.module').then((m) => m.KidTasksPageModule),
+  },
+  {
+    path: 'pin',
+    canActivate: [authGuard, consentGuard],
+    loadChildren: () => import('./pin/pin.module').then((m) => m.PinPageModule),
+  },
+  {
+    path: 'panel',
+    canActivate: [authGuard, consentGuard, parentalGuard],
+    loadChildren: () =>
+      import('./tutor-panel/tutor-panel.module').then((m) => m.TutorPanelPageModule),
   },
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: '**', redirectTo: 'home' },

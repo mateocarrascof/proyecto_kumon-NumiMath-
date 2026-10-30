@@ -40,6 +40,7 @@ Fase posterior: Profesor, reportes, gamificación. Administrador: gestión de us
 ## Arquitectura (decisiones que no se ven en el código)
 - RLS por tutor es la frontera de seguridad principal; FastAPI valida el JWT de Supabase y comprueba que el alumno pertenezca al tutor.
 - Streaming de respuestas de IA con límites por perfil y por día, y tope de costo por tutor.
+- Catálogo curricular (habilidades, niveles, prerrequisitos y OA de 1° a 4°): definido en `docs/MAPA_CURRICULAR_MATEMATICA_1A4.md` y `docs/habilidades_1a4_basico.csv`. No inventar códigos de habilidad ni de objetivos de aprendizaje (OA); usar solo los de esos archivos.
 - Contenido pedagógico propio o con licencia (Ley 17.336). Registrar la autoría de mascota, ilustraciones y voces.
 
 ## Contexto legal (apoyo técnico, no asesoría legal)

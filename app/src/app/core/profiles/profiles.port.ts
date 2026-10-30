@@ -12,11 +12,15 @@ export type CreateFailure = 'limit' | 'consent' | 'nickname' | 'network' | 'unkn
 
 export type CreateResult = { ok: true; profile: Profile } | { ok: false; reason: CreateFailure };
 
+/** Borrar: `pin` = falta el PIN o venció; `not_found` = ya no existe. */
+export type RemoveResult = 'ok' | 'pin' | 'not_found' | 'error';
+
 export const MAX_PROFILES = 5;
 export const NICKNAME_MAX = 30;
 
 export abstract class ProfilesPort {
   abstract list(): Promise<Profile[]>;
   abstract create(nickname: string, grade: Grade): Promise<CreateResult>;
-  abstract remove(id: string): Promise<boolean>;
+  /** Solo desde la zona del tutor: pasa por la API con el token del PIN. */
+  abstract remove(id: string): Promise<RemoveResult>;
 }

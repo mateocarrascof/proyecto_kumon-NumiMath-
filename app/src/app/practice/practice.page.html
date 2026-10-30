@@ -4,12 +4,22 @@
       <ion-back-button defaultHref="/perfiles" text="Perfiles"></ion-back-button>
     </ion-buttons>
     <ion-title>Practicar</ion-title>
+    @if (dailyLoaded) {
+      <div slot="end" class="streak-badge" [class.today]="practicedToday" role="status"
+        [attr.aria-label]="'Racha: ' + daysLabel(dailyStreak)" data-testid="streak-badge">
+        <span aria-hidden="true">🔥</span> {{ dailyStreak }}
+      </div>
+    }
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
-  <main class="practice">
-    <app-mascot [state]="mascot.state()"></app-mascot>
+  <main class="practice" [class.in-exercise]="!!topic">
+    <app-confetti [burst]="confetti" [count]="confettiCount"></app-confetti>
+    <!-- Mientras explica, Numi "baja" junto a su explicación: siempre hay una sola Numi en pantalla. -->
+    @if (explainState === 'idle') {
+      <app-mascot [state]="mascot.state()" [message]="message" data-testid="mascot-top"></app-mascot>
+    }
 
     @if (loading) {
       <ion-spinner name="dots"></ion-spinner>
@@ -17,23 +27,103 @@
 
     @if (!loading && !topic) {
       <h1>¿Qué quieres practicar?</h1>
-      <ul class="topics">
-        @for (t of topics; track t.id) {
-          <li>
-            <ion-button expand="block" fill="outline" (click)="choose(t)">{{ t.label }}</ion-button>
-          </li>
+      @if (dailyLoaded) {
+        <p class="daily-line">
+          <span aria-hidden="true">🔥</span> <strong>{{ daysLabel(dailyStreak) }}</strong>
+          @if (dailyHint) { <span class="daily-hint">{{ dailyHint }}</span> }
+        </p>
+      }
+      <button type="button" class="topic-card tasks-card" data-tone="yellow" (click)="openTasks()" data-testid="tasks-card">
+        <span class="topic-icon" aria-hidden="true">📌</span>
+        <span class="topic-label">Tareas de tu tutor</span>
+        @if (tasks.length) {
+          <span class="tasks-count" [attr.aria-label]="tasks.length + ' por hacer'">{{ tasks.length }}</span>
         }
-      </ul>
+        <span class="topic-go" aria-hidden="true">›</span>
+      </button>
+      <!-- Baldosas por eje: cada eje con su color e ícono fijos. Ninguna habilidad tiene candado. -->
+      <app-skill-tiles [groups]="ownGroups" (pick)="choose($event)"></app-skill-tiles>
+      @if (reviewTopics.length) {
+        <ion-button class="review-toggle" fill="outline" expand="block" [attr.aria-expanded]="showReview"
+          (click)="toggleReview()" data-testid="review-toggle">
+          <span aria-hidden="true">🔁</span>&nbsp;{{ showReview ? 'Ocultar repaso' : 'Repasar cursos anteriores' }}
+        </ion-button>
+        @if (showReview) {
+          <div data-testid="review-list">
+            <app-skill-tiles [groups]="reviewGroups" titlePrefix="Repaso de " [showMastered]="false"
+              (pick)="choose($event)"></app-skill-tiles>
+          </div>
+        }
+      }
     }
 
     @if (topic) {
-      <p class="topic">{{ topic.label }} · {{ correctCount }} de {{ total }} correctas</p>
+      <div class="topic-bar">
+        <div class="stars" role="img" [attr.aria-label]="streak + ' seguidas'">
+          @for (s of starSlots; track s) {
+            <span class="star" [class.on]="s < filledStars" aria-hidden="true">★</span>
+          }
+        </div>
+        <!-- "0 de 0 correctas" no dice nada al empezar: el marcador aparece con la primera respuesta. -->
+        @if (total > 0) {
+          <span class="score">{{ correctCount }} de {{ total }} correctas</span>
+        }
+        @if (medals > 0) {
+          <span class="medals" [attr.aria-label]="medals + ' medallas'"><span aria-hidden="true">🏅</span> {{ medals }}</span>
+        }
+      </div>
+
+      @if (medalNow) {
+        <div class="medal" role="status">
+          <span class="medal-icon" aria-hidden="true">🏅</span>
+          <strong>¡Medalla! {{ streak }} seguidas</strong>
+        </div>
+      }
+
+      @if (levelUpNow) {
+        <div class="medal level-up" role="status">
+          <span class="medal-icon" aria-hidden="true">🚀</span>
+          <strong>¡Subiste de nivel!</strong>
+        </div>
+      }
+
+      @if (masteredNow) {
+        <div class="medal level-up" role="status" data-testid="mastered">
+          <span class="medal-icon" aria-hidden="true">🏆</span>
+          <strong>¡Dominaste {{ topic.label }}!</strong>
+        </div>
+      }
+
+      @if (dayStreakNow) {
+        <div class="medal day-streak" role="status">
+          <span class="medal-icon" aria-hidden="true">🔥</span>
+          <strong>¡{{ daysLabel(dailyStreak) }}!</strong>
+        </div>
+      }
 
       @if (exercise) {
-        <p class="exercise" data-testid="exercise-text">{{ exercise.text }}</p>
+        <div class="exercise-card">
+          <p class="exercise-topic">
+            <span class="topic-name" data-testid="topic-name">{{ topic.label }}</span>
+            <app-gentle-timer [resetKey]="exercise.token" [running]="!result"></app-gentle-timer>
+            @if (!taskMode) {
+              <span class="level" [attr.aria-label]="'Nivel ' + exercise.level + ' de 3'" data-testid="level">
+                <span aria-hidden="true">{{ levelStars(exercise.level) }}</span>
+              </span>
+              <span class="block" data-testid="block"
+                [attr.aria-label]="'Ejercicio ' + ((exercise.blockDone ?? 0) + 1) + ' de ' + (exercise.blockSize ?? 10) + ' de este nivel'">
+                <span aria-hidden="true">🎯 {{ (exercise.blockDone ?? 0) + 1 }}/{{ exercise.blockSize ?? 10 }}</span>
+              </span>
+            }
+          </p>
+          <p class="exercise" [class.long]="exercise.text.length > 24" data-testid="exercise-text"><app-math-text [text]="exercise.text"></app-math-text></p>
+        </div>
 
         @if (!result) {
           <form (ngSubmit)="submit()" novalidate>
+            @if (fractionMode) {
+              <app-fraction-input [(value)]="fraction" (submitted)="submit()"></app-fraction-input>
+            } @else {
             <ion-input
               class="answer"
               type="text"
@@ -44,22 +134,97 @@
               (ionInput)="onAnswerInput($any($event.target).value)"
               (keyup.enter)="submit()"
             ></ion-input>
+            }
             <!-- Sin [disabled]: submit() ya ignora una respuesta vacía y el botón responde de inmediato. -->
             <ion-button type="submit" expand="block" [class.dim]="!canSubmit">Responder</ion-button>
           </form>
         } @else {
           <div class="result" [class.ok]="result.correct" role="status">
             @if (result.correct) {
-              <strong>¡Correcto! 🎉</strong>
+              <span class="result-icon" aria-hidden="true">🎉</span>
+              <strong>¡Correcto!</strong>
+              @if (result.simplified) {
+                <span data-testid="simplified">También se puede escribir
+                  <app-math-text [text]="result.simplified.num + '/' + result.simplified.den"></app-math-text></span>
+              }
             } @else {
-              <strong>Casi. La respuesta era {{ result.correctAnswer }}.</strong>
+              <span class="result-icon" aria-hidden="true">💪</span>
+              <!-- Sin culpa: nunca "mal", "incorrecto" ni "fallaste". Con la explicación abierta, el
+                   ánimo lo da Numi y aquí queda solo el dato. -->
+              @if (explainState === 'idle' || explainState === 'error') {
+                <strong data-testid="result-text">Casi. La respuesta era <app-math-text [text]="correctText(result)"></app-math-text>.</strong>
+                @if (canExplain && explainState === 'idle') {
+                  <span data-testid="explain-hint">¿Quieres ver cómo se&nbsp;hace?&nbsp;<span aria-hidden="true">👇</span></span>
+                }
+              } @else {
+                <strong data-testid="result-text">La respuesta era <app-math-text [text]="correctText(result)"></app-math-text>.</strong>
+              }
             }
           </div>
-          <ion-button expand="block" (click)="next()">Siguiente</ion-button>
+          @if (canExplain) {
+            @if (showExplainButton) {
+              <!-- aria-disabled en vez de [disabled]: el foco del teclado no se pierde mientras carga;
+                   explain() ignora el toque si ya hay una petición en curso. -->
+              <ion-button class="explain-btn" expand="block" fill="outline" color="tertiary"
+                [class.dim]="explaining" [attr.aria-disabled]="explaining"
+                (click)="explain()" data-testid="explain-btn">
+                <span aria-hidden="true">💡</span>&nbsp;{{
+                  explaining ? 'Numi está pensando…' : explainState === 'error' ? 'Intentar otra vez' : 'Explícame cómo se hace'
+                }}
+              </ion-button>
+            }
+            <!-- Numi pegada a su burbuja: encima en teléfono, a la izquierda en tablet. -->
+            <div class="numi-explain-row" [class.shown]="explainState !== 'idle'" data-testid="explain-row">
+            @if (explainState !== 'idle') {
+              <app-mascot class="numi-explainer" [state]="mascot.state()" data-testid="mascot-explainer"></app-mascot>
+            }
+            <!-- Región siempre presente para que el lector de pantalla anuncie lo que llega. -->
+            <section class="numi-explain" [class.shown]="explainState !== 'idle'" tabindex="-1"
+              aria-live="polite" [attr.aria-busy]="explaining" aria-label="Explicación de Numi"
+              data-testid="explain-bubble">
+              @if (explainState !== 'idle') {
+                <!-- Visible para el lector de pantalla: se lee "Numi dice" antes del texto. -->
+                <p class="numi-name">Numi dice:</p>
+                @if (explainState === 'loading') {
+                  <p class="numi-thinking" data-testid="explain-loading">Numi está pensando…</p>
+                }
+                @if (explainShown) {
+                  <!-- Texto plano por interpolación; los saltos de línea los respeta `white-space: pre-line`. -->
+                  <p class="numi-text" data-testid="explain-text">{{ explainShown }}</p>
+                }
+                @if (explainNotice) {
+                  <p class="numi-notice" data-testid="explain-notice">{{ explainNotice }}</p>
+                }
+              }
+            </section>
+            </div>
+          }
+          <ion-button expand="block" color="secondary" (click)="next()">Siguiente</ion-button>
+        }
+
+        <ion-button
+          class="paper-toggle"
+          fill="outline"
+          expand="block"
+          [attr.aria-expanded]="paperOpen"
+          (click)="togglePaper()"
+        >
+          <span aria-hidden="true">📝</span>&nbsp;{{ paperOpen ? 'Guardar el papel' : 'Papel para calcular' }}
+        </ion-button>
+        @if (paperOpen) {
+          <app-scratchpad [resetKey]="exercise.token"></app-scratchpad>
         }
       }
 
-      <ion-button fill="clear" size="small" (click)="changeTopic()">Cambiar de tema</ion-button>
+      @if (tasksDone) {
+        <div class="medal" role="status" data-testid="tasks-done">
+          <span class="medal-icon" aria-hidden="true">📌</span>
+          <strong>¡Terminaste tus tareas!</strong>
+        </div>
+        <ion-button expand="block" color="secondary" (click)="openTasks()">Ver mis tareas</ion-button>
+      }
+
+      <ion-button fill="clear" (click)="changeTopic()">{{ taskMode ? 'Volver a los temas' : 'Cambiar de tema' }}</ion-button>
     }
 
     @if (error) {

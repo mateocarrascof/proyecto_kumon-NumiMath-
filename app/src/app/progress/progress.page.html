@@ -9,7 +9,7 @@
 
 <ion-content [fullscreen]="true" class="ion-padding">
   <main class="progress">
-    <app-mascot [state]="mascot.state()"></app-mascot>
+    <app-mascot [state]="mascot.state()" [message]="message"></app-mascot>
 
     @if (loading) {
       <ion-spinner name="dots"></ion-spinner>
@@ -20,22 +20,44 @@
     }
 
     @if (progress) {
+      <section class="daily" aria-label="Racha de días">
+        @if (progress.dailyStreak > 0) {
+          <p class="daily-count">
+            <span aria-hidden="true">🔥</span> {{ daysLabel(progress.dailyStreak) }}
+          </p>
+        }
+        @if (dailyHint) {
+          <p class="daily-hint">{{ dailyHint }}</p>
+        }
+      </section>
+
       @if (progress.total === 0) {
         <p class="empty">Todavía no hay intentos. ¡Practica un poco y vuelve!</p>
       } @else {
         <section class="summary" aria-label="Resumen">
-          <div><strong>{{ progress.correct }}</strong><span>de {{ progress.total }} correctas</span></div>
-          <div><strong>{{ percent }}%</strong><span>de aciertos</span></div>
-          <div><strong>{{ progress.streak }}</strong><span>seguidas</span></div>
+          <div data-tone="teal"><strong>{{ progress.correct }}</strong><span>de {{ progress.total }} correctas</span></div>
+          <div data-tone="coral"><strong>{{ percent }}%</strong><span>de aciertos</span></div>
+          <div data-tone="lilac"><strong>{{ progress.streak }}</strong><span>seguidas</span></div>
         </section>
 
+        @if (progress.streak >= streakBadge) {
+          <p class="badge" role="status">
+            <span aria-hidden="true">🔥</span> ¡Racha de {{ progress.streak }} seguidas!
+          </p>
+        }
+
         <h2>Por tema</h2>
-        <ul class="topics">
+        <ul class="topics kid-card">
           @for (t of progress.byTopic; track t.topic) {
             <li>
               <div class="row">
                 <span>{{ t.label }}</span>
-                <span>{{ t.correct }}/{{ t.total }}</span>
+                <span class="topic-stars" role="img" [attr.aria-label]="topicStars(t.correct, t.total) + ' de 3 estrellas'">
+                  @for (s of starSlots; track s) {
+                    <span [class.on]="s < topicStars(t.correct, t.total)" aria-hidden="true">★</span>
+                  }
+                </span>
+                <span class="count">{{ t.correct }}/{{ t.total }}</span>
               </div>
               <ion-progress-bar [value]="ratio(t.correct, t.total)"></ion-progress-bar>
             </li>
@@ -46,7 +68,7 @@
         <ul class="recent">
           @for (r of progress.recent; track $index) {
             <li [class.ok]="r.correct">
-              <span aria-hidden="true">{{ r.correct ? '✔' : '✘' }}</span>
+              <span class="mark" aria-hidden="true">{{ r.correct ? '✔' : '↻' }}</span>
               <span>{{ r.label }}</span>
               <span class="sr-only">{{ r.correct ? 'correcto' : 'incorrecto' }}</span>
             </li>

@@ -1,6 +1,23 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  ElementRef,
+  OnInit,
+  inject,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
+import { NavController } from '@ionic/angular/lazy';
 
+import {
+  AssignmentsPort,
+  PendingAssignment,
+  TutorError,
+} from '../core/assignments/assignments.port';
+import { ExplanationError, ExplanationPort } from '../core/explanation/explanation.port';
+import { KID_ERRORS } from '../core/kid-messages';
+import { PhraseKind, pickPhrase } from '../core/mascot/mascot-phrases';
 import { MascotPort } from '../core/mascot/mascot.port';
 import {
   AnswerResult,
@@ -9,15 +26,132 @@ import {
   PracticePort,
   Topic,
 } from '../core/practice/practice.port';
+import { FractionValue } from '../core/math/fraction-input.component';
+import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
+import { ProgressPort } from '../core/progress/progress.port';
 
 const ERRORS: Record<string, string> = {
-  expired: 'Ese ejercicio ya venció. Te doy otro.',
-  already_answered: 'Ese ejercicio ya estaba respondido. Te doy otro.',
-  session: 'Tu sesión no es válida, vuelve a iniciar sesión.',
-  forbidden: 'No tienes acceso a este perfil. Vuelve a Perfiles e inténtalo de nuevo.',
-  unavailable: 'No pude verificar el acceso. Inténtalo en un momento.',
-  network: 'No pude conectar con el servidor. ¿Está encendido?',
+  ...KID_ERRORS,
+  expired: 'Ese ejercicio se cerró. Aquí va otro.',
+  already_answered: 'Ese ejercicio ya estaba respondido. Aquí va otro.',
+  not_found: 'Esa tarea ya no está. Aquí va la siguiente.',
 };
+
+/** Mensajes de la explicación de Numi: cortos, cálidos y sin culpar al niño. */
+export const EXPLAIN_MESSAGES = {
+  quota: 'Numi necesita descansar por hoy. ¡Sigue practicando mañana!',
+  unavailable: 'Numi no pudo explicarlo ahora. Intenta de nuevo en un rato',
+  interrupted: 'Numi no pudo terminar la explicación. Intenta de nuevo en un rato',
+} as const;
+
+export type ExplainState = 'idle' | 'loading' | 'streaming' | 'done' | 'error';
+
+/** Símbolo decorativo para cada habilidad, elegido por palabras clave del nombre. */
+const TOPIC_ICONS: [RegExp, string][] = [
+  [/calculo mental/, '🧠'],
+  [/patron/, '◆◇'],
+  [/familia|inversa/, '🔄'],
+  [/valor posicional|decenas y unidades|componer/, '🧮'],
+  [/fraccion/, '½'],
+  [/multiplic|tabla/, '×'],
+  [/divi/, '÷'],
+  [/perimetro|area/, '▢'],
+  [/peso|gramo/, '⚖'],
+  [/tiempo|hora/, '⏱'],
+  [/longitud/, '📏'],
+  [/ecuacion|igualdad/, '='],
+  [/compar/, '<>'],
+  [/resta|mitad/, '−'],
+  [/suma|doble|calculo/, '+'],
+  [/numero|contar|valor|decena/, '123'],
+];
+
+/** Sin tildes y en minúsculas, para buscar palabras clave. */
+function plain(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+export function topicIcon(label: string): string {
+  const text = plain(label);
+  return TOPIC_ICONS.find(([pattern]) => pattern.test(text))?.[1] ?? '★';
+}
+
+export type Tone = 'teal' | 'coral' | 'lilac' | 'yellow';
+
+export interface ModuleStyle {
+  tone: Tone;
+  icon: string;
+}
+
+/** Cada eje tiene su color e ícono fijos: el color ayuda a reconocer el eje de un vistazo. */
+const MODULE_STYLES: [RegExp, ModuleStyle][] = [
+  [/numero|operacion/, { tone: 'teal', icon: '🔢' }],
+  [/patron|algebra/, { tone: 'lilac', icon: '🔷' }],
+  [/medicion/, { tone: 'coral', icon: '📏' }],
+  [/geometri/, { tone: 'yellow', icon: '📐' }],
+];
+const DEFAULT_MODULE_STYLE: ModuleStyle = { tone: 'lilac', icon: '★' };
+
+export function moduleStyle(module: string | undefined): ModuleStyle {
+  const text = plain(module ?? '');
+  return MODULE_STYLES.find(([pattern]) => pattern.test(text))?.[1] ?? DEFAULT_MODULE_STYLE;
+}
+
+export interface TopicGroup {
+  /** Nombre del grupo: el eje, o el curso en el repaso ("2° básico"). */
+  title: string;
+  style: ModuleStyle;
+  topics: Topic[];
+  mastered: number;
+}
+
+function group(topics: Topic[], key: (t: Topic) => string, style: (t: Topic) => ModuleStyle): TopicGroup[] {
+  const groups: TopicGroup[] = [];
+  for (const topic of topics) {
+    const title = key(topic);
+    let found = groups.find((g) => g.title === title);
+    if (!found) {
+      found = { title, style: style(topic), topics: [], mastered: 0 };
+      groups.push(found);
+    }
+    found.topics.push(topic);
+    if (topic.mastered) found.mastered += 1;
+  }
+  return groups;
+}
+
+/** Agrupa las habilidades por eje, en el orden en que llegan del servidor. */
+export function groupByModule(topics: Topic[]): TopicGroup[] {
+  return group(topics, (t) => t.module ?? '', (t) => moduleStyle(t.module));
+}
+
+/** Repaso: agrupado por curso (del más cercano al más lejano, como llega del servidor). */
+export function groupByGrade(topics: Topic[]): TopicGroup[] {
+  return group(
+    topics,
+    (t) => (t.grade ? `${t.grade}° básico` : 'Repaso'),
+    () => ({ tone: 'yellow', icon: '🔁' }),
+  );
+}
+
+/** Texto para el lector de pantalla de una baldosa: nombre, nivel y avance del bloque. */
+export function tileLabel(topic: Topic): string {
+  const parts = [topic.label];
+  if (topic.review && topic.grade) parts.push(`repaso de ${topic.grade}° básico`);
+  if (topic.mastered) {
+    parts.push('dominada');
+  } else {
+    parts.push(`nivel ${topic.level ?? 1} de 3`);
+    parts.push(`${topic.blockDone ?? 0} de ${topic.blockSize ?? 10} ejercicios`);
+  }
+  return parts.join(', ');
+}
+
+/** Aciertos seguidos que dan una medalla. */
+export const MEDAL_EVERY = 5;
+
+/** "Tema" de las tareas del tutor en la pantalla (no es un tema del servidor). */
+export const TASKS_TOPIC: Topic = { id: 'tarea_tutor', label: 'Tareas de tu tutor' };
 
 @Component({
   selector: 'app-practice',
@@ -27,8 +161,14 @@ const ERRORS: Record<string, string> = {
 })
 export class PracticePage implements OnInit {
   private readonly practice = inject(PracticePort);
+  private readonly progress = inject(ProgressPort);
+  private readonly assignments = inject(AssignmentsPort);
   private readonly route = inject(ActivatedRoute);
+  private readonly nav = inject(NavController);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly explainer = inject(ExplanationPort);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly mascot = inject(MascotPort);
 
   studentId = '';
@@ -43,35 +183,192 @@ export class PracticePage implements OnInit {
   correctCount = 0;
   total = 0;
 
+  // Premios de la sesión: solo en memoria, no se guardan en ningún lado.
+  streak = 0;
+  medals = 0;
+  medalNow = false;
+  confetti = 0;
+  confettiCount = 40;
+  message = pickPhrase('greet');
+
+  // Racha de días: la guarda el servidor; aquí solo se muestra.
+  dailyStreak = 0;
+  practicedToday = false;
+  dailyLoaded = false;
+  dayStreakNow = false;
+  protected readonly daysLabel = daysLabel;
+  protected readonly starSlots = Array.from({ length: MEDAL_EVERY }, (_, i) => i);
+
+  // Dificultad: la decide el servidor; aquí solo se muestra y se celebra cuando sube.
+  levelUpNow = false;
+  private lastLevel: number | null = null;
+  // Dominio: se celebra una vez, cuando el servidor marca la habilidad como dominada.
+  masteredNow = false;
+  private lastMastered: boolean | null = null;
+
+  // Habilidades agrupadas por eje (su curso) y las de repaso (cursos anteriores, plegadas).
+  ownGroups: TopicGroup[] = [];
+  reviewTopics: Topic[] = [];
+  reviewGroups: TopicGroup[] = [];
+  showReview = false;
+
+  // Respuesta de fracción (numerador y denominador, escritos a mano).
+  fraction: FractionValue = { num: '', den: '' };
+
+  // Papel para calcular: abierto o cerrado. Lo dibujado no se guarda.
+  paperOpen = false;
+
+  // Tareas del tutor: el niño recibe solo id y texto; corrige el servidor.
+  tasks: PendingAssignment[] = [];
+  tasksDone = false;
+  /** Ticket de la tarea abierta (para que el servidor mida el tiempo). */
+  private taskTicket: string | null = null;
+
+  // Explicación de Numi tras un error. El texto vive solo en memoria de esta pantalla.
+  explainState: ExplainState = 'idle';
+  explainText = '';
+  explainNotice = '';
+  private explainRetry = false;
+  private explainCtrl: AbortController | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => this.cancelExplanation());
+  }
+
+  /** Se ofrece tras una respuesta incorrecta, nunca en las tareas del tutor (su texto no va a la IA). */
+  get canExplain(): boolean {
+    return (
+      !!this.exercise &&
+      !!this.result &&
+      !this.result.correct &&
+      !this.taskMode &&
+      this.exercise.topic !== TASKS_TOPIC.id
+    );
+  }
+
+  /** Texto para la burbuja: un paso por línea, sin el salto final (no deja una línea vacía). */
+  get explainShown(): string {
+    return this.explainText.replace(/\s+$/, '');
+  }
+
+  get explaining(): boolean {
+    return this.explainState === 'loading' || this.explainState === 'streaming';
+  }
+
+  get showExplainButton(): boolean {
+    if (!this.canExplain) return false;
+    return this.explaining || this.explainState === 'idle' || this.explainRetry;
+  }
+
+  get taskMode(): boolean {
+    return this.topic?.id === TASKS_TOPIC.id;
+  }
+
+  get fractionMode(): boolean {
+    return this.exercise?.answerKind === 'fraction';
+  }
+
+  protected levelStars(level: number): string {
+    return '★'.repeat(level) + '☆'.repeat(3 - level);
+  }
+
+  get dailyHint(): string {
+    return dailyStreakHint(this.dailyStreak, this.practicedToday);
+  }
+
+  /** Estrellas encendidas en la fila: se llena hasta la medalla y vuelve a empezar. */
+  get filledStars(): number {
+    if (this.streak > 0 && this.streak % MEDAL_EVERY === 0) return MEDAL_EVERY;
+    return this.streak % MEDAL_EVERY;
+  }
+
+  protected readonly topicIcon = topicIcon;
+
+
   async ngOnInit(): Promise<void> {
     this.studentId = this.route.snapshot.paramMap.get('id') ?? '';
+    const daily = this.loadDaily();
+    const tasks = this.loadTasks();
     try {
-      this.topics = await this.practice.topics(this.studentId);
+      this.setTopics(await this.practice.topics(this.studentId));
     } catch (error) {
       this.fail(error);
     } finally {
+      await Promise.all([daily, tasks]);
       this.loading = false;
       this.cdr.markForCheck();
     }
+    // Desde "Tareas de tu tutor": arranca en modo tareas. Se escucha la dirección (no la foto
+    // inicial) porque, si la práctica ya estaba abierta más atrás, Ionic vuelve a ESA pantalla
+    // sin volver a llamar a ngOnInit: solo cambian los parámetros.
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((query) => {
+      if (query.get('tareas') === '1') void this.startTasks(query.get('desde'));
+    });
+  }
+
+  /** Recarga las tareas pendientes y empieza por la elegida (`desde`), si viene. */
+  private async startTasks(from: string | null): Promise<void> {
+    await this.loadTasks();
+    const i = this.tasks.findIndex((t) => t.id === from);
+    if (i > 0) this.tasks = [this.tasks[i], ...this.tasks.slice(0, i), ...this.tasks.slice(i + 1)];
+    await this.chooseTasks();
+  }
+
+  /** Pantalla con las tareas del tutor (pendientes y hechas). */
+  openTasks(): Promise<boolean> {
+    return this.nav.navigateForward(['/tareas', this.studentId]);
   }
 
   async choose(topic: Topic): Promise<void> {
     this.topic = topic;
     this.correctCount = 0;
     this.total = 0;
+    this.streak = 0;
+    this.medalNow = false;
+    this.lastLevel = null;
+    this.lastMastered = null;
+    this.tasksDone = false;
     await this.next();
+  }
+
+  /** Empieza las tareas del tutor (una por una, en orden). */
+  chooseTasks(): Promise<void> {
+    return this.choose(TASKS_TOPIC);
   }
 
   async next(): Promise<void> {
     if (!this.topic || this.busy) return;
+    this.cancelExplanation();
+    if (this.taskMode) {
+      this.nextTask();
+      return;
+    }
     this.busy = true;
     this.error = '';
     this.result = null;
     this.answer = '';
+    this.fraction = { num: '', den: '' };
+    this.medalNow = false;
+    this.levelUpNow = false;
+    this.masteredNow = false;
+    this.dayStreakNow = false;
+    this.say('thinking');
     this.mascot.set('thinking');
     try {
       this.exercise = await this.practice.newExercise(this.studentId, this.topic.id);
+      this.message = '';
       this.mascot.set('idle');
+      this.levelUpNow = this.lastLevel !== null && this.exercise.level > this.lastLevel;
+      this.lastLevel = this.exercise.level;
+      const mastered = this.exercise.mastered === true;
+      this.masteredNow = this.lastMastered === false && mastered;
+      this.lastMastered = mastered;
+      if (this.levelUpNow || this.masteredNow) {
+        this.confettiCount = 90;
+        this.confetti += 1;
+        this.say(this.masteredNow ? 'mastered' : 'levelUp');
+        this.mascot.set('happy');
+      }
     } catch (error) {
       this.exercise = null;
       this.fail(error);
@@ -87,7 +384,9 @@ export class PracticePage implements OnInit {
   }
 
   get canSubmit(): boolean {
-    return !!this.exercise && !this.result && !this.busy && this.answer.length > 0;
+    if (!this.exercise || this.result || this.busy) return false;
+    if (this.fractionMode) return this.fraction.num.length > 0 && Number(this.fraction.den) > 0;
+    return this.answer.length > 0;
   }
 
   async submit(): Promise<void> {
@@ -95,16 +394,49 @@ export class PracticePage implements OnInit {
     this.busy = true;
     this.error = '';
     try {
-      this.result = await this.practice.answer(
-        this.studentId,
-        this.exercise.token,
-        Number(this.answer),
-      );
+      if (this.taskMode) {
+        // En modo tareas, `token` es el id de la tarea.
+        this.result = await this.assignments.answer(
+          this.studentId,
+          this.exercise.token,
+          Number(this.answer),
+          this.taskTicket,
+        );
+        this.tasks = this.tasks.filter((t) => t.id !== this.exercise?.token);
+      } else {
+        this.result = this.fractionMode
+          ? await this.practice.answer(
+              this.studentId,
+              this.exercise.token,
+              Number(this.fraction.num),
+              Number(this.fraction.den),
+            )
+          : await this.practice.answer(this.studentId, this.exercise.token, Number(this.answer));
+      }
       this.total += 1;
-      if (this.result.correct) this.correctCount += 1;
-      this.mascot.set(this.result.correct ? 'happy' : 'sad');
+      if (this.result.correct) {
+        this.correctCount += 1;
+        this.celebrate();
+      } else {
+        this.streak = 0;
+        this.say('wrong');
+      }
+      // Tras un error Numi piensa contigo (no se pone triste: sin culpa). 'sad' queda solo para
+      // fallas técnicas.
+      this.mascot.set(this.result.correct ? 'happy' : 'thinking');
+      if (!this.practicedToday) void this.celebrateDay();
     } catch (error) {
       this.fail(error);
+      if (
+        error instanceof TutorError &&
+        (error.code === 'already_answered' || error.code === 'not_found')
+      ) {
+        // La tarea ya no está pendiente (respondida en otro equipo o borrada): pasa a la siguiente.
+        this.tasks = this.tasks.filter((t) => t.id !== this.exercise?.token);
+        this.busy = false;
+        this.next();
+        return;
+      }
       if (
         error instanceof PracticeError &&
         (error.code === 'expired' || error.code === 'already_answered')
@@ -119,16 +451,219 @@ export class PracticePage implements OnInit {
     }
   }
 
+  togglePaper(): void {
+    this.paperOpen = !this.paperOpen;
+  }
+
+  /** "Explícame cómo se hace": pide la explicación por streaming. Una petición a la vez. */
+  async explain(): Promise<void> {
+    if (!this.canExplain || this.explaining || !this.exercise) return;
+    this.cancelExplanation();
+    const ctrl = new AbortController();
+    this.explainCtrl = ctrl;
+    const current = () => this.explainCtrl === ctrl;
+    this.explainState = 'loading';
+    this.explainRetry = false;
+    this.message = '';
+    this.mascot.set('thinking');
+    this.showExplainer();
+    try {
+      await this.explainer.explain(
+        this.studentId,
+        // Solo el tema (id de la habilidad) y el enunciado generado por el servidor.
+        { topic: this.exercise.topic, exercise: this.exercise.text },
+        (text) => {
+          if (!current()) return;
+          const glue = this.explainText && !/\s$/.test(this.explainText) ? ' ' : '';
+          this.explainText += glue + text;
+          if (this.explainState !== 'streaming') {
+            this.explainState = 'streaming';
+            this.mascot.set('talking');
+          }
+          this.cdr.markForCheck();
+        },
+        ctrl.signal,
+      );
+      if (!current()) return;
+      this.finishExplanation('done');
+    } catch (error) {
+      if (!current()) return;
+      const code = error instanceof ExplanationError ? error.code : 'unavailable';
+      if (code === 'aborted') return;
+      if (code === 'rejected') {
+        this.explainNotice =
+          (error as ExplanationError).childMessage ?? EXPLAIN_MESSAGES.unavailable;
+      } else if (code === 'interrupted') {
+        this.explainNotice =
+          (error as ExplanationError).childMessage ?? EXPLAIN_MESSAGES.interrupted;
+        this.explainRetry = true;
+      } else {
+        this.explainNotice = EXPLAIN_MESSAGES[code];
+        this.explainRetry = code === 'unavailable';
+      }
+      this.finishExplanation('error');
+    } finally {
+      if (current()) this.explainCtrl = null;
+    }
+  }
+
+  /** Numi baja junto a su explicación: se dibuja la fila y la pantalla se desplaza hasta ella. */
+  private showExplainer(): void {
+    this.cdr.detectChanges();
+    const row = this.host.nativeElement.querySelector<HTMLElement>('[data-testid="explain-row"]');
+    const calm =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    row?.scrollIntoView?.({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+  }
+
+  /** Ionic guarda la pantalla al navegar: se corta la explicación al salir. */
+  ionViewWillLeave(): void {
+    this.cancelExplanation();
+  }
+
+  /** Corta la petición en curso y olvida el texto. */
+  private cancelExplanation(): void {
+    this.explainCtrl?.abort();
+    this.explainCtrl = null;
+    this.explainState = 'idle';
+    this.explainText = '';
+    this.explainNotice = '';
+    this.explainRetry = false;
+  }
+
+  private finishExplanation(state: 'done' | 'error'): void {
+    // Si el botón tenía el foco y va a desaparecer, el foco pasa a la burbuja (teclado).
+    const active = document.activeElement;
+    const button = this.host.nativeElement.querySelector('[data-testid="explain-btn"]');
+    const hadFocus = !!button && !!active && button.contains(active);
+    this.explainState = state;
+    this.mascot.set('idle');
+    this.cdr.detectChanges();
+    if (hadFocus && !this.showExplainButton) {
+      this.host.nativeElement.querySelector<HTMLElement>('[data-testid="explain-bubble"]')?.focus();
+    }
+  }
+
   changeTopic(): void {
+    this.cancelExplanation();
     this.topic = null;
     this.exercise = null;
     this.result = null;
+    this.say('greet');
     this.mascot.set('idle');
+    void this.reloadTopics();
+  }
+
+  toggleReview(): void {
+    this.showReview = !this.showReview;
+  }
+
+  /** Texto de la respuesta correcta ("12" o "3/5"). */
+  protected correctText(result: AnswerResult): string {
+    return result.correctAnswerDen === undefined
+      ? String(result.correctAnswer)
+      : `${result.correctAnswer}/${result.correctAnswerDen}`;
+  }
+
+  private setTopics(topics: Topic[]): void {
+    this.topics = topics;
+    this.ownGroups = groupByModule(topics.filter((t) => !t.review));
+    this.reviewTopics = topics.filter((t) => t.review);
+    this.reviewGroups = groupByGrade(this.reviewTopics);
+  }
+
+  /** Al volver a la lista, se releen estrellas y dominio. Mejor esfuerzo. */
+  private async reloadTopics(): Promise<void> {
+    try {
+      this.setTopics(await this.practice.topics(this.studentId));
+      this.cdr.markForCheck();
+    } catch {
+      // Se queda la lista anterior.
+    }
+  }
+
+  /** Siguiente tarea pendiente, con la misma pantalla que un ejercicio. Sin nivel. */
+  private nextTask(): void {
+    this.error = '';
+    this.result = null;
+    this.answer = '';
+    this.medalNow = false;
+    this.levelUpNow = false;
+    this.masteredNow = false;
+    this.dayStreakNow = false;
+    const task = this.tasks[0];
+    if (!task) {
+      this.exercise = null;
+      this.tasksDone = true;
+      this.say('tasksDone');
+      this.mascot.set('happy');
+    } else {
+      this.exercise = { token: task.id, topic: TASKS_TOPIC.id, text: task.text, level: 1, expiresIn: 0 };
+      this.message = '';
+      this.mascot.set('idle');
+      void this.startTask(task.id);
+    }
+    this.cdr.markForCheck();
+  }
+
+  /** Pide el ticket de la tarea. Mejor esfuerzo: si falla, se responde igual (sin tiempo). */
+  private async startTask(id: string): Promise<void> {
+    this.taskTicket = null;
+    try {
+      const ticket = await this.assignments.start(this.studentId, id);
+      if (this.exercise?.token === id) this.taskTicket = ticket;
+    } catch {
+      this.taskTicket = null;
+    }
+  }
+
+  /** Tareas pendientes. Mejor esfuerzo: si fallan, la práctica normal sigue. */
+  private async loadTasks(): Promise<void> {
+    try {
+      this.tasks = (await this.assignments.forKid(this.studentId)).pending;
+    } catch {
+      this.tasks = [];
+    }
+  }
+
+  private celebrate(): void {
+    this.streak += 1;
+    this.medalNow = this.streak % MEDAL_EVERY === 0;
+    if (this.medalNow) this.medals += 1;
+    this.confettiCount = this.medalNow ? 90 : 40;
+    this.confetti += 1;
+    this.say(this.medalNow ? 'medal' : 'correct');
+  }
+
+  /** Lee la racha de días. Mejor esfuerzo: si falla, la práctica sigue sin mostrarla. */
+  private async loadDaily(): Promise<boolean> {
+    try {
+      const p = await this.progress.get(this.studentId);
+      this.dailyStreak = p.dailyStreak;
+      this.practicedToday = p.practicedToday;
+      this.dailyLoaded = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Primera respuesta del día: el servidor ya sumó el día; se relee y se celebra una vez. */
+  private async celebrateDay(): Promise<void> {
+    if (!(await this.loadDaily())) return;
+    this.dayStreakNow = this.practicedToday && this.dailyStreak > 0;
+    this.cdr.markForCheck();
+  }
+
+  private say(kind: PhraseKind): void {
+    this.message = pickPhrase(kind);
   }
 
   private fail(error: unknown): void {
-    const code = error instanceof PracticeError ? error.code : 'unavailable';
-    this.error = ERRORS[code];
+    const code =
+      error instanceof PracticeError || error instanceof TutorError ? error.code : 'unavailable';
+    this.error = ERRORS[code] ?? ERRORS['unavailable'];
+    this.message = '';
     this.mascot.set('sad');
   }
 }

@@ -18,3 +18,24 @@ describe('MascotComponent', () => {
     });
   }
 });
+
+describe('MascotComponent globo de diálogo', () => {
+  function render(message: string) {
+    TestBed.configureTestingModule({ declarations: [MascotComponent] });
+    const fixture = TestBed.createComponent(MascotComponent);
+    fixture.componentInstance.message = message;
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it('muestra el globo cuando hay mensaje', () => {
+    const bubble = render('Genial').querySelector('.bubble');
+    expect(bubble?.textContent).toContain('Genial');
+    // El lector de pantalla puede leerlo.
+    expect(bubble?.getAttribute('aria-hidden')).toBeNull();
+  });
+
+  it('no muestra el globo sin mensaje', () => {
+    expect(render('').querySelector('.bubble')).toBeNull();
+  });
+});

@@ -10,6 +10,7 @@ import respx
 from app.config import Settings
 from app.db.gateway import GatewayError
 from app.db.supabase_gateway import SupabaseGateway
+from app.exercises.levels import SkillProgress
 
 URL = "http://127.0.0.1:54321"
 KEY = "sb_secret_CLAVE_DE_PRUEBA_NO_REAL_123"
@@ -114,3 +115,83 @@ async def test_assert_read_committed_falla_si_la_base_lo_rechaza() -> None:
     )
     with pytest.raises(GatewayError):
         await _gateway().assert_read_committed()
+
+
+ATTEMPTS = f"{URL}/rest/v1/student_attempts"
+
+
+PROGRESS = f"{URL}/rest/v1/student_skill_progress"
+
+
+@respx.mock
+async def test_list_skill_progress_acota_por_tutor_y_perfil() -> None:
+    fila = {
+        "skill_code": "1-08",
+        "level": 2,
+        "block_total": 4,
+        "block_correct": 3,
+        "mastered_at": None,
+    }
+    dominada = {**fila, "skill_code": "1-06", "level": 3, "mastered_at": "2026-10-27T10:00:00Z"}
+    route = respx.get(PROGRESS).mock(return_value=httpx.Response(200, json=[fila, dominada]))
+    progreso = await _gateway().list_skill_progress(TUTOR, PERFIL)
+    assert progreso["1-08"] == SkillProgress(2, 4, 3, False)
+    assert progreso["1-06"].mastered is True
+    params = route.calls.last.request.url.params
+    assert params["tutor_id"] == f"eq.{TUTOR}"
+    assert params["student_id"] == f"eq.{PERFIL}"
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        {"x": 1},
+        [{"skill_code": "1-08", "level": "2", "block_total": 0, "block_correct": 0}],
+        [{"skill_code": "1-08", "level": 4, "block_total": 0, "block_correct": 0}],
+        [{"skill_code": "1-08", "level": 1, "block_total": 10, "block_correct": 0}],
+        [{"skill_code": "1-08", "level": 1, "block_total": 2, "block_correct": 3}],
+        [{"skill_code": 8, "level": 1, "block_total": 0, "block_correct": 0}],
+        [{"level": 1}],
+    ],
+)
+async def test_list_skill_progress_falla_cerrado_con_filas_raras(cuerpo: object) -> None:
+    if isinstance(cuerpo, list):
+        cuerpo = [{**fila, "mastered_at": None} for fila in cuerpo]
+    respx.get(PROGRESS).mock(return_value=httpx.Response(200, json=cuerpo))
+    with pytest.raises(GatewayError):
+        await _gateway().list_skill_progress(TUTOR, PERFIL)
+
+
+@respx.mock
+async def test_list_recent_exercises_acota_por_tutor_perfil_y_tema() -> None:
+    route = respx.get(ATTEMPTS).mock(
+        return_value=httpx.Response(200, json=[{"exercise": "5 + 6 = ?"}])
+    )
+    assert await _gateway().list_recent_exercises(TUTOR, PERFIL, "1-08", 3) == ["5 + 6 = ?"]
+    params = route.calls.last.request.url.params
+    assert params["tutor_id"] == f"eq.{TUTOR}"
+    assert params["student_id"] == f"eq.{PERFIL}"
+    assert params["topic"] == "eq.1-08"
+    assert params["select"] == "exercise"
+    assert params["limit"] == "3"
+
+
+@respx.mock
+@pytest.mark.parametrize("cuerpo", [{"x": 1}, [{"exercise": 5}], [{"otro": "x"}], ["texto"]])
+async def test_list_recent_exercises_falla_cerrado_con_filas_raras(cuerpo: object) -> None:
+    respx.get(ATTEMPTS).mock(return_value=httpx.Response(200, json=cuerpo))
+    with pytest.raises(GatewayError):
+        await _gateway().list_recent_exercises(TUTOR, PERFIL, "1-08", 3)
+
+
+@respx.mock
+async def test_record_attempt_envia_el_nivel() -> None:
+    route = respx.post(f"{URL}/rest/v1/rpc/record_attempt").mock(
+        return_value=httpx.Response(200, json="ok")
+    )
+    outcome = await _gateway().record_attempt(
+        TUTOR, PERFIL, uuid.uuid4(), "1-08", "1 + 1 = ?", True, None, 3
+    )
+    assert outcome == "ok"
+    assert json.loads(route.calls.last.request.content)["p_level"] == 3

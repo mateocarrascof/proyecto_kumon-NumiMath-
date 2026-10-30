@@ -68,7 +68,7 @@ class BrokenProvider:
 
 
 def _prompt(texto: str = "¿Cuánto es 7 + 5?") -> MathPrompt:
-    return build_prompt(1, "sumas_hasta_20", check_input(texto))
+    return build_prompt(1, "1-08", check_input(texto))
 
 
 def _parse(raw: str) -> list[tuple[str, dict[str, Any]]]:
@@ -124,7 +124,7 @@ def test_un_evento_sse_escapa_los_saltos_de_linea() -> None:
 async def test_una_explicacion_normal_termina_con_done() -> None:
     eventos = await _run(MockProvider())
     assert eventos[-1] == ("done", {})
-    assert "El resultado es 12" in _text(eventos)
+    assert "¡Así se llega a 12!" in _text(eventos)
     assert all(nombre == "chunk" for nombre, _ in eventos[:-1])
 
 
@@ -244,7 +244,7 @@ def _post(client: TestClient, body: dict[str, Any], token: str | None = None) ->
     return client.post(f"/v1/students/{PERFIL}/explanations", json=body, headers=headers)
 
 
-OK_BODY = {"topic": "sumas_hasta_20", "exercise": "¿Cuánto es 7 + 5?"}
+OK_BODY = {"topic": "1-08", "exercise": "¿Cuánto es 7 + 5?"}
 
 
 def test_http_explicacion_completa_por_sse() -> None:
@@ -260,7 +260,12 @@ def test_http_explicacion_completa_por_sse() -> None:
         assert response.headers["cache-control"] == "no-store"
         eventos = _parse("".join(response.iter_text()))
     assert eventos[-1] == ("done", {})
-    assert "El resultado es 12" in _text(eventos)
+    assert "¡Así se llega a 12!" in _text(eventos)
+    # Llega en varias líneas: un paso por evento, cada uno cerrado con salto de línea.
+    textos = [data["text"] for nombre, data in eventos if nombre == "chunk"]
+    assert textos[0] == "¡Vamos a sumar 7 + 5!\n"
+    assert sum(t.endswith("\n") for t in textos) >= 3
+    assert "".join(textos).rstrip().endswith("¡Tú puedes!")
     assert len(gateway.usage_calls) == 1
     assert gateway.touches == [(TUTOR, PERFIL)]
 
@@ -277,16 +282,14 @@ def test_http_la_ia_solo_recibe_curso_tema_y_ejercicio() -> None:
         headers={"Authorization": f"Bearer {_token()}"},
     ) as response:
         response.read()
-    assert provider.prompts == [
-        MathPrompt(grade=1, topic="sumas_hasta_20", exercise="¿Cuánto es 7 + 5?")
-    ]
+    assert provider.prompts == [MathPrompt(grade=1, topic="1-08", exercise="¿Cuánto es 7 + 5?")]
 
 
 def test_http_un_mensaje_rechazado_no_consume_cuota_ni_llega_a_la_ia() -> None:
     provider = ScriptedProvider(["no debería usarse. "])
     gateway = _gateway()
     respuesta = _post(
-        _client(gateway, provider), {"topic": "sumas_hasta_20", "exercise": "me llamo pedro, 2+2"}
+        _client(gateway, provider), {"topic": "1-08", "exercise": "me llamo pedro, 2+2"}
     )
     assert respuesta.status_code == 422
     error = respuesta.json()["error"]
@@ -303,6 +306,25 @@ def test_http_un_tema_de_otro_curso_se_rechaza() -> None:
     assert respuesta.status_code == 422
     assert respuesta.json()["error"]["code"] == "invalid_request"
     assert gateway.usage_calls == []
+
+
+def test_http_acepta_los_ids_del_catalogo_tambien_de_repaso() -> None:
+    # La app envía el id de la habilidad que le dio el servidor (exercise.topic). Un perfil de 3°
+    # puede repasar habilidades de 1°: el mismo id debe servir para pedir la explicación.
+    gateway = _gateway()
+    gateway.grades[(TUTOR, PERFIL)] = 3
+    for topic, exercise in (("3-11", "20 ÷ 2 = ?"), ("1-06", "1 + 4 = ?")):
+        with _client(gateway).stream(
+            "POST",
+            f"/v1/students/{PERFIL}/explanations",
+            json={"topic": topic, "exercise": exercise},
+            headers={"Authorization": f"Bearer {_token()}"},
+        ) as response:
+            assert response.status_code == 200, topic
+            assert _parse("".join(response.iter_text()))[-1] == ("done", {})
+    # Una habilidad de un curso posterior no se acepta.
+    respuesta = _post(_client(gateway), {"topic": "4-10", "exercise": "1/3 + 1/3 = ?"})
+    assert respuesta.status_code == 422
 
 
 def test_http_superar_el_limite_responde_429_con_retry_after() -> None:
@@ -365,7 +387,7 @@ def test_http_los_logs_no_contienen_texto_del_nino_ni_de_la_ia(log_stream: io.St
     with _client(_gateway()).stream(
         "POST",
         f"/v1/students/{PERFIL}/explanations",
-        json={"topic": "sumas_hasta_20", "exercise": "¿Cuánto es 7 + 5?"},
+        json={"topic": "1-08", "exercise": "¿Cuánto es 7 + 5?"},
         headers={"Authorization": f"Bearer {_token()}"},
     ) as response:
         response.read()
@@ -376,7 +398,7 @@ def test_http_los_logs_no_contienen_texto_del_nino_ni_de_la_ia(log_stream: io.St
         assert texto not in logs
 
 
-@pytest.mark.parametrize("cuerpo", [{}, {"topic": "sumas_hasta_20"}, {"exercise": "2+2"}])
+@pytest.mark.parametrize("cuerpo", [{}, {"topic": "1-08"}, {"exercise": "2+2"}])
 def test_http_cuerpo_incompleto_es_422_generico(cuerpo: dict[str, str]) -> None:
     respuesta = _post(_client(_gateway()), cuerpo)
     assert respuesta.status_code == 422

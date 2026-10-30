@@ -1,25 +1,31 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  ElementRef,
+  HostListener,
+  OnInit,
+  inject,
+} from '@angular/core';
 import { NavController } from '@ionic/angular/lazy';
 
-import { ConsentPort, LegalDocument } from '../core/consent/consent.port';
 import { MascotPort } from '../core/mascot/mascot.port';
-import {
-  CreateFailure,
-  Grade,
-  MAX_PROFILES,
-  NICKNAME_MAX,
-  Profile,
-  ProfilesPort,
-} from '../core/profiles/profiles.port';
+import { Avatar, avatarFor } from '../core/profiles/avatar';
+import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
+import { daysLabel } from '../core/progress/daily-streak';
+import { ProgressPort } from '../core/progress/progress.port';
 
-const MESSAGES: Record<CreateFailure, string> = {
-  limit: `Ya tienes el máximo de ${MAX_PROFILES} perfiles.`,
-  consent: 'Hay que aceptar de nuevo los términos antes de crear perfiles.',
-  nickname: `El apodo debe tener entre 1 y ${NICKNAME_MAX} letras.`,
-  network: 'No pude conectar con el servidor. Inténtalo de nuevo.',
-  unknown: 'No pude crear el perfil. Inténtalo de nuevo.',
-};
+export interface KidCard {
+  profile: Profile;
+  avatar: Avatar;
+  /** Días seguidos; `null` si no se pudo leer (no se muestra). */
+  days: number | null;
+}
 
+/**
+ * "¿Quién va a practicar hoy?": pantalla para el NIÑO. Solo elegir perfil y ver su progreso.
+ * Crear y eliminar perfiles está en el Panel del tutor, protegido con PIN.
+ */
 @Component({
   selector: 'app-profiles',
   templateUrl: 'profiles.page.html',
@@ -28,28 +34,32 @@ const MESSAGES: Record<CreateFailure, string> = {
 })
 export class ProfilesPage implements OnInit {
   private readonly profilesPort = inject(ProfilesPort);
-  private readonly consent = inject(ConsentPort);
+  private readonly progressPort = inject(ProgressPort);
   private readonly nav = inject(NavController);
   protected readonly mascot = inject(MascotPort);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
 
-  readonly max = MAX_PROFILES;
-  readonly nicknameMax = NICKNAME_MAX;
-  readonly grades: Grade[] = [1, 2, 3, 4];
+  cards: KidCard[] = [];
+  /** Tarjeta al centro del carrusel: la única que entra a practicar. */
+  active = 0;
+  private scrollFrame = 0;
 
-  profiles: Profile[] = [];
-  declaration: LegalDocument | null = null;
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.scrollFrame && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(this.scrollFrame);
+      }
+    });
+  }
   loading = true;
-  showForm = false;
-  nickname = '';
-  grade: Grade = 1;
-  declared = false;
-  busy = false;
   error = '';
-  pendingDelete: string | null = null;
+  protected readonly daysLabel = daysLabel;
 
-  get full(): boolean {
-    return this.profiles.length >= this.max;
+  get message(): string {
+    if (this.loading || this.error) return '';
+    return this.cards.length ? '¿Quién va a practicar hoy?' : '¡Hola! Todavía no hay perfiles.';
   }
 
   async ngOnInit(): Promise<void> {
@@ -58,9 +68,13 @@ export class ProfilesPage implements OnInit {
 
   async reload(): Promise<void> {
     this.loading = true;
+    this.mascot.set('thinking');
     try {
-      this.profiles = await this.profilesPort.list();
+      const profiles = await this.profilesPort.list();
+      this.cards = profiles.map((profile) => ({ profile, avatar: avatarFor(profile.id), days: null }));
+      this.active = 0;
       this.error = '';
+      this.mascot.set('happy');
     } catch {
       this.error = 'No pude cargar los perfiles. Revisa que la base esté encendida.';
       this.mascot.set('sad');
@@ -68,76 +82,111 @@ export class ProfilesPage implements OnInit {
       this.loading = false;
       this.cdr.markForCheck();
     }
+    // Ya dibujadas las tarjetas, la primera queda al centro (sin animación).
+    this.cdr.detectChanges();
+    this.recenter();
+    await this.loadStreaks();
+    // La racha cambia el alto de las tarjetas: se vuelve a centrar por si el navegador movió la pista.
+    this.cdr.detectChanges();
+    this.recenter();
   }
 
-  async openForm(): Promise<void> {
-    this.showForm = true;
-    this.error = '';
-    if (!this.declaration) {
-      try {
-        this.declaration = (await this.consent.loadCurrent()).adult_declaration;
-      } catch {
-        this.error = 'No pude cargar la declaración del adulto.';
+  practice(card: KidCard): Promise<boolean> | void {
+    if (card.profile.blocked) return;
+    return this.nav.navigateForward(['/practica', card.profile.id]);
+  }
+
+  /** Tocar una tarjeta: si está a un lado, se centra; si ya está al centro, entra a practicar. */
+  select(index: number): Promise<boolean> | void {
+    if (index !== this.active) {
+      this.goTo(index);
+      return;
+    }
+    return this.practice(this.cards[index]);
+  }
+
+  /** Lleva la tarjeta `index` al centro del carrusel (`smooth = false`: sin animación). */
+  goTo(index: number, smooth = true): void {
+    if (index < 0 || index >= this.cards.length) return;
+    this.active = index;
+    this.cdr.markForCheck();
+    const track = this.track();
+    const item = track?.children.item(index) as HTMLElement | null;
+    if (!track || !item || typeof track.scrollTo !== 'function') return;
+    const calm =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const left = item.offsetLeft + item.offsetWidth / 2 - track.clientWidth / 2;
+    track.scrollTo({ left, behavior: smooth && !calm ? 'smooth' : 'auto' });
+  }
+
+  /** Al girar el dispositivo o cambiar el tamaño, la tarjeta elegida vuelve al centro. */
+  @HostListener('window:resize')
+  recenter(): void {
+    this.goTo(this.active, false);
+  }
+
+  /** Flechas del teclado dentro del carrusel. */
+  onKey(event: KeyboardEvent): void {
+    if (event.key === 'ArrowRight') this.goTo(this.active + 1);
+    else if (event.key === 'ArrowLeft') this.goTo(this.active - 1);
+    else return;
+    event.preventDefault();
+  }
+
+  /** Al deslizar con el dedo: la tarjeta más cercana al centro pasa a ser la activa. */
+  onScroll(): void {
+    if (this.scrollFrame || typeof requestAnimationFrame !== 'function') return;
+    this.scrollFrame = requestAnimationFrame(() => {
+      this.scrollFrame = 0;
+      const track = this.track();
+      if (!track) return;
+      const center = track.scrollLeft + track.clientWidth / 2;
+      let best = this.active;
+      let bestDistance = Infinity;
+      Array.from(track.children).forEach((child, i) => {
+        const el = child as HTMLElement;
+        const distance = Math.abs(el.offsetLeft + el.offsetWidth / 2 - center);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = i;
+        }
+      });
+      if (best !== this.active) {
+        this.active = best;
+        this.cdr.detectChanges();
       }
-      this.cdr.markForCheck();
-    }
+    });
   }
 
-  cancelForm(): void {
-    this.showForm = false;
-    this.nickname = '';
-    this.declared = false;
-    this.error = '';
+  /** Texto para el lector de pantalla de cada tarjeta. */
+  cardLabel(card: KidCard, index: number): string {
+    const state = card.profile.blocked ? ', en pausa' : '';
+    return `${card.profile.nickname}, ${card.profile.grade}° básico${state}, perfil ${index + 1} de ${this.cards.length}`;
   }
 
-  async create(): Promise<void> {
-    if (this.busy) return;
-    if (!this.declaration?.verified) {
-      this.error = 'La declaración del adulto no coincide con la versión publicada.';
-      return;
-    }
-    if (!this.declared) {
-      this.error = 'Marca la declaración del adulto para continuar.';
-      return;
-    }
-    this.busy = true;
-    this.error = '';
-    const result = await this.profilesPort.create(this.nickname, this.grade);
-    this.busy = false;
+  private track(): HTMLElement | null {
+    return this.host.nativeElement.querySelector<HTMLElement>('[data-testid="carousel-track"]');
+  }
+
+  progress(card: KidCard, event?: Event): Promise<boolean> {
+    // El botón está dentro de la tarjeta: que no abra también la práctica.
+    event?.stopPropagation();
+    return this.nav.navigateForward(['/progreso', card.profile.id]);
+  }
+
+  /** Racha de cada perfil. Mejor esfuerzo: si falla, la tarjeta se ve igual sin la racha. */
+  private async loadStreaks(): Promise<void> {
+    await Promise.all(
+      this.cards
+        .filter((c) => !c.profile.blocked)
+        .map(async (card) => {
+          try {
+            card.days = (await this.progressPort.get(card.profile.id)).dailyStreak;
+          } catch {
+            card.days = null;
+          }
+        }),
+    );
     this.cdr.markForCheck();
-    if (result.ok) {
-      this.mascot.set('happy');
-      this.cancelForm();
-      await this.reload();
-    } else {
-      this.error = MESSAGES[result.reason];
-      this.mascot.set('sad');
-    }
-  }
-
-  askDelete(id: string): void {
-    this.pendingDelete = id;
-    this.cdr.markForCheck();
-  }
-
-  async confirmDelete(): Promise<void> {
-    const id = this.pendingDelete;
-    this.pendingDelete = null;
-    this.cdr.markForCheck();
-    if (!id) return;
-    if (!(await this.profilesPort.remove(id))) {
-      this.error = 'No pude borrar el perfil.';
-      this.cdr.markForCheck();
-      return;
-    }
-    await this.reload();
-  }
-
-  practice(id: string): Promise<boolean> {
-    return this.nav.navigateForward(['/practica', id]);
-  }
-
-  progress(id: string): Promise<boolean> {
-    return this.nav.navigateForward(['/progreso', id]);
   }
 }

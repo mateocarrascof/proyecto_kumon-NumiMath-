@@ -10,6 +10,7 @@ negativos conocidos. El texto original no se modifica ni se devuelve en el recha
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Final, Literal
 
@@ -31,6 +32,10 @@ from app.safety.patterns import (
 )
 
 MAX_INPUT_CHARS: Final = 200
+
+# Los términos fuera de tema se buscan al INICIO de una palabra ("chistes" sí, "medios" o
+# "descuento" no): como subcadena rechazaban enunciados normales ("medios kilos" contiene "dios").
+_OFF_TOPIC: Final = re.compile(r"\b(?:" + "|".join(re.escape(t) for t in OFF_TOPIC_TERMS) + ")")
 
 Reason = Literal[
     "empty",
@@ -149,10 +154,40 @@ def check_input(text: str) -> InputCheck:
     if any(p.search(matching) for p in PROMPT_INJECTION):
         return InputCheck(False, "prompt_injection")
 
-    if any(term in matching for term in OFF_TOPIC_TERMS):
+    if _OFF_TOPIC.search(matching):
         return InputCheck(False, "off_topic")
 
     if not _has_math_signal(cleaned, matching, words):
         return InputCheck(False, "off_topic")
 
+    return InputCheck(True, None, cleaned)
+
+
+def check_tutor_text(text: str) -> InputCheck:
+    """Filtro para el enunciado que escribe el TUTOR en una tarea ("Tareas de tu tutor").
+
+    Es texto de un adulto que el niño va a leer y que nunca se envía a la IA. Por eso solo se
+    revisa lo que importa ahí: largo, datos personales, groserías y temas inapropiados.
+    No se aplican las reglas pensadas para la conversación con la IA (manipular al modelo,
+    "fuera de tema" por palabras sueltas, señal matemática): rechazaban problemas normales,
+    p. ej. "un descuento de 29" (contiene "cuento") o "Juan fue a jugar con 3 amigos".
+    """
+    cleaned = normalize.clean(text)
+    if not cleaned:
+        return InputCheck(False, "empty")
+    if len(cleaned) > MAX_INPUT_CHARS:
+        return InputCheck(False, "too_long")
+
+    matching = normalize.to_matching_text(cleaned)
+    plain = normalize.strip_accents(cleaned.casefold())
+    words = normalize.words(cleaned)
+
+    if any(p.search(plain) for p in PII_NUMERIC) or any(
+        p.search(plain) or p.search(matching) for p in PII_TEXT
+    ):
+        return InputCheck(False, "pii")
+    if has_profanity(words):
+        return InputCheck(False, "profanity")
+    if any(p.search(matching) for p in SUPPORT_PATTERNS) or has_unsafe_topic(words, matching):
+        return InputCheck(False, "unsafe_topic")
     return InputCheck(True, None, cleaned)

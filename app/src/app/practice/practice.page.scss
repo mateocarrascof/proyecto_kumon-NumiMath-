@@ -1,51 +1,401 @@
+/* Pensado primero para teléfono (360 px) y tablet (768–1024 px); el PC es solo para probar. */
 .practice {
-  max-width: 480px;
+  /* Ancho de la zona de juego (ejercicio, respuesta, resultado, explicación). */
+  --play-width: 480px;
+  max-width: 1000px;
   margin: 0 auto;
   text-align: center;
 }
 
-.topics {
-  list-style: none;
-  padding: 0;
+app-mascot {
+  max-width: 150px;
+}
+
+/* Durante el ejercicio Numi se achica: en el teléfono deja ver la casilla de respuesta. */
+.practice.in-exercise app-mascot { max-width: 96px; }
+@media (min-width: 768px) {
+  .practice { --play-width: 600px; }
+  app-mascot { max-width: 170px; }
+  .practice.in-exercise app-mascot { max-width: 140px; }
+}
+
+h1 {
+  font-size: clamp(1.45rem, 1.1rem + 1.6vw, 1.9rem);
+  margin: 8px 0 16px;
+}
+
+.topic-card {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: 84px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--tone-grad);
+  border: 0;
+  border-radius: var(--kid-radius);
+  box-shadow: 0 6px 0 var(--tone-deep);
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+
+/* Burbujas decorativas */
+.topic-card::before,
+.topic-card::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+}
+.topic-card::before { width: 90px; height: 90px; right: -20px; top: -30px; }
+.topic-card::after { width: 50px; height: 50px; right: 50px; bottom: -26px; }
+
+.topic-card:active {
+  transform: translateY(4px) scale(0.98);
+  box-shadow: 0 2px 0 var(--tone-deep);
+}
+
+.topic-card:focus-visible {
+  outline: 4px solid var(--tone-deep);
+  outline-offset: 3px;
+}
+
+.topic-card[data-tone='yellow'] { color: var(--ion-text-color); }
+
+.topic-icon {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  font-size: 1.5rem;
+  font-weight: 900;
+  animation: wiggle 2.4s ease-in-out infinite;
+}
+
+li:nth-child(2n) .topic-icon { animation-delay: -0.8s; }
+li:nth-child(3n) .topic-icon { animation-delay: -1.6s; }
+
+.topic-label {
+  flex: 1;
+  text-align: left;
+  position: relative;
+}
+
+.topic-go {
+  font-size: 2rem;
+  position: relative;
+}
+
+.topic-stars { position: relative; white-space: nowrap; }
+.review-toggle { margin-top: 24px; max-width: var(--play-width); margin-left: auto; margin-right: auto; }
+
+.tasks-card { margin-bottom: 14px; }
+.tasks-count { position: relative; padding: 2px 12px; border-radius: 999px; background: #fff; }
+
+/* Barra de la sesión */
+.topic-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.star { color: #e6d5b8; }
+.star.on {
+  color: #ffb627;
+  text-shadow: 0 2px 0 #e0a100;
+  animation: pop 0.4s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+
+.score,
+.medals {
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.score { background: var(--kid-teal-soft); color: var(--ion-color-primary); }
+.medals { background: var(--kid-yellow-soft); color: var(--kid-yellow-text); }
+
+/* Medalla */
+.medal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: var(--kid-radius);
+  background: var(--kid-gold-grad);
+  color: var(--ion-text-color);
+  font-size: 1.25rem;
+  box-shadow: 0 5px 0 #e0a100;
+  animation: drop 0.6s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+
+.medal-icon { font-size: 2.2rem; animation: wiggle 1s ease-in-out infinite; }
+
+/* Racha de días: siempre visible en la barra superior */
+.streak-badge {
+  margin-inline-end: 12px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #3d2c00;
+  font-size: 1.15rem;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+}
+
+.streak-badge.today { background: var(--kid-gold-grad); }
+
+.daily-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: -6px auto 16px;
+  font-size: 1.1rem;
+}
+
+.daily-hint { width: 100%; color: var(--kid-yellow-text); font-weight: 700; }
+
+.level-up {
+  background: var(--kid-lilac-grad);
+  color: #fff;
+  box-shadow: 0 5px 0 var(--kid-lilac-soft);
+}
+
+.day-streak { color: #3d2c00; }
+
+/* Ejercicio */
+.exercise-card {
+  max-width: var(--play-width);
+  margin: 0 auto 16px;
+  background: var(--kid-card-bg);
+  border: 3px solid var(--kid-lilac-soft);
+  border-radius: var(--kid-radius);
+  overflow: hidden;
+  box-shadow: 0 6px 0 var(--kid-lilac-soft);
+}
+
+.exercise-topic {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   margin: 0;
+  padding: 6px 12px;
+  background: var(--kid-lilac-grad);
+  color: #fff;
+  font-weight: 800;
 }
 
-.topic {
-  color: var(--ion-color-medium-shade);
+/* El nombre de la habilidad toma el espacio que sobra y envuelve por palabras (los miles llevan un
+   espacio sin salto, así "1 000" no se parte); reloj, nivel y bloque mantienen su ancho. */
+.exercise-topic .topic-name { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; }
+.exercise-topic > :not(.topic-name) { flex: none; }
+/* En teléfono el nombre va en su propia fila (no se aprieta junto al reloj y las estrellas). */
+@media (max-width: 479px) {
+  .exercise-topic { flex-wrap: wrap; row-gap: 4px; }
+  .exercise-topic .topic-name { flex-basis: 100%; text-align: center; }
+  .exercise-topic > :not(.topic-name) { margin: 0 auto; }
 }
 
+/* Escala con el ancho: en un teléfono "481 + 155 = ?" cabe en una línea; en tablet crece. */
 .exercise {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin: 16px 0;
+  font-size: clamp(2rem, 1.2rem + 3.6vw, 3rem);
+  text-wrap: balance;
+  font-weight: 900;
+  margin: 0;
+  padding: 18px 12px;
+}
+
+/* Enunciados con palabras (problemas): más chicos para que quepan. */
+.exercise.long { font-size: clamp(1.3rem, 1.05rem + 1.1vw, 1.6rem); line-height: 1.35; }
+
+form,
+.result,
+.practice > ion-button,
+.paper-toggle {
+  max-width: var(--play-width);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .answer {
-  font-size: 1.8rem;
+  font-size: 2rem;
+  font-weight: 800;
   text-align: center;
-  --padding-start: 12px;
-  border: 2px solid var(--ion-color-primary);
-  border-radius: 12px;
-  margin-bottom: 12px;
+  background: var(--kid-card-bg);
+  min-height: 64px;
+  border: 3px solid var(--ion-color-primary);
+  border-radius: var(--kid-radius);
+  margin-bottom: 14px;
+  transition: box-shadow 0.2s;
 }
 
+.answer.has-focus { box-shadow: 0 0 0 5px var(--kid-teal-soft); }
+
+/* Resultado */
 .result {
-  font-size: 1.3rem;
-  padding: 12px;
-  border-radius: 12px;
-  margin: 12px 0;
-  background: rgba(255, 196, 9, 0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 1.35rem;
+  padding: 16px;
+  border-radius: var(--kid-radius);
+  margin-bottom: 16px;
+  background: var(--kid-yellow-soft);
+  color: var(--kid-yellow-text);
+  animation: pop 0.4s cubic-bezier(0.3, 1.6, 0.6, 1);
 }
 
-.result.ok {
-  background: rgba(45, 211, 111, 0.18);
+.result.ok { background: var(--kid-green-soft); color: var(--kid-green-text); }
+
+.result-icon { font-size: 2.6rem; line-height: 1; }
+
+.level {
+  flex: none;
+  color: #ffd166;
+  font-size: 1.2rem;
+  letter-spacing: 2px;
 }
 
-.error {
-  color: var(--ion-color-danger);
-  font-weight: 600;
+.paper-toggle { margin-bottom: 12px; }
+
+/* Explicación de Numi (burbuja de diálogo, misma letra grande que el resultado) */
+.explain-btn,
+.numi-explain {
+  max-width: var(--play-width);
+  margin-left: auto;
+  margin-right: auto;
 }
 
-ion-button.dim {
-  opacity: 0.6;
+.explain-btn { margin-bottom: 12px; font-weight: 800; }
+
+/* Vacía pero presente en el árbol de accesibilidad (sin display:none), para que lectores como
+   VoiceOver anuncien también el primer trozo que llega. */
+.numi-explain:not(.shown) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  animation: none;
+}
+.numi-explain:not(.shown)::before { display: none; }
+
+.numi-explain {
+  position: relative;
+  margin-top: 14px;
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  /* Colores fijos (la app es solo modo claro): si algún día se activa un tema oscuro, la burbuja
+     no queda con texto claro sobre fondo blanco. Contraste: texto 13,5:1 y "Numi dice:" 7,3:1. */
+  color-scheme: light;
+  background: #fff;
+  color: #2b2d42;
+  border: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  border-radius: var(--kid-radius);
+  box-shadow: 0 4px 0 var(--kid-lilac-soft, #ebe4fd);
+  font-size: 1.25rem;
+  line-height: 1.5;
+  text-align: left;
+  animation: pop 0.4s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+
+/* Piquito de la burbuja, apuntando hacia arriba (hacia Numi). */
+.numi-explain::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: 32px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-left: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  border-top: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  transform: rotate(45deg);
+}
+
+.numi-explain:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 3px; }
+
+/* Numi junto a su explicación (la Numi de arriba se oculta mientras explica).
+   Teléfono: Numi encima, a la izquierda, sobre el piquito de la burbuja. */
+.numi-explain-row { max-width: var(--play-width); margin: 0 auto; }
+.numi-explain-row.shown { margin-top: 6px; scroll-margin-top: 12px; }
+.practice.in-exercise app-mascot.numi-explainer { max-width: 84px; margin: 0 0 0 4px; }
+.numi-explain-row .numi-explain { max-width: none; margin-top: 8px; }
+
+/* Tablet: Numi a la izquierda y la burbuja a su lado, con el piquito apuntándola. */
+@media (min-width: 600px) {
+  .numi-explain-row.shown { display: flex; align-items: flex-start; gap: 16px; }
+  .practice.in-exercise app-mascot.numi-explainer { flex: none; width: 120px; max-width: 120px; margin: 0; }
+  .numi-explain-row .numi-explain { flex: 1; min-width: 0; margin-top: 12px; }
+  .numi-explain-row .numi-explain::before {
+    top: 36px;
+    left: -11px;
+    border-top: 0;
+    border-bottom: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  }
+}
+
+.numi-explain p { margin: 0; }
+.numi-explain p + p { margin-top: 8px; }
+
+.numi-name { font-size: 1.05rem; font-weight: 800; color: #5b3bc4; }
+.numi-thinking { font-weight: 700; animation: thinking 1.4s ease-in-out infinite; }
+.numi-text { white-space: pre-line; }
+.numi-notice { font-weight: 700; color: var(--kid-yellow-text); }
+
+@keyframes thinking {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .numi-explain, .numi-thinking { animation: none; }
+}
+
+ion-button.dim { opacity: 0.6; }
+
+@keyframes pop {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes drop {
+  from { transform: translateY(-40px) scale(0.7); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-icon, .medal-icon, .star.on, .result, .medal { animation: none; transition: none; }
 }

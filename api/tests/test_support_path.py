@@ -49,7 +49,7 @@ def _post(text: str) -> tuple[TestClient, FakeGateway, SpyProvider, object]:
     token = jwt.encode(claims, SECRET, algorithm="HS256")
     response = client.post(
         f"/v1/students/{PERFIL}/explanations",
-        json={"topic": "sumas_hasta_20", "exercise": text},
+        json={"topic": "1-08", "exercise": text},
         headers={"Authorization": f"Bearer {token}"},
     )
     return client, gateway, provider, response

@@ -1,0 +1,171 @@
+/* Baldosas del selector de habilidades (agrupadas por eje). Pensado primero para teléfono (360 px)
+   y tablet (768–1024 px). Los colores vienen de [data-tone] (global.scss). */
+:host { display: block; }
+.skill-group { margin-top: 22px; text-align: left; }
+
+.group-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 1.15rem;
+}
+
+.group-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--tone-soft);
+  font-size: 1.25rem;
+}
+
+.group-name { color: var(--ion-text-color); }
+
+.group-count {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--tone-soft);
+  color: var(--ion-text-color);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+/* 2 columnas en teléfono, 3 en tablet vertical, 4 en tablet horizontal. */
+.tiles {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 600px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; } }
+@media (min-width: 1000px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.tile {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  font: inherit;
+  text-align: left;
+  /* Baldosa clara: el color del eje va en el borde, el círculo del ícono y la barrita. Así un
+     eje con 12 habilidades no se vuelve un muro de un solo color. */
+  color: #2b2d42;
+  background: #fff;
+  border: 3px solid var(--tone-soft);
+  border-radius: var(--kid-radius);
+  box-shadow: 0 5px 0 var(--tone-soft);
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+
+/* Burbuja decorativa */
+.tile::after {
+  content: '';
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  right: -26px;
+  top: -26px;
+  border-radius: 50%;
+  background: var(--tone-soft);
+  opacity: 0.7;
+}
+
+.tile:active { transform: translateY(3px) scale(0.98); box-shadow: 0 2px 0 var(--tone-soft); }
+.tile:focus-visible { outline: 4px solid var(--tone-deep); outline-offset: 3px; }
+/* El borde oscuro del amarillo (#e0a100) no contrasta con el fondo crema: foco en café. */
+.tile[data-tone='yellow']:focus-visible { outline-color: var(--kid-yellow-text); }
+.tile.mastered { border-color: var(--kid-green-soft); box-shadow: 0 5px 0 var(--kid-green-soft); }
+
+.tile-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--tone-grad);
+  color: #fff;
+  font-size: 1.55rem;
+  line-height: 1;
+  font-weight: 900;
+  box-shadow: 0 3px 0 var(--tone-deep);
+}
+.tile[data-tone='yellow'] .tile-icon { color: #2b2d42; }
+
+.tile-grade {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--kid-yellow-soft);
+  color: var(--kid-yellow-text);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+/* El nombre completo, sin cortar: envuelve por palabras (los miles llevan espacio sin salto). */
+.tile-name {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  font-size: clamp(1rem, 0.92rem + 0.35vw, 1.12rem);
+  font-weight: 800;
+  line-height: 1.22;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.tile-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  width: 100%;
+  font-weight: 800;
+}
+
+.tile-stars { color: #b77b00; font-size: 1.05rem; letter-spacing: 1px; }
+
+.tile-progress { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 80px; }
+
+.tile-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tone-soft);
+  overflow: hidden;
+}
+
+.tile-fill { display: block; height: 100%; border-radius: inherit; background: var(--tone-grad); }
+
+.tile-count { font-size: 0.95rem; }
+
+.tile-mastered {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--kid-green-soft);
+  color: var(--kid-green-text);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile { transition: none; }
+}

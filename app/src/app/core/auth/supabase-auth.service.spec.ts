@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { SupabaseAuthService } from './supabase-auth.service';
+import { SESSION_TIMEOUT_MS, SupabaseAuthService } from './supabase-auth.service';
 import { SUPABASE_CLIENT } from './supabase.client';
 
 type Resp = { data: unknown; error: unknown };
@@ -39,6 +39,36 @@ function service(over: Parameters<typeof fakeClient>[0]): SupabaseAuthService {
 }
 
 describe('SupabaseAuthService', () => {
+  it('si Supabase no responde al abrir, sigue sin sesión en vez de quedarse en blanco', async () => {
+    vi.useFakeTimers();
+    try {
+      TestBed.configureTestingModule({
+        providers: [
+          {
+            provide: SUPABASE_CLIENT,
+            useValue: {
+              auth: {
+                // El refresco del token nunca responde (servidor apagado).
+                getSession: () => new Promise(() => undefined),
+                onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => undefined } } }),
+              },
+            },
+          },
+        ],
+      });
+      const s = TestBed.inject(SupabaseAuthService);
+      let done = false;
+      void s.ready().then(() => (done = true));
+      await vi.advanceTimersByTimeAsync(SESSION_TIMEOUT_MS - 1);
+      expect(done).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(done).toBe(true);
+      expect(s.user()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sin sesión guardada el usuario es null', async () => {
     const s = service({});
     await s.ready();

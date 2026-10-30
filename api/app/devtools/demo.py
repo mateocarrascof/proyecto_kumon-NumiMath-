@@ -110,14 +110,14 @@ def default_topic(grade: int, exercise: str) -> str:
     elif "×" in text or "*" in text or " x " in text or "multiplic" in text:
         keywords = ("multiplic", "tabla")
     elif "÷" in text or "/" in text or "divid" in text or "divis" in text:
-        keywords = ("divis",)
+        keywords = ("divi",)
     elif "-" in text or "resta" in text:
         keywords = ("resta",)
     topics = topics_for_grade(grade)
-    for keyword in keywords:
-        for topic in topics:
-            if keyword in topic.id:
-                return topic.id
+    # Primero las habilidades del curso (vienen antes que las de repaso).
+    for topic in topics:
+        if any(keyword in topic.label.casefold() for keyword in keywords):
+            return topic.id
     return topics[0].id
 
 

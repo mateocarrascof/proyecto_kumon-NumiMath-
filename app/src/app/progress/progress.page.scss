@@ -3,67 +3,193 @@
   margin: 0 auto;
 }
 
+app-mascot {
+  max-width: 160px;
+}
+
+h2 {
+  font-size: 1.3rem;
+  margin: 24px 0 10px;
+}
+
+.empty {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ion-color-medium);
+}
+
+/* Resumen: tarjetas de color con degradado */
 .summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 10px;
   text-align: center;
   margin: 16px 0;
 }
 
 .summary div {
-  background: var(--ion-color-step-100, #1e1e1e);
-  border-radius: 12px;
-  padding: 12px 4px;
+  position: relative;
+  overflow: hidden;
+  background: var(--tone-grad);
+  color: #fff;
+  border-radius: var(--kid-radius);
+  box-shadow: 0 5px 0 var(--tone-deep);
+  padding: 16px 6px;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  animation: pop 0.5s cubic-bezier(0.3, 1.6, 0.6, 1) both;
 }
+
+.summary div::before {
+  content: '';
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  right: -18px;
+  top: -18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.summary div:nth-child(2) { animation-delay: 0.08s; }
+.summary div:nth-child(3) { animation-delay: 0.16s; }
 
 .summary strong {
-  font-size: 1.6rem;
+  font-size: 2.1rem;
+  font-weight: 900;
+  line-height: 1.1;
 }
 
-.summary span,
-.empty {
-  color: var(--ion-color-medium-shade);
+.summary span {
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
+/* Racha diaria (días seguidos) */
+.daily {
+  text-align: center;
+  margin: 12px 0 0;
+}
+
+.daily-count {
+  display: inline-block;
+  margin: 0;
+  padding: 8px 18px;
+  font-weight: 900;
+  font-size: 1.25rem;
+  color: #3d2c00; /* legible sobre el dorado también en modo oscuro */
+  border-radius: 999px;
+  background: var(--kid-gold-grad);
+  box-shadow: 0 4px 0 #e0a100;
+  animation: pop 0.5s cubic-bezier(0.3, 1.6, 0.6, 1) both;
+}
+
+.daily-hint {
+  margin: 8px 0 0;
+  font-weight: 700;
+  color: var(--ion-color-medium);
+}
+
+.badge {
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  border-radius: var(--kid-radius);
+  background: var(--kid-gold-grad);
+  box-shadow: 0 4px 0 #e0a100;
+}
+
+/* Por tema */
 .topics,
 .recent {
   list-style: none;
   padding: 0;
+  margin: 0;
+}
+
+.topics {
+  padding: 14px 16px 4px;
+}
+
+.topics li {
+  margin-bottom: 16px;
 }
 
 .row {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 700;
 }
 
-.topics li {
-  margin-bottom: 12px;
+.row > span:first-child {
+  flex: 1;
+}
+
+.topic-stars {
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--kid-border);
+}
+
+.topic-stars .on {
+  color: #ffb627;
+  text-shadow: 0 2px 0 #e0a100;
+}
+
+.count {
+  min-width: 2.5em;
+  text-align: right;
+}
+
+ion-progress-bar {
+  transform-origin: left center;
+  animation: grow 0.9s ease-out both;
+}
+
+ion-progress-bar::part(progress) {
+  background: linear-gradient(90deg, #2ec4b6, var(--ion-color-primary));
+  border-radius: 999px;
+}
+
+/* Últimos intentos: chips */
+.recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .recent li {
   display: flex;
-  gap: 8px;
-  padding: 6px 0;
-  color: var(--ion-color-danger);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: var(--kid-yellow-soft);
+  color: var(--kid-yellow-text);
 }
 
 .recent li.ok {
-  color: var(--ion-color-success);
+  background: var(--kid-green-soft);
+  color: var(--kid-green-text);
 }
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
+.mark {
+  font-weight: 900;
 }
 
-.error {
-  color: var(--ion-color-danger);
-  font-weight: 600;
+@keyframes pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }

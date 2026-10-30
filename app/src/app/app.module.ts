@@ -19,6 +19,14 @@ import { ProfilesPort } from './core/profiles/profiles.port';
 import { SupabaseProfilesService } from './core/profiles/supabase-profiles.service';
 import { MascotPort } from './core/mascot/mascot.port';
 import { MascotService } from './core/mascot/mascot.service';
+import { AssignmentsPort } from './core/assignments/assignments.port';
+import { HttpAssignmentsService } from './core/assignments/http-assignments.service';
+import { HttpReportService } from './core/report/http-report.service';
+import { ReportPort } from './core/report/report.port';
+import { HttpParentalService } from './core/parental/http-parental.service';
+import { ParentalPort } from './core/parental/parental.port';
+import { ExplanationPort } from './core/explanation/explanation.port';
+import { HttpExplanationService } from './core/explanation/http-explanation.service';
 
 @NgModule({
   declarations: [AppComponent],
@@ -32,6 +40,10 @@ import { MascotService } from './core/mascot/mascot.service';
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
+    { provide: AssignmentsPort, useExisting: HttpAssignmentsService },
+    { provide: ReportPort, useExisting: HttpReportService },
+    { provide: ParentalPort, useExisting: HttpParentalService },
+    { provide: ExplanationPort, useExisting: HttpExplanationService },
     provideHttpClient(),
   ],
   bootstrap: [AppComponent],

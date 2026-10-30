@@ -1,0 +1,57 @@
+.pin {
+  max-width: 380px;
+  margin: 20px auto;
+  padding: 20px;
+  text-align: center;
+}
+
+h1 {
+  font-size: 1.35rem;
+  margin: 0 0 12px;
+}
+
+.hint { font-size: 0.95rem; }
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 16px 0 20px;
+}
+
+.dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--ion-color-primary);
+}
+
+.dot.on { background: var(--ion-color-primary); }
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  max-width: 280px;
+  margin: 0 auto 12px;
+}
+
+.key {
+  min-height: 60px;
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ion-text-color);
+  background: var(--kid-card-bg);
+  border: 2px solid var(--kid-border);
+  border-radius: var(--kid-radius-sm);
+  cursor: pointer;
+}
+
+.key:active { transform: scale(0.96); }
+.key:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
+
+.error {
+  color: var(--ion-color-danger);
+  font-weight: 700;
+}

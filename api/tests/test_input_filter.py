@@ -172,3 +172,31 @@ def test_cada_motivo_tiene_un_mensaje_amable_que_no_repite_lo_escrito() -> None:
 def test_no_falla_con_entradas_raras() -> None:
     for texto in ("\x00\x01", "𝟐 + 𝟐", "a" * 5000, "🙂" * 50, "퟿", "٣ + ٤"):
         check_input(texto)  # no debe lanzar excepciones
+
+
+def test_el_filtro_del_tutor_no_rechaza_palabras_dentro_de_otras() -> None:
+    from app.safety.input_filter import check_tutor_text
+
+    for texto in (
+        "Una polera tiene un descuento de 29 pesos",
+        "Juan va a jugar con 3 amigos",
+        "En sus estudios hizo 7 tareas",
+        "Una serie de 4 libros",
+    ):
+        assert check_tutor_text(texto).allowed, texto
+    assert check_tutor_text("Mi correo es nino@ejemplo.cl, suma 2 + 2").reason == "pii"
+    assert check_tutor_text("   ").reason == "empty"
+    assert check_tutor_text("1 + " * 60).reason == "too_long"
+
+
+def test_fuera_de_tema_se_busca_al_inicio_de_palabra() -> None:
+    # Como subcadena, "dios" rechazaba "medios" y "cuento" rechazaba "descuento".
+    for texto in (
+        "¿Cuántos medios kilos se necesitan para formar 1 kg?",
+        "Una polera tiene un descuento de 29 pesos. ¿Cuánto pagas?",
+        "En sus estudios hizo 7 tareas cada día. ¿Cuántas en 3 días?",
+    ):
+        assert check_input(texto).allowed, texto
+    # Las palabras de la lista y sus formas siguen rechazándose.
+    for texto in ("cuéntame chistes de 2 + 2", "una película de 2 horas", "dibujos con 5 lados"):
+        assert check_input(texto).reason == "off_topic", texto

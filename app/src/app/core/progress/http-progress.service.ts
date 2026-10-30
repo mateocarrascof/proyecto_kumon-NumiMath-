@@ -5,12 +5,15 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
 import { PracticeError } from '../practice/practice.port';
+import { localDay } from '../time/local-day';
 import { Progress, ProgressPort } from './progress.port';
 
 interface ProgressDto {
   total: number;
   correct: number;
   streak: number;
+  daily_streak: number;
+  practiced_today: boolean;
   by_topic: { topic: string; label: string; total: number; correct: number }[];
   recent: { topic: string; label: string; correct: boolean; answered_at: string }[];
 }
@@ -27,13 +30,15 @@ export class HttpProgressService extends ProgressPort {
       const dto = await firstValueFrom(
         this.http.get<ProgressDto>(
           `${environment.apiUrl}/v1/students/${encodeURIComponent(studentId)}/progress`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${token}` }, params: { today: localDay() } },
         ),
       );
       return {
         total: dto.total,
         correct: dto.correct,
         streak: dto.streak,
+        dailyStreak: dto.daily_streak ?? 0,
+        practicedToday: dto.practiced_today ?? false,
         byTopic: dto.by_topic,
         recent: dto.recent.map((r) => ({
           topic: r.topic,

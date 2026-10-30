@@ -6,6 +6,7 @@ import { IonicModule } from '@ionic/angular/lazy';
 
 import { CoreModule } from '../core/core.module';
 import { PracticePage } from './practice.page';
+import { SkillTilesComponent } from './skill-tiles.component';
 
 @NgModule({
   imports: [
@@ -15,6 +16,6 @@ import { PracticePage } from './practice.page';
     CoreModule,
     RouterModule.forChild([{ path: '', component: PracticePage }]),
   ],
-  declarations: [PracticePage],
+  declarations: [PracticePage, SkillTilesComponent],
 })
 export class PracticePageModule {}

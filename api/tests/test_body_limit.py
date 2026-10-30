@@ -45,14 +45,14 @@ def _headers() -> dict[str, str]:
 def test_un_cuerpo_pequeno_pasa() -> None:
     response = _client().post(
         f"/v1/students/{PERFIL}/explanations",
-        json={"topic": "sumas_hasta_20", "exercise": "7 + 5"},
+        json={"topic": "1-08", "exercise": "7 + 5"},
         headers=_headers(),
     )
     assert response.status_code == 200
 
 
 def test_un_cuerpo_demasiado_grande_es_413_sin_leerlo() -> None:
-    big = json.dumps({"topic": "sumas_hasta_20", "exercise": "7 + 5", "relleno": "x" * 5000})
+    big = json.dumps({"topic": "1-08", "exercise": "7 + 5", "relleno": "x" * 5000})
     response = _client().post(
         f"/v1/students/{PERFIL}/explanations",
         content=big,
@@ -66,7 +66,7 @@ def test_un_cuerpo_demasiado_grande_es_413_sin_leerlo() -> None:
 
 def test_sin_content_length_es_411() -> None:
     def chunks() -> object:
-        yield b'{"topic": "sumas_hasta_20",'
+        yield b'{"topic": "1-08",'
         yield b' "exercise": "7 + 5"}'
 
     response = _client().post(
@@ -94,7 +94,7 @@ def test_el_rechazo_no_incluye_el_cuerpo_ni_se_registra_su_contenido() -> None:
     secreto = "me llamo Pedro Perez " * 400
     response = _client().post(
         f"/v1/students/{PERFIL}/explanations",
-        json={"topic": "sumas_hasta_20", "exercise": secreto},
+        json={"topic": "1-08", "exercise": secreto},
         headers=_headers(),
     )
     assert response.status_code == 413

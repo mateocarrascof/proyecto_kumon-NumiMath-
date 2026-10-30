@@ -32,6 +32,236 @@
  * https://ionicframework.com/docs/theming/dark-mode
  */
 
-/* @import "@ionic/angular/css/palettes/dark.always.css"; */
-/* @import "@ionic/angular/css/palettes/dark.class.css"; */
-@import "@ionic/angular/css/palettes/dark.system.css";
+/* Solo modo claro: app para niños, sin paleta oscura. */
+
+/* ---------------------------------------------------------------------------
+ * Tipografía: Nunito (OFL) servida desde assets, sin CDN.
+ * Ruta absoluta para que el build no falle si el archivo aún no está.
+ * ------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/assets/fonts/nunito-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+body {
+  font-family: var(--ion-font-family);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Barra superior con esquinas redondeadas */
+ion-header ion-toolbar {
+  --border-width: 0;
+  --min-height: 60px;
+}
+
+ion-header ion-toolbar:last-of-type {
+  border-bottom-left-radius: var(--kid-radius);
+  border-bottom-right-radius: var(--kid-radius);
+  overflow: hidden;
+}
+
+ion-header.header-md {
+  box-shadow: none;
+}
+
+ion-header.header-md::after {
+  display: none;
+}
+
+ion-title {
+  font-weight: 800;
+  font-size: 1.15rem;
+}
+
+/* Botones grandes tipo "juguete": borde inferior más oscuro que se hunde al tocar */
+ion-button {
+  --border-radius: var(--kid-radius-sm);
+  --box-shadow: none;
+  min-height: 52px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+ion-button[size='small'] {
+  min-height: 40px;
+  font-size: 0.95rem;
+}
+
+ion-button.button-solid {
+  --background: linear-gradient(
+    180deg,
+    var(--ion-color-tint, var(--ion-color-primary-tint)),
+    var(--ion-color-shade, var(--ion-color-primary-shade))
+  );
+  --box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.28),
+    0 var(--kid-press-depth) 0 var(--ion-color-shade, var(--ion-color-primary-shade));
+  transition: transform 0.08s ease;
+}
+
+ion-button.button-solid.ion-activated,
+ion-button.button-solid:active {
+  transform: translateY(2px);
+  --box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.28),
+    0 calc(var(--kid-press-depth) - 2px) 0 var(--ion-color-shade, var(--ion-color-primary-shade));
+}
+
+/* Los botones de la barra superior quedan simples */
+ion-button.in-toolbar {
+  min-height: auto;
+  font-size: 0.95rem;
+}
+
+ion-button.button-outline {
+  --border-width: 2px;
+}
+
+ion-button[disabled] {
+  --box-shadow: none;
+}
+
+ion-back-button {
+  --color: var(--ion-color-primary-contrast);
+  font-weight: 700;
+  text-transform: none;
+}
+
+/* Campos de texto */
+ion-item {
+  --background: var(--kid-card-bg);
+  --border-radius: var(--kid-radius-sm);
+  --border-color: var(--kid-border);
+  --highlight-color-focused: var(--ion-color-primary);
+  margin-bottom: 10px;
+  border: 2px solid var(--kid-border);
+  border-radius: var(--kid-radius-sm);
+  --inner-border-width: 0;
+}
+
+ion-input {
+  --placeholder-color: var(--ion-color-medium);
+  --placeholder-opacity: 1;
+}
+
+ion-progress-bar {
+  height: 14px;
+  border-radius: 999px;
+  --background: var(--kid-teal-soft);
+}
+
+ion-segment {
+  --background: var(--kid-card-bg);
+  border-radius: var(--kid-radius-sm);
+  border: 2px solid var(--kid-border);
+  margin: 8px 0;
+}
+
+ion-segment-button {
+  --indicator-color: var(--ion-color-primary);
+  --color-checked: var(--ion-color-primary);
+  --padding-start: 4px;
+  --padding-end: 4px;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+ion-segment-button.segment-button-checked {
+  background: var(--kid-teal-soft);
+}
+
+ion-segment-button ion-label {
+  white-space: normal;
+}
+
+/* Que los textos de las casillas no se corten */
+ion-checkbox::part(label) {
+  white-space: normal;
+}
+
+/* Tonos de color reutilizables: data-tone="teal|coral|lilac|yellow" */
+[data-tone] {
+  --tone: var(--ion-color-primary);
+  --tone-soft: var(--kid-teal-soft);
+  --tone-grad: var(--kid-teal-grad);
+  --tone-deep: #094c45;
+}
+[data-tone='coral'] {
+  --tone: var(--ion-color-secondary);
+  --tone-soft: var(--kid-coral-soft);
+  --tone-grad: var(--kid-coral-grad);
+  --tone-deep: #8a2f22;
+}
+[data-tone='lilac'] {
+  --tone: var(--ion-color-tertiary);
+  --tone-soft: var(--kid-lilac-soft);
+  --tone-grad: var(--kid-lilac-grad);
+  --tone-deep: #432a99;
+}
+[data-tone='yellow'] {
+  --tone: var(--kid-yellow-text);
+  --tone-soft: var(--kid-yellow-soft);
+  --tone-grad: var(--kid-yellow-grad);
+  --tone-deep: #e0a100;
+}
+
+@keyframes kid-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  70% { transform: scale(1.04); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* Indicador de carga centrado (fuera de textos en línea) */
+main > ion-spinner {
+  display: block;
+  margin: 16px auto;
+  color: var(--ion-color-primary);
+}
+
+/* Utilidades compartidas */
+.kid-card {
+  background: var(--kid-card-bg);
+  border: 2px solid var(--kid-border);
+  border-radius: var(--kid-radius);
+  box-shadow: var(--kid-shadow);
+}
+
+.error {
+  color: var(--ion-color-danger);
+  font-weight: 700;
+  background: var(--kid-coral-soft);
+  border-radius: var(--kid-radius-sm);
+  padding: 10px 14px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

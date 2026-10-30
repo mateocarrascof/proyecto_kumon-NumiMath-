@@ -34,7 +34,7 @@ import { LegalBlock, parseLegalText } from './legal-text';
   `,
   styles: [
     `
-      .banner { background: #fff3cd; color: #664d03; padding: 8px 12px; border-radius: 8px; }
+      .banner { background: var(--kid-yellow-soft); color: var(--kid-yellow-text); padding: 8px 12px; border-radius: 12px; font-weight: 600; }
       .note { font-size: 0.8rem; opacity: 0.7; }
       h3 { margin: 12px 0 4px; }
     `,

@@ -140,3 +140,59 @@ def test_la_infraccion_no_contiene_el_texto() -> None:
     _, violation = guard.feed("Dime tu apellido por favor. ")
     assert violation is not None
     assert "apellido" not in repr(violation)
+
+
+# --- un paso por línea -----------------------------------------------------------------------
+
+
+def test_los_saltos_de_linea_se_conservan_al_final_de_cada_linea() -> None:
+    delivered, reason = _run(
+        [
+            "¡Vamos a sumar 481 + 155!\nSepara 155 en 100 + 50 + 5.\n",
+            "Primero: 481 + 100 = 581\nLuego: 581 + 50 = 631\n",
+            "Al final: 631 + 5 = 636\n¡Así se llega a 636!\n¡Tú puedes!",
+        ]
+    )
+    assert reason is None
+    assert delivered == [
+        "¡Vamos a sumar 481 + 155!\n",
+        "Separa 155 en 100 + 50 + 5.\n",
+        "Primero: 481 + 100 = 581\n",
+        "Luego: 581 + 50 = 631\n",
+        "Al final: 631 + 5 = 636\n",
+        "¡Así se llega a 636!\n",
+        "¡Tú puedes!",
+    ]
+
+
+def test_un_salto_partido_entre_fragmentos_no_se_pierde() -> None:
+    delivered, reason = _run(["Primero: 4 + 1 = 5", "\n", "Luego: 5 + 2 =", " 7.", "\nListo."])
+    assert reason is None
+    assert delivered == ["Primero: 4 + 1 = 5\n", "Luego: 5 + 2 = 7.\n", "Listo."]
+
+
+def test_dos_oraciones_en_la_misma_linea_no_reciben_salto() -> None:
+    delivered, _ = _run(["Muy bien. Ahora suma.\n"])
+    assert delivered == ["Muy bien.", "Ahora suma.\n"]
+
+
+def test_las_lineas_se_validan_igual_que_las_oraciones() -> None:
+    _, reason = _run(["Primero: 2 + 2 = 4\n", "Ahora dime tu apellido\n", "Luego: 4 + 1 = 5\n"])
+    assert reason == "asks_personal_data"
+    delivered, reason = _run(["Paso 1\n", "Visita www.juegos.cl\n"])
+    assert delivered == ["Paso 1\n"]
+    assert reason == "link_or_contact"
+
+
+def test_el_salto_que_llega_en_el_fragmento_siguiente_no_se_pierde() -> None:
+    delivered, reason = _run(["Primero suma. ", "\nLuego resta.", "\n"])
+    assert reason is None
+    assert delivered == ["Primero suma.\n", "Luego resta.\n"]
+
+
+def test_los_saltos_cuentan_para_el_largo_total() -> None:
+    # Líneas de 9 caracteres + salto: el tope llega antes que sin contar los saltos.
+    lines = ["2 + 2 = 4\n"] * (MAX_TOTAL_CHARS // 9)
+    delivered, reason = _run(lines)
+    assert reason == "output_too_long"
+    assert sum(len(s) for s in delivered) <= MAX_TOTAL_CHARS

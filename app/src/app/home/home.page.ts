@@ -5,6 +5,7 @@ import { alertCircle, checkmarkCircle } from 'ionicons/icons';
 
 import { ApiHealthService, ApiStatus } from '../core/api/api-health.service';
 import { AuthPort } from '../core/auth/auth.port';
+import { pickPhrase } from '../core/mascot/mascot-phrases';
 import { MascotPort } from '../core/mascot/mascot.port';
 
 @Component({
@@ -19,6 +20,7 @@ export class HomePage implements OnInit {
   private readonly health = inject(ApiHealthService);
   private readonly nav = inject(NavController);
   protected readonly mascot = inject(MascotPort);
+  protected readonly greeting = pickPhrase('greet');
   private readonly cdr = inject(ChangeDetectorRef);
   protected readonly auth = inject(AuthPort);
 

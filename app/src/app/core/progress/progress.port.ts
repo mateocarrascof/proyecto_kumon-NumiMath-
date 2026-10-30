@@ -15,7 +15,12 @@ export interface RecentAttempt {
 export interface Progress {
   total: number;
   correct: number;
+  /** Aciertos seguidos (los últimos intentos). */
   streak: number;
+  /** Días seguidos respondiendo al menos un ejercicio, según la fecha local del dispositivo. */
+  dailyStreak: number;
+  /** Si ya respondió algún ejercicio hoy (fecha local). */
+  practicedToday: boolean;
   byTopic: TopicProgress[];
   recent: RecentAttempt[];
 }

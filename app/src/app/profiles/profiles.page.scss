@@ -1,60 +1,243 @@
 .profiles {
-  max-width: 640px;
+  max-width: 760px;
   margin: 0 auto;
+  text-align: center;
 }
 
-.count,
-.empty,
-.hint {
-  color: var(--ion-color-medium-shade);
+.hero app-mascot { max-width: 170px; }
+
+.empty {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 12px auto;
+  max-width: 420px;
 }
 
-.list {
+.error { color: var(--ion-color-danger); font-weight: 700; }
+
+/* Título centrado en la barra (en Android Ionic lo deja a la izquierda). Queda sobre toda la
+   barra, sin tapar el botón de volver. */
+ion-title.centered {
+  position: absolute;
+  inset: 0;
+  padding-inline: 96px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ---- Carrusel de perfiles -------------------------------------------------------------------
+   La tarjeta del centro es la elegida; las de los lados se asoman más chicas. Deslizar con el dedo
+   (scroll-snap), con las flechas ‹ › o con los puntos. Sin librerías. */
+.carousel {
+  /* En teléfono la tarjeta deja ver a las vecinas a los lados (y ahí van las flechas). */
+  --card-w: min(62vw, 260px);
+  position: relative;
+  margin: 4px -16px 0; /* la pista usa todo el ancho, también bajo el relleno de la página */
+}
+
+.kids {
   list-style: none;
+  margin: 0;
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* Relleno para que la primera y la última tarjeta también puedan quedar al centro. */
+  padding: 14px calc(50% - var(--card-w) / 2) 22px;
+}
+.kids::-webkit-scrollbar { display: none; }
+
+.kids li {
+  flex: 0 0 var(--card-w);
+  min-width: 0;
+  scroll-snap-align: center;
+  animation: rise 0.5s cubic-bezier(0.3, 1.6, 0.6, 1) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* Las de los lados, más chicas y atenuadas (propiedad `scale`: no choca con los transform). */
+.kids li .kid-card {
+  scale: 0.86;
+  opacity: 0.72;
+  transition: scale 0.25s ease, opacity 0.25s ease, transform 0.12s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+.kids li.active .kid-card { scale: 1; opacity: 1; }
+.kids li.active .kid-card.paused { opacity: 0.7; }
+
+/* Fila de navegación bajo las tarjetas: ‹ puntos ›. */
+.nav-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: -6px; }
+
+.arrow {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ion-color-primary);
+  font: inherit;
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 4px 0 rgba(43, 45, 66, 0.15);
+  cursor: pointer;
+}
+/* Deshabilitada en los extremos: se ve apagada pero no desaparece (la fila no salta). */
+.arrow:disabled { opacity: 0.35; box-shadow: none; cursor: default; }
+.arrow:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
+
+/* Puntos: área táctil de 32 px con un punto chico; el activo es una pastilla. */
+.dots { display: flex; justify-content: center; gap: 2px; }
+.dot {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
   padding: 0;
-  margin: 12px 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.dot::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--kid-border, #f0e4cf);
+  box-shadow: inset 0 0 0 2px rgba(43, 45, 66, 0.25);
+  transition: width 0.2s ease;
+}
+.dot.on::before { width: 26px; background: var(--ion-color-primary); box-shadow: none; }
+.dot:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: -2px; border-radius: 8px; }
+
+@media (min-width: 768px) {
+  .carousel { --card-w: 260px; margin-inline: 0; }
 }
 
-.card {
-  background: var(--ion-color-step-100, #1e1e1e);
-  border-radius: 12px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
-}
-
-.who {
+.kid-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
-  gap: 12px;
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-
-.blocked {
-  color: var(--ion-color-danger);
-  font-weight: 600;
-}
-
-.confirm,
-.actions {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 6px;
+  padding: 20px 14px 16px;
+  min-height: 220px;
+  color: #fff;
+  background: var(--tone-grad);
+  border-radius: 26px;
+  box-shadow: 0 7px 0 var(--tone-deep);
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.3, 1.6, 0.6, 1);
 }
 
-.form {
-  margin-top: 16px;
+/* Burbujas decorativas */
+.kid-card::before,
+.kid-card::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+}
+.kid-card::before { width: 120px; height: 120px; right: -36px; top: -40px; }
+.kid-card::after { width: 70px; height: 70px; left: -20px; bottom: -24px; }
+
+.kid-card[data-tone='yellow'] { color: var(--ion-text-color); }
+
+.kid-card:hover { transform: translateY(-3px); }
+.kid-card:active { transform: translateY(5px) scale(0.98); box-shadow: 0 2px 0 var(--tone-deep); }
+.kid-card:focus-visible { outline: 4px solid var(--tone-deep); outline-offset: 4px; }
+
+.animal {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  font-size: 3.4rem;
+  line-height: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.12);
+  animation: bob 2.6s ease-in-out infinite;
 }
 
-.decl {
-  background: var(--ion-color-step-100, #1e1e1e);
-  border-radius: 12px;
-  padding: 4px 16px;
-  margin: 12px 0;
+.kids li:nth-child(2n) .animal { animation-delay: -0.9s; }
+.kids li:nth-child(3n) .animal { animation-delay: -1.7s; }
+
+.name { font-size: 1.6rem; font-weight: 900; position: relative; }
+.grade { font-weight: 700; opacity: 0.95; position: relative; }
+
+.chip {
+  position: relative;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #3d2c00;
+  font-weight: 800;
+  font-size: 0.95rem;
 }
 
-.error {
-  color: var(--ion-color-danger);
-  font-weight: 600;
+/* "¡A practicar!": solo en la tarjeta del centro. */
+.go-btn {
+  position: relative;
+  margin-top: 8px;
+  min-height: 52px;
+  width: 100%;
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--tone-deep);
+  background: #fff;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+.kid-card[data-tone='yellow'] .go-btn { color: #2b2d42; }
+.go-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18); }
+.go-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+.progress-btn {
+  position: relative;
+  margin-top: 6px;
+  min-height: 44px;
+  padding: 6px 16px;
+  font: inherit;
+  font-weight: 800;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.22);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.kid-card[data-tone='yellow'] .progress-btn { border-color: rgba(0, 0, 0, 0.25); }
+.progress-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+.kid-card.paused {
+  filter: grayscale(0.85);
+  opacity: 0.7;
+  cursor: default;
+}
+.kid-card.paused .animal { animation: none; }
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-6px) rotate(4deg); }
+}
+
+@keyframes rise {
+  from { transform: translateY(24px) scale(0.9); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kids li,
+  .animal { animation: none; }
+  .kids li .kid-card, .dot::before { transition: none; }
 }

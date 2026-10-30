@@ -1,2 +1,89 @@
-// For information on how to create your own theme, please refer to:
-// https://ionicframework.com/docs/theming/
+// Tema "alegre y suave" para niños de 6 a 10 años. Solo modo claro.
+// Todos los colores con texto encima pasan contraste WCAG AA (>= 4.5:1).
+
+:root {
+  /* Turquesa: acción principal */
+  --ion-color-primary: #0f7c70;
+  --ion-color-primary-rgb: 15, 124, 112;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #0d6d63;
+  --ion-color-primary-tint: #27897e;
+
+  /* Coral */
+  --ion-color-secondary: #c24e3f;
+  --ion-color-secondary-rgb: 194, 78, 63;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade: #ab4537;
+  --ion-color-secondary-tint: #c86052;
+
+  /* Lila */
+  --ion-color-tertiary: #6e4bd8;
+  --ion-color-tertiary-rgb: 110, 75, 216;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade: #6142be;
+  --ion-color-tertiary-tint: #7d5ddc;
+
+  --ion-color-success: #1e7f43;
+  --ion-color-success-rgb: 30, 127, 67;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #1a703b;
+  --ion-color-success-tint: #358c56;
+
+  /* Amarillo Numi: siempre con texto oscuro */
+  --ion-color-warning: #ffd166;
+  --ion-color-warning-rgb: 255, 209, 102;
+  --ion-color-warning-contrast: #2b2d42;
+  --ion-color-warning-contrast-rgb: 43, 45, 66;
+  --ion-color-warning-shade: #e0b85a;
+  --ion-color-warning-tint: #ffd675;
+
+  --ion-color-danger: #c53030;
+  --ion-color-danger-rgb: 197, 48, 48;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #ad2a2a;
+  --ion-color-danger-tint: #cb4545;
+
+  --ion-color-medium: #5c5f77;
+  --ion-color-medium-rgb: 92, 95, 119;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #51546a;
+  --ion-color-medium-tint: #6c6f85;
+
+  /* Base */
+  --ion-background-color: #fff8ec;
+  --ion-background-color-rgb: 255, 248, 236;
+  --ion-text-color: #2b2d42;
+  --ion-text-color-rgb: 43, 45, 66;
+  --ion-item-background: transparent;
+  --ion-font-family: 'Nunito', 'Nunito Variable', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+
+  /* Tokens propios */
+  --kid-radius: 20px;
+  --kid-radius-sm: 14px;
+  --kid-card-bg: #ffffff;
+  --kid-border: #f0e4cf;
+  --kid-shadow: 0 4px 14px rgba(43, 45, 66, 0.08);
+  --kid-press-depth: 5px;
+
+  /* Fondos suaves (texto oscuro encima) */
+  --kid-teal-soft: #dcf3ef;
+  --kid-coral-soft: #fde4df;
+  --kid-lilac-soft: #ebe4fd;
+  --kid-yellow-soft: #fff1c9;
+  --kid-green-soft: #ddf5e4;
+  --kid-green-text: #1e5e36;
+  --kid-yellow-text: #6b4e00;
+
+  /* Degradados vibrantes. Texto blanco >= 4.7:1 en ambos extremos (amarillo: texto oscuro). */
+  --kid-teal-grad: linear-gradient(135deg, #0f7c70, #0e6e63);
+  --kid-coral-grad: linear-gradient(135deg, #c24e3f, #b8432f);
+  --kid-lilac-grad: linear-gradient(135deg, #7c55e6, #5b3bc4);
+  --kid-yellow-grad: linear-gradient(135deg, #ffd166, #ffb627);
+  --kid-gold-grad: linear-gradient(135deg, #ffe08a, #ffc93c);
+}

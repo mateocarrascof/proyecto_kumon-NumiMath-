@@ -24,6 +24,9 @@ function reasonOf(error: AuthError): AuthFailure {
   }
 }
 
+/** Espera máxima para saber si hay sesión guardada al abrir la app. */
+export const SESSION_TIMEOUT_MS = 8000;
+
 @Injectable({ providedIn: 'root' })
 export class SupabaseAuthService extends AuthPort {
   private readonly client = inject(SUPABASE_CLIENT);
@@ -34,11 +37,23 @@ export class SupabaseAuthService extends AuthPort {
 
   constructor() {
     super();
-    this.initialized = this.client.auth.getSession().then(
-      ({ data }) => {
-        this.current.set(toUser(data.session));
+    // Si Supabase no responde (p. ej. el servidor local está apagado), getSession puede quedarse
+    // esperando el refresco del token para siempre y la app no mostraría nada. Tras el límite se
+    // sigue sin sesión (pantalla de login); si la sesión llega después, onAuthStateChange la aplica.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), SESSION_TIMEOUT_MS);
+    });
+    this.initialized = Promise.race([
+      this.client.auth.getSession().then(({ data }) => data.session),
+      timeout,
+    ]).then(
+      (session) => {
+        clearTimeout(timer);
+        this.current.set(toUser(session));
       },
       () => {
+        clearTimeout(timer);
         this.current.set(null);
       },
     );

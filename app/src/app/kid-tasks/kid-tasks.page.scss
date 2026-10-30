@@ -1,0 +1,74 @@
+.kid-tasks {
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+app-mascot { max-width: 150px; }
+
+h1,
+h2 {
+  font-size: 1.4rem;
+  margin: 18px 0 10px;
+}
+
+.count {
+  display: inline-block;
+  min-width: 32px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--kid-gold-grad);
+  color: #3d2c00;
+}
+
+.empty {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ion-color-medium);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.task {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 800;
+  border-radius: var(--kid-radius);
+  border: 0;
+}
+
+.task.pending {
+  background: var(--kid-yellow-grad);
+  color: var(--ion-text-color);
+  box-shadow: 0 5px 0 #e0a100;
+  cursor: pointer;
+}
+
+.task.pending:active { transform: translateY(3px); box-shadow: 0 2px 0 #e0a100; }
+.task.pending:focus-visible { outline: 4px solid #e0a100; outline-offset: 3px; }
+
+.task.done {
+  background: var(--kid-yellow-soft);
+  color: var(--kid-yellow-text);
+  font-weight: 700;
+}
+
+.task.done.ok { background: var(--kid-green-soft); color: var(--kid-green-text); }
+
+.icon { font-size: 1.5rem; flex: none; }
+.text { flex: 1; }
+.go { font-size: 1.8rem; }
+
+.error { color: var(--ion-color-danger); font-weight: 700; }

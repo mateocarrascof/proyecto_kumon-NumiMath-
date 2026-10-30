@@ -37,6 +37,25 @@ class InvalidToken(Exception):
 @dataclass(frozen=True)
 class AuthenticatedTutor:
     tutor_id: uuid.UUID
+    # Hora (Unix) del último inicio de sesión CON CONTRASEÑA, según el claim `amr` de Supabase.
+    # No cambia al refrescar el token: sirve para pedir una reautenticación reciente.
+    password_auth_at: int | None = None
+
+
+def password_auth_time(claims: dict[str, Any]) -> int | None:
+    """Timestamp del método `password` en `amr`, o `None` si no hay o está mal formado."""
+    amr = claims.get("amr")
+    if not isinstance(amr, list):
+        return None
+    times = [
+        entry["timestamp"]
+        for entry in amr
+        if isinstance(entry, dict)
+        and entry.get("method") == "password"
+        and isinstance(entry.get("timestamp"), int)
+        and not isinstance(entry.get("timestamp"), bool)
+    ]
+    return max(times) if times else None
 
 
 class SigningKey(Protocol):
@@ -112,4 +131,4 @@ class TokenVerifier:
             tutor_id = uuid.UUID(str(claims["sub"]))
         except ValueError as exc:
             raise InvalidToken("bad_subject") from exc
-        return AuthenticatedTutor(tutor_id=tutor_id)
+        return AuthenticatedTutor(tutor_id=tutor_id, password_auth_at=password_auth_time(claims))

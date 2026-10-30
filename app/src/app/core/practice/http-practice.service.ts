@@ -7,21 +7,61 @@ import { AuthPort } from '../auth/auth.port';
 import {
   AnswerResult,
   Exercise,
+  Level,
   PracticeError,
   PracticePort,
   Topic,
 } from './practice.port';
+import { localDay } from '../time/local-day';
+
+interface TopicDto {
+  id: string;
+  label: string;
+  module?: string;
+  grade?: number;
+  review?: boolean;
+  level?: number;
+  block_done?: number;
+  block_size?: number;
+  mastered?: boolean;
+}
 
 interface ExerciseDto {
   token: string;
   topic: string;
   text: string;
+  level?: number;
   expires_in: number;
+  answer_kind?: string;
+  block_done?: number;
+  block_size?: number;
+  mastered?: boolean;
+}
+
+/**
+ * "Sumas hasta 1 000" → el espacio de los miles pasa a ser sin salto (U+00A0), para que el número
+ * no se parta entre dos líneas ("1" arriba y "000" abajo). Solo cambia cómo se muestra.
+ */
+export function keepThousandsTogether(label: string): string {
+  return label.replace(/(\d) (?=\d{3}(?!\d))/g, '$1 ');
+}
+
+/** Entero ≥ 0 o `undefined`. */
+function count(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+/** Nivel del servidor, acotado a 1–3 (1 si falta o no es válido). */
+function toLevel(value: unknown): Level {
+  return value === 2 || value === 3 ? value : 1;
 }
 
 interface AnswerDto {
   correct: boolean;
   correct_answer: number;
+  correct_answer_den?: number | null;
+  simplified_num?: number | null;
+  simplified_den?: number | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -57,9 +97,22 @@ export class HttpPracticeService extends PracticePort {
   }
 
   topics(studentId: string): Promise<Topic[]> {
-    return this.call((headers) =>
-      firstValueFrom(this.http.get<Topic[]>(this.url(studentId, '/topics'), { headers })),
-    );
+    return this.call(async (headers) => {
+      const dtos = await firstValueFrom(
+        this.http.get<TopicDto[]>(this.url(studentId, '/topics'), { headers }),
+      );
+      return dtos.map((t) => ({
+        id: t.id,
+        label: keepThousandsTogether(t.label),
+        module: t.module,
+        grade: t.grade,
+        review: t.review === true,
+        level: toLevel(t.level),
+        blockDone: count(t.block_done) ?? 0,
+        blockSize: count(t.block_size) ?? 10,
+        mastered: t.mastered === true,
+      }));
+    });
   }
 
   newExercise(studentId: string, topic: string): Promise<Exercise> {
@@ -67,20 +120,46 @@ export class HttpPracticeService extends PracticePort {
       const dto = await firstValueFrom(
         this.http.post<ExerciseDto>(this.url(studentId, '/exercises'), { topic }, { headers }),
       );
-      return { token: dto.token, topic: dto.topic, text: dto.text, expiresIn: dto.expires_in };
+      return {
+        token: dto.token,
+        topic: dto.topic,
+        text: dto.text,
+        level: toLevel(dto.level),
+        expiresIn: dto.expires_in,
+        answerKind: dto.answer_kind === 'fraction' ? 'fraction' : 'integer',
+        blockDone: count(dto.block_done) ?? 0,
+        blockSize: count(dto.block_size) ?? 10,
+        mastered: dto.mastered === true,
+      };
     });
   }
 
-  answer(studentId: string, token: string, answer: number): Promise<AnswerResult> {
+  answer(
+    studentId: string,
+    token: string,
+    answer: number,
+    answerDen?: number,
+  ): Promise<AnswerResult> {
     return this.call(async (headers) => {
       const dto = await firstValueFrom(
         this.http.post<AnswerDto>(
           this.url(studentId, '/exercises/answer'),
-          { token, answer },
+          // Fecha local del dispositivo para la racha diaria (sin hora ni zona horaria).
+          {
+            token,
+            answer,
+            ...(answerDen === undefined ? {} : { answer_den: answerDen }),
+            local_date: localDay(),
+          },
           { headers },
         ),
       );
-      return { correct: dto.correct, correctAnswer: dto.correct_answer };
+      const result: AnswerResult = { correct: dto.correct, correctAnswer: dto.correct_answer };
+      if (typeof dto.correct_answer_den === 'number') result.correctAnswerDen = dto.correct_answer_den;
+      if (typeof dto.simplified_num === 'number' && typeof dto.simplified_den === 'number') {
+        result.simplified = { num: dto.simplified_num, den: dto.simplified_den };
+      }
+      return result;
     });
   }
 }

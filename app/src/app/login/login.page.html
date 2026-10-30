@@ -1,48 +1,111 @@
 <ion-header [translucent]="true">
-  <ion-toolbar color="primary">
+  <ion-toolbar [color]="mode === 'signin' ? 'primary' : 'tertiary'">
     <ion-title>Matemáticas con Numi</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
-  <main class="login">
-    <app-mascot [state]="mascot.state()"></app-mascot>
-    <h1>{{ title }}</h1>
-    <p class="who">Esta cuenta es para una persona adulta (madre, padre o tutor/a).</p>
+  <main class="login" [attr.data-mode]="mode">
+    <ion-segment
+      class="tabs"
+      [value]="mode"
+      (ionChange)="setMode($any($event.detail.value))"
+      aria-label="Elegir: iniciar sesión o crear cuenta"
+    >
+      <ion-segment-button value="signin" data-testid="tab-signin">
+        <ion-label>Ya tengo cuenta</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="signup" data-testid="tab-signup">
+        <ion-label>Soy nuevo</ion-label>
+      </ion-segment-button>
+    </ion-segment>
 
-    <form (ngSubmit)="submit()" novalidate>
-      <ion-item>
+    <app-mascot [state]="mascot.state()" [message]="greeting"></app-mascot>
+    <h1 data-testid="login-title">{{ title }}</h1>
+
+    @if (mode === 'signin') {
+      <p class="lead">Entra para que tus niños sigan practicando con Numi.</p>
+    } @else {
+      <p class="lead">Esta cuenta es para una persona adulta: madre, padre o tutor/a.</p>
+
+      <ol class="steps" aria-label="Pasos para empezar">
+        <li class="now"><span aria-hidden="true">1</span> Tu cuenta</li>
+        <li><span aria-hidden="true">2</span> Aceptar términos</li>
+        <li><span aria-hidden="true">3</span> Perfil del niño</li>
+      </ol>
+
+      <ul class="promises" data-testid="promises">
+        <li><span aria-hidden="true">✔</span> Sin publicidad</li>
+        <li><span aria-hidden="true">✔</span> Del niño no pedimos nombre real, fotos ni ubicación: solo un apodo y su curso</li>
+        <li><span aria-hidden="true">✔</span> Tú controlas sus datos con tu PIN</li>
+      </ul>
+    }
+
+    <form class="kid-card" (ngSubmit)="submit()" novalidate>
+      <ion-input
+        label="Correo"
+        labelPlacement="stacked"
+        type="email"
+        name="email"
+        autocomplete="email"
+        [(ngModel)]="email"
+      ></ion-input>
+
+      <ion-input
+        [label]="mode === 'signin' ? 'Contraseña' : 'Crea una contraseña'"
+        labelPlacement="stacked"
+        [type]="showPassword ? 'text' : 'password'"
+        name="password"
+        [autocomplete]="mode === 'signin' ? 'current-password' : 'new-password'"
+        [(ngModel)]="password"
+      ></ion-input>
+
+      @if (mode === 'signup') {
+        <p class="check" [class.ok]="longEnough" data-testid="check-length">
+          <span aria-hidden="true">{{ longEnough ? '✔' : '•' }}</span>
+          Al menos {{ passwordMin }} caracteres
+        </p>
         <ion-input
-          label="Correo"
-          labelPlacement="floating"
-          type="email"
-          name="email"
-          autocomplete="email"
-          [(ngModel)]="email"
+          label="Repite la contraseña"
+          labelPlacement="stacked"
+          [type]="showPassword ? 'text' : 'password'"
+          name="confirm"
+          autocomplete="new-password"
+          [(ngModel)]="confirm"
         ></ion-input>
-      </ion-item>
-      <ion-item>
-        <ion-input
-          label="Contraseña"
-          labelPlacement="floating"
-          type="password"
-          name="password"
-          [autocomplete]="mode === 'signin' ? 'current-password' : 'new-password'"
-          [(ngModel)]="password"
-        ></ion-input>
-      </ion-item>
+        @if (confirm) {
+          <p class="check" [class.ok]="matches" data-testid="check-match">
+            <span aria-hidden="true">{{ matches ? '✔' : '•' }}</span>
+            {{ matches ? 'Las contraseñas coinciden' : 'Las contraseñas aún no coinciden' }}
+          </p>
+        }
+      }
+
+      <ion-checkbox
+        class="show"
+        labelPlacement="end"
+        justify="start"
+        [checked]="showPassword"
+        (ionChange)="showPassword = $event.detail.checked"
+      >Mostrar contraseña</ion-checkbox>
 
       @if (error) {
         <p class="error" role="alert">{{ error }}</p>
       }
 
-      <ion-button type="submit" expand="block" [disabled]="busy">
-        {{ busy ? 'Un momento…' : title }}
+      <ion-button
+        type="submit"
+        expand="block"
+        [color]="mode === 'signin' ? 'primary' : 'tertiary'"
+        [disabled]="busy"
+        data-testid="submit"
+      >
+        {{ busy ? 'Un momento…' : action }}
       </ion-button>
     </form>
 
     <ion-button fill="clear" size="small" (click)="toggleMode()">
-      {{ mode === 'signin' ? '¿No tienes cuenta? Crear cuenta' : '¿Ya tienes cuenta? Iniciar sesión' }}
+      {{ mode === 'signin' ? '¿Primera vez aquí? Crea tu cuenta' : '¿Ya tienes cuenta? Entra aquí' }}
     </ion-button>
   </main>
 </ion-content>

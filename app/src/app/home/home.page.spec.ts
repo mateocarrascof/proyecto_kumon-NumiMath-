@@ -50,6 +50,20 @@ describe('HomePage', () => {
     expect(TestBed.inject(MascotPort).state()).toBe('sad');
   });
 
+  it('el panel del tutor está en Inicio junto a "¿Quién practica?"', () => {
+    const { fixture } = setup('ok');
+    fixture.detectChanges();
+    const el: HTMLElement = fixture.nativeElement;
+    const panel = el.querySelector('[data-testid="tutor-panel"]');
+    expect(panel?.textContent).toContain('Panel del tutor');
+    expect(panel?.getAttribute('routerLink') ?? panel?.getAttribute('ng-reflect-router-link')).toBe(
+      '/panel',
+    );
+    expect(el.querySelector('[data-testid="who-practices"]')?.textContent).toContain(
+      '¿Quién practica?',
+    );
+  });
+
   it('cerrar sesión llama al puerto y vuelve a /login', async () => {
     const { fixture, signOut, navigateRoot } = setup('ok');
     await fixture.componentInstance.signOut();

@@ -115,8 +115,11 @@ select is((select nickname from public.students where id = 'a0000000-0000-0000-0
   'Polo', 'la corrección del apodo quedó aplicada (no fue una actualización vacía)');
 
 -- ===== 7. Borrar un perfil archiva la declaración del adulto (sin datos del niño) =====
-select lives_ok($$delete from public.students where id = 'a0000000-0000-0000-0000-000000000002'$$,
-  'P borra un perfil bloqueado');
+reset role;
+set local role service_role;
+select is(public.delete_student('ffffffff-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002'),
+  'ok', 'P borra un perfil bloqueado (vía servidor)');
+set local role authenticated;
 select throws_ok($$select * from public.declaration_evidence$$,
   '42501', 'permission denied for table declaration_evidence', 'el cliente no lee declaration_evidence');
 reset role;

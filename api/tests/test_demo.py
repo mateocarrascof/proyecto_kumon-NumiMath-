@@ -32,15 +32,15 @@ def _args(**kwargs: object) -> argparse.Namespace:
 @pytest.mark.parametrize(
     ("curso", "ejercicio", "esperado"),
     [
-        (1, "¿Cuánto es 7 + 5?", "sumas_hasta_20"),
-        (1, "9 - 4", "restas_hasta_20"),
-        (2, "38 + 27", "sumas_con_reserva"),
-        (2, "23 - 9", "restas_con_canje"),
-        (3, "6 × 7", "tablas_de_multiplicar"),
-        (3, "12 ÷ 3", "division_basica"),
-        (4, "12 x 5", "multiplicacion_dos_cifras"),
-        (4, "17 ÷ 5", "division_con_resto"),
-        (1, "hola", "contar_hasta_100"),  # sin operación: el primero del curso
+        (1, "¿Cuánto es 7 + 5?", "1-06"),
+        (1, "9 - 4", "1-07"),
+        (2, "38 + 27", "2-07"),
+        (2, "23 - 9", "2-08"),
+        (3, "6 × 7", "3-08"),
+        (3, "12 ÷ 3", "3-11"),
+        (4, "12 x 5", "4-03"),
+        (4, "17 ÷ 5", "4-03"),
+        (1, "hola", "1-01"),  # sin operación: el primero del curso
     ],
 )
 def test_la_demo_elige_el_tema_segun_la_operacion(

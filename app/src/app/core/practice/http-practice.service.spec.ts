@@ -4,7 +4,8 @@ import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
-import { HttpPracticeService } from './http-practice.service';
+import { localDay } from '../time/local-day';
+import { HttpPracticeService, keepThousandsTogether } from './http-practice.service';
 import { PracticeError } from './practice.port';
 
 const BASE = `${environment.apiUrl}/v1/students/perfil-1`;
@@ -34,21 +35,137 @@ describe('HttpPracticeService', () => {
     const req = http.expectOne(`${BASE}/exercises`);
     expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-del-tutor');
     expect(req.request.body).toEqual({ topic: 'sumas_hasta_20' });
-    req.flush({ token: 't', topic: 'sumas_hasta_20', text: '1 + 1 = ?', expires_in: 600 });
+    req.flush({
+      token: 't',
+      topic: 'sumas_hasta_20',
+      text: '1 + 1 = ?',
+      level: 2,
+      expires_in: 600,
+    });
     expect(await result).toEqual({
       token: 't',
       topic: 'sumas_hasta_20',
       text: '1 + 1 = ?',
+      level: 2,
       expiresIn: 600,
+      answerKind: 'integer',
+      blockDone: 0,
+      blockSize: 10,
+      mastered: false,
     });
   });
 
-  it('envía solo token y número al responder', async () => {
+  it('mapea el progreso del bloque, el dominio y las fracciones', async () => {
+    const { service, http } = setup();
+    const result = service.newExercise('perfil-1', '4-10');
+    await tick();
+    http.expectOne(`${BASE}/exercises`).flush({
+      token: 't',
+      topic: '4-10',
+      text: '2/5 + 1/5 = ?',
+      level: 3,
+      expires_in: 600,
+      answer_kind: 'fraction',
+      block_done: 4,
+      block_size: 10,
+      mastered: true,
+    });
+    const exercise = await result;
+    expect(exercise.answerKind).toBe('fraction');
+    expect([exercise.blockDone, exercise.blockSize, exercise.mastered]).toEqual([4, 10, true]);
+  });
+
+  it('mapea las habilidades con su eje, nivel y dominio', async () => {
+    const { service, http } = setup();
+    const result = service.topics('perfil-1');
+    await tick();
+    http.expectOne(`${BASE}/topics`).flush([
+      {
+        id: '1-06',
+        label: 'Sumas hasta 10',
+        module: 'Números y operaciones',
+        grade: 1,
+        review: false,
+        level: 2,
+        block_done: 3,
+        block_size: 10,
+        mastered: false,
+      },
+    ]);
+    expect(await result).toEqual([
+      {
+        id: '1-06',
+        label: 'Sumas hasta 10',
+        module: 'Números y operaciones',
+        grade: 1,
+        review: false,
+        level: 2,
+        blockDone: 3,
+        blockSize: 10,
+        mastered: false,
+      },
+    ]);
+  });
+
+  it('los miles del nombre no se parten en dos líneas', async () => {
+    expect(keepThousandsTogether('Sumas y restas hasta 1 000')).toBe('Sumas y restas hasta 1 000');
+    expect(keepThousandsTogether('Valor posicional hasta 10 000')).toBe(
+      'Valor posicional hasta 10 000',
+    );
+    expect(keepThousandsTogether('Contar de 2, 5, 10 y 100')).toBe('Contar de 2, 5, 10 y 100');
+    expect(keepThousandsTogether('Tablas del 2 y del 5')).toBe('Tablas del 2 y del 5');
+
+    const { service, http } = setup();
+    const result = service.topics('perfil-1');
+    await tick();
+    http.expectOne(`${BASE}/topics`).flush([{ id: '3-05', label: 'Sumas hasta 1 000' }]);
+    expect((await result)[0].label).toBe('Sumas hasta 1 000');
+  });
+
+  it('una fracción se envía con su denominador y se lee la forma simple', async () => {
+    const { service, http } = setup();
+    const result = service.answer('perfil-1', 'tok', 6, 10);
+    await tick();
+    const req = http.expectOne(`${BASE}/exercises/answer`);
+    expect(req.request.body).toEqual({
+      token: 'tok',
+      answer: 6,
+      answer_den: 10,
+      local_date: localDay(),
+    });
+    req.flush({
+      correct: true,
+      correct_answer: 3,
+      correct_answer_den: 5,
+      simplified_num: 3,
+      simplified_den: 5,
+    });
+    expect(await result).toEqual({
+      correct: true,
+      correctAnswer: 3,
+      correctAnswerDen: 5,
+      simplified: { num: 3, den: 5 },
+    });
+  });
+
+  it('un nivel ausente o raro se toma como 1', async () => {
+    const { service, http } = setup();
+    for (const level of [undefined, 0, 7, '3']) {
+      const result = service.newExercise('perfil-1', 'sumas_hasta_20');
+      await tick();
+      http
+        .expectOne(`${BASE}/exercises`)
+        .flush({ token: 't', topic: 'x', text: '1 + 1 = ?', level, expires_in: 600 });
+      expect((await result).level).toBe(1);
+    }
+  });
+
+  it('envía solo token, número y fecha local al responder', async () => {
     const { service, http } = setup();
     const result = service.answer('perfil-1', 'tok', 12);
     await tick();
     const req = http.expectOne(`${BASE}/exercises/answer`);
-    expect(req.request.body).toEqual({ token: 'tok', answer: 12 });
+    expect(req.request.body).toEqual({ token: 'tok', answer: 12, local_date: localDay() });
     req.flush({ correct: true, correct_answer: 12 });
     expect(await result).toEqual({ correct: true, correctAnswer: 12 });
   });

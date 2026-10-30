@@ -241,7 +241,8 @@ def test_el_guardia_entrega_texto_plano_aunque_el_modelo_use_markdown() -> None:
     flushed, _ = guard.flush()
     assert violation is None
     assert all("*" not in s and "**" not in s for s in [*sentences, *flushed])
-    assert "Vamos a sumar 7 + 5." in sentences
+    # Las viñetas se quitan; el salto de línea se conserva para mostrar un paso por línea.
+    assert sentences == ["¡Hola!", "Vamos a sumar 7 + 5.\n", "8\n", "9\n"]
 
 
 def test_el_razonamiento_interno_del_modelo_no_llega_al_nino() -> None:

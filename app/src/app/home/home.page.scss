@@ -4,20 +4,57 @@
   text-align: center;
 }
 
+.hero {
+  margin: 8px auto 0;
+  background: radial-gradient(circle at 50% 60%, var(--kid-yellow-soft) 0 92px, transparent 93px);
+}
+
+app-mascot {
+  max-width: 180px;
+}
+
 h1 {
+  font-size: 2rem;
+  font-weight: 900;
   margin: 8px 0 4px;
 }
 
-.status {
-  margin: 16px 0;
+.lead {
+  font-size: 1.15rem;
   font-weight: 600;
+  margin: 0 0 20px;
 }
 
-.status[data-status='ok'] { color: var(--ion-color-success-shade); }
+.footer {
+  margin-top: 36px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--kid-border);
+}
+
+.status {
+  margin: 8px 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.status[data-status='ok'] { color: var(--ion-color-success); }
 .status[data-status='down'] { color: var(--ion-color-danger); }
 
 .note {
-  margin-top: 24px;
+  margin: 8px 0;
   font-size: 0.85rem;
-  color: var(--ion-color-medium-shade);
+  color: var(--ion-color-medium);
+}
+
+.main-actions {
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 560px) {
+  .main-actions { grid-template-columns: 1fr 1fr; }
 }

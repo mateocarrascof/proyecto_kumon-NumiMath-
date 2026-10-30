@@ -1,0 +1,509 @@
+# SPEC
+
+## Racha diaria ("días seguidos")
+
+Migración: `supabase/migrations/20261026120000_student_daily_streaks.sql`. Decidido el 2026-10-26.
+
+### Qué es
+Cada **perfil de alumno** tiene su propia racha de días. Un día cuenta cuando el perfil
+**responde al menos un ejercicio** (correcto o incorrecto). Si pasa un día completo sin responder,
+la racha vuelve a 0 y el siguiente día practicado empieza en 1.
+
+Es distinta de la racha de **aciertos seguidos** que ya existía (`streak` en el progreso y las
+estrellas/medallas de la práctica). En la UI, la nueva se llama siempre "días seguidos".
+
+### Qué día es "hoy"
+La **fecha local del dispositivo** (`YYYY-MM-DD`, `app/src/app/core/time/local-day.ts`).
+No se envía ni se guarda la zona horaria.
+
+- Al responder, la app manda `local_date`. Al pedir el progreso, manda `today`.
+- El servidor solo acepta fechas entre la fecha UTC del servidor −1 y +1 día (cubre UTC−12 a UTC+14).
+  Si la fecha falta o no es creíble, el intento se registra igual y la racha no cambia.
+- Una fecha anterior al último día registrado se ignora: no se pueden rellenar días perdidos.
+
+### Reglas al responder (en `record_attempt`, misma transacción que el intento)
+| Situación | Resultado |
+|---|---|
+| Primer día del perfil | racha = 1 |
+| Mismo día que el último | sin cambio |
+| Día siguiente al último | racha + 1 |
+| Dos o más días después | racha = 1 |
+| Día anterior al último | sin cambio |
+| Ejercicio ya respondido (`duplicate`) | sin cambio |
+
+### Reglas al leer (`GET /v1/students/{id}/progress?today=YYYY-MM-DD`)
+- `daily_streak` = racha guardada si el último día es hoy o ayer; si no, 0.
+- `practiced_today` = el último día es hoy (o posterior, por diferencias de zona).
+- Sin `today` se usa la fecha UTC.
+
+### Datos
+Solo una fila por perfil: largo de la racha y último día local. Sin historial. Ver
+`docs/privacy/inventario-datos.md`. Nada de esto llega a la IA.
+
+### UI y tono
+- Práctica: insignia "🔥 N" **siempre visible** en la barra superior (al elegir tema y durante los
+  ejercicios, también con 0; dorada si ya practicó hoy). Bajo "¿Qué quieres practicar?", "N días
+  seguidos" y la frase de ánimo si aún no practicó hoy. Tras la primera respuesta del día, un aviso
+  "¡N días seguidos!". Si la racha no se puede leer, la insignia no aparece y la práctica sigue.
+- Progreso: la racha y una frase de ánimo si aún no practicó hoy.
+- Nunca se dice que la racha "se perdió" ni se culpa al niño. Sin notificaciones push ni recordatorios.
+
+### Límite conocido
+Cambiando el reloj del dispositivo se puede ganar como máximo un día extra (por la tolerancia de ±1 día).
+Se acepta: la racha es solo motivacional y no da premios canjeables.
+
+## Dificultad progresiva (dominio por habilidad)
+
+Reemplaza la regla del 2026-10-26 ("3 aciertos seguidos sube / 2 errores seguidos baja"). Decidido el
+2026-10-27. Migración: `supabase/migrations/20261028100000_skill_progress.sql`.
+
+### Qué es
+Cada habilidad de fase A del catálogo (`docs/habilidades_1a4_basico.csv`) tiene 3 niveles por perfil:
+1 (fácil), 2 (medio) y 3 (difícil), según las columnas `nivel_1..3` del CSV. El niño elige libremente
+qué habilidad practicar (sin candados): las de su curso, agrupadas por eje, y las de cursos anteriores
+como repaso (sección plegada). Las del curso siguiente no se muestran por ahora.
+
+### Regla (base: `record_attempt`; espejo en `api/app/exercises/levels.py`)
+| Situación | Resultado |
+|---|---|
+| Sin intentos en la habilidad | Nivel 1, bloque vacío |
+| Bloque de 10 ejercicios en el nivel actual con 8 o más aciertos | Sube 1 (en el nivel 3: habilidad **dominada**) |
+| Bloque de 10 con 4 o menos aciertos | Baja 1 (mínimo 1) |
+| Bloque de 10 con 5 a 7 aciertos | Repite el nivel |
+
+- El bloque se llena aunque el niño cambie de día o salga de la app. Al cambiar de nivel empieza uno
+  nuevo. Un ejercicio emitido en otro nivel (antes de un cambio) no cuenta.
+- Dentro del bloque no se repiten enunciados mientras haya otros posibles; si el nivel tiene menos de
+  10 (p. ej. 2 × 1 a 2 × 5), se acepta repetir.
+- Si la lectura del progreso falla, el ejercicio sale en nivel 1 (mejor esfuerzo).
+- Más adelante, el profesor podrá fijar el nivel a mano (por eso el nivel se guarda en
+  `student_skill_progress` y no se recalcula desde los intentos).
+
+### Seguridad
+- El nivel lo decide el servidor y va **firmado** en el token del ejercicio (versión 4); el cliente no
+  puede elegirlo. El servidor regenera el ejercicio con ese nivel al corregir.
+- El nivel no llega a la IA. A la IA llega el curso del perfil y el nombre de la habilidad.
+
+### UI y tono
+- Lista: tarjetas por eje con estrellas del nivel (★★☆) o ✅ si está dominada.
+- Ejercicio: estrellas del nivel y "🎯 4/10" (ejercicio del bloque en curso), sin mostrar umbrales.
+- Al subir: "¡Subiste de nivel!", confeti y frase de Numi. Al dominar: "¡Dominaste …!" con 🏆. Al
+  bajar no se dice nada.
+- Enunciados con palabras se muestran con letra más chica para que quepan.
+
+## Papel para calcular
+
+Botón "📝 Papel para calcular" bajo el ejercicio: abre un papel cuadriculado para hacer el cálculo
+a mano con el dedo, un lápiz o el mouse (`app/src/app/core/scratchpad/`). Herramientas: lápiz en
+3 colores, goma, "Mover" y "Borrar todo". Canvas nativo, sin librerías nuevas.
+
+"Borrar todo" no borra de inmediato: abre "¿Seguro que quieres borrar todo el papel?" con
+"No, volver" y "Sí, borrar". "Sí, borrar" queda bloqueado 3 segundos con cuenta regresiva visible
+("Espera 3…"), para que un toque sin querer no borre el trabajo. Pasar al siguiente ejercicio
+cierra el aviso.
+
+Zoom (2026-10-27): la hoja mide 1200×900 y la pantalla muestra una ventana. Se acerca/aleja con
+botones grandes (+, −, "Ver toda la hoja"; de "hoja completa" a 300 %), pellizcando con dos dedos
+o con Ctrl + rueda. "Mover" recorre la hoja con un dedo. Los trazos se guardan en memoria como
+líneas (no como imagen) para verse nítidos con cualquier zoom. Si un segundo dedo toca mientras se
+dibuja, ese trazo se descarta y el gesto pasa a ser zoom.
+
+Privacidad: lo dibujado no se guarda, no se exporta y no se envía a ningún lado; se borra al pasar
+al siguiente ejercicio o salir de la pantalla. No se analiza ni llega a la IA.
+
+## Perfiles
+
+Decidido el 2026-10-27. Migración: `supabase/migrations/20261027120000_student_delete_via_server.sql`.
+
+### Selección ("¿Quién practica?", `/perfiles`)
+Pantalla para el **niño**: Numi pregunta "¿Quién va a practicar hoy?" y cada perfil es una tarjeta
+grande de color con un **animalito** (🦊🐼🦁🐸…), el apodo, el curso y "🔥 N días seguidos".
+Tocar la tarjeta abre la práctica; "Mi progreso" abre su progreso. Un perfil bloqueado se ve
+apagado ("En pausa") y no abre la práctica. Sin perfiles: "Pide a un adulto que cree tu perfil en
+el Panel del tutor". **Aquí no se crean ni se eliminan perfiles.**
+
+El animalito y su color salen de un hash del id del perfil (`core/profiles/avatar.ts`): siempre el
+mismo para el mismo perfil, solo decorativo, no se guarda y no es un dato del niño.
+
+### Crear y eliminar (solo en el Panel del tutor, con PIN)
+- Sección "Perfiles" del panel: lista con animalito, "Crear perfil" (apodo, curso y declaración del
+  adulto, igual que antes) y "Eliminar".
+- Eliminar muestra qué se borra (progreso, racha y tareas, sin vuelta atrás) y **pide el PIN otra
+  vez** antes de borrar.
+- El borrado va por la API: `DELETE /v1/students/{id}` exige el token parental. El cliente **ya no
+  puede borrar en la base** (se quitó `delete` a `authenticated` y la política `students_delete_own`);
+  solo `delete_student` (service_role). Los triggers siguen archivando la declaración del adulto y
+  borrando en cascada intentos, racha y tareas.
+- Borrar **no** exige consentimiento vigente ni perfil desbloqueado: suprimir datos es un derecho
+  del titular. Si el tutor olvida el PIN, lo recupera con su contraseña ("Olvidé mi PIN").
+- Crear sigue yendo directo a la base con RLS (compuerta de consentimiento y límites intactos);
+  en la app solo se ofrece dentro del panel.
+
+## Panel del tutor
+
+Decidido el 2026-10-26; acceso cambiado el 2026-10-27. Pantalla para el adulto (`/panel`),
+separada de "Progreso" (que sigue siendo la vista del niño, con Numi). Se entra desde **Inicio**
+con "Panel del tutor", junto a "Perfiles de niños", y siempre pide el **PIN**. Arriba hay pestañas
+con el apodo de cada perfil; al cambiar se recargan informe y tareas. Estilo sobrio, sin mascota.
+Contiene: resumen, gráfico semanal, feedback, aciertos por tema, tareas, "Cambiar PIN" y "Salir".
+
+### PIN del tutor (control parental)
+Reemplaza la "pregunta de adulto" provisional. Tabla `tutor_pins` (migración `api_support`), solo
+`service_role`.
+
+| Situación | Resultado |
+|---|---|
+| Entrar sin PIN creado | "Crea un PIN de 4 dígitos" + repetirlo |
+| PIN débil (4 iguales o secuencia como 1234 / 9876) | 422 `pin_weak` |
+| PIN correcto | Token parental de **10 minutos** (`X-Parental-Token`), solo en memoria de la app |
+| PIN incorrecto | 401 `pin_wrong` con intentos restantes |
+| 5 errores seguidos | 423 `pin_locked` durante 15 minutos |
+| Cambiar PIN | Con un token parental vigente |
+| "Olvidé mi PIN" | El tutor escribe la contraseña de su cuenta; el servidor acepta un PIN nuevo solo si el JWT muestra un login con contraseña de hace < 5 minutos (claim `amr`) |
+| Llamada al panel sin token o vencido | 401 `parental_required` → la app vuelve a pedir el PIN |
+
+- Hash **argon2id** calculado en el servidor; el PIN nunca se guarda en claro ni se registra.
+- El token es HMAC-SHA256 (clave derivada de la de ejercicios, con separación de dominio) y va
+  ligado al tutor del JWT. No se guarda en ningún lado.
+- Protegen con PIN: `GET /report`, `GET /assignments/all`, `POST /assignments`,
+  `DELETE /assignments/{id}`. La vista del niño (`GET /assignments`, responder) no lo pide.
+
+## Explicación con IA en práctica
+
+Decidido el 2026-10-28. Conecta la pantalla de práctica (`/practica/:id`) con
+`POST /v1/students/{id}/explanations` (ADR 0001). La app sigue funcionando con `AI_PROVIDER=mock`.
+
+### Cuándo aparece
+- Solo tras una respuesta **incorrecta**: el aviso dice "Casi. La respuesta era X." y
+  "¿Quieres ver cómo se hace? 👇", justo encima del botón "💡 Explícame cómo se hace".
+- Con la explicación abierta (cargando, mostrándose o terminada), el aviso queda solo en
+  "La respuesta era X.": el ánimo lo da Numi al final. Si la explicación no se pudo dar (cuota,
+  sin servicio, rechazo), vuelve "Casi. La respuesta era X." sin la invitación. En las tareas del tutor (sin botón) el
+  aviso es solo "Casi. La respuesta era X.". Nunca "mal", "incorrecto" ni "fallaste".
+- **No** aparece en las tareas del tutor (tema `tarea_tutor`): su texto nunca se envía a la IA.
+- Una explicación por ejercicio: al terminar bien, el botón desaparece (no gasta más cuota).
+
+### Qué se envía
+- Solo `{ topic, exercise }`: `topic` es el id de la habilidad que devolvió el servidor
+  (`exercise.topic`, p. ej. `"3-11"`, también de repaso) y `exercise` es el enunciado **generado por
+  el sistema** (`exercise.text`). Nunca la respuesta del niño, su apodo, su curso ni texto escrito
+  por él. El curso lo lee el servidor de la base.
+- Con el JWT del tutor, a FastAPI. La app nunca llama a la IA.
+- `fetch` + `ReadableStream` con el SSE parseado a mano (`core/explanation/`), porque `EventSource`
+  no permite la cabecera `Authorization`.
+
+### Formato de la explicación: un paso por línea
+- Una operación por línea, frases cortas, sin párrafos, viñetas, markdown ni HTML. Ejemplo:
+  "¡Vamos a sumar 481 + 155!" / "Separa 155 en 100 + 50 + 5." / "Primero: 481 + 100 = 581" /
+  "Luego: 581 + 50 = 631" / "Al final: 631 + 5 = 636" / "¡Así se llega a 636!" / "¡Tú puedes!".
+- Rótulos de varias cuentas seguidas: con 2 pasos "Primero / Al final"; con 3 o más
+  "Primero / Luego… / Al final".
+- Cierre: "¡Tú puedes!" (no da por hecho que el niño entendió; antes era "¡Ahora ya sabes cómo se
+  hace!").
+- Lo pide `_RULES` (`api/app/ai/prompt.py`) al modelo real y lo cumple el simulado.
+- Transporte: el filtro de salida sigue validando oración por oración; si una oración cierra una
+  línea, el texto del evento `chunk` termina en `\n` (cada salto cuenta 1 carácter para el tope
+  total de 1.200). Si un fragmento termina justo en ". ", la oración se valida al instante pero se
+  entrega con el fragmento siguiente, para no perder un salto que llegue después.
+- Cierre en la derivación: si la respuesta le dice que hable con un adulto de confianza, termina con
+  eso, sin "¡Tú puedes!". La app une los trozos y muestra la burbuja con
+  `white-space: pre-line` (texto plano por interpolación, sin `innerHTML`).
+
+### Estados y mensajes
+| Situación | Lo que ve el niño |
+|---|---|
+| Esperando el primer trozo | Burbuja de Numi "Numi está pensando…", mascota `thinking`, botón inactivo (`aria-disabled`) |
+| Llega texto | Aparece de a poco en la burbuja, mascota `talking` |
+| Termina (`done`) | Queda el texto completo, mascota `idle` |
+| 422 `input_rejected` | El mensaje del servidor |
+| 429 (cuota) | "Numi necesita descansar por hoy. ¡Sigue practicando mañana!" |
+| 503, 401/403 u otra falla / sin red | "Numi no pudo explicarlo ahora. Intenta de nuevo en un rato" (con "Intentar otra vez") |
+| Corte a mitad (evento `error` o fin sin `done`) | Se conserva lo recibido + el mensaje neutro del servidor o "Numi no pudo terminar la explicación…" |
+
+En todos los casos la mascota no se pone triste, no se usa el aviso de error de la práctica y
+"Siguiente" sigue funcionando.
+
+### Cancelación y datos
+- La petición se cancela (`AbortController`) al pasar al siguiente ejercicio, cambiar de tema o
+  salir de la pantalla; lo que llegue después se descarta.
+- El texto vive solo en memoria de la pantalla y se borra al pasar de ejercicio. No se guarda en
+  ningún almacenamiento ni se registra.
+
+### Dónde está Numi mientras explica
+Al pedir la explicación, Numi "baja" junto a su burbuja: deja su lugar de arriba y aparece pegada
+a la explicación (encima en teléfono; a la izquierda desde 600 px, con el piquito apuntándola). En
+pantalla hay siempre una sola Numi. La pantalla se desplaza suave hasta ella (sin animación si el
+dispositivo pide menos movimiento). Con "Siguiente" o "Cambiar de tema" vuelve arriba.
+
+### Accesibilidad
+Burbuja con `aria-live="polite"` y `aria-busy` mientras llega; letra de 1,25 rem como el resultado.
+"Numi dice:" está visible para el lector de pantalla y se lee antes del texto. Colores fijos (la
+app es solo modo claro): texto #2b2d42 sobre blanco (13,5:1), "Numi dice:" #5b3bc4 (7,3:1).
+Si el botón tenía el foco y desaparece, el foco pasa a la burbuja.
+
+### Nombres de habilidad con miles
+Los nombres del catálogo escriben los miles con espacio ("Sumas hasta 1 000"). La app cambia ese
+espacio por uno sin salto (U+00A0) al mostrarlos, para que el número no se parta entre dos líneas;
+el catálogo no cambia. En el encabezado del ejercicio el nombre envuelve por palabras y el reloj,
+el nivel y el bloque conservan su ancho.
+
+### Cambios del servidor que vinieron con esto
+- El filtro de entrada busca los términos "fuera de tema" **al inicio de una palabra**: como
+  subcadena rechazaba enunciados del propio catálogo ("medios kilos" contiene "dios").
+- 4-22 dice "Un paseo dura…" en vez de "Una película dura…" ("película" sigue siendo fuera de tema).
+- Un test exige que **todo** enunciado generado pase el filtro de entrada y que su tema sirva para
+  pedir explicación.
+- El proveedor simulado (`mock_provider.py`) explica paso a paso cada forma de enunciado del
+  catálogo (antes la mayoría caía en una guía genérica y fracciones y familias salían mal).
+- 2026-10-28 (textos): el prompt de producción solo sumó la regla de formato (un paso por línea,
+  sin markdown ni HTML, cierre que no dé por hecho que entendió); las demás reglas no cambiaron.
+  La frase de Numi "¡Inténtalo otra vez!" tras un error pasó a "¡Así se aprende!" (sonaba a repetir
+  el mismo ejercicio).
+
+## Pantallas del niño: selector, tamaños y textos de Numi
+
+Decidido el 2026-10-28. La app apunta a teléfono y tablet; el PC es solo para probar. Revisado con
+capturas a 360×740, 768×1024 y 1024×768.
+
+### Selector de habilidades (`practice/skill-tiles.component`)
+- **Baldosas agrupadas por eje**, con color e ícono fijos por eje: Números y operaciones (verde
+  azulado 🔢), Patrones y álgebra (lila 🔷), Medición (coral 📏) y Geometría (amarillo 📐). Antes
+  los colores rotaban por posición y no significaban nada.
+- 2 columnas en teléfono, 3 desde 600 px y 4 desde 1000 px.
+- Cada baldosa (blanca, con borde y círculo del color del eje) muestra el ícono, el **nombre
+  completo** (envuelve, nunca se corta) y "★★☆" con una barrita del bloque en curso ("3/10"); si está
+  dominada, "✅ Dominada". El encabezado del eje dice "N de M dominadas" (solo si hay alguna).
+- Lector de pantalla: cada baldosa se lee como "Sumas hasta 1 000, nivel 2 de 3, 5 de 10 ejercicios"
+  (o "…, dominada"; en el repaso agrega "repaso de 2° básico").
+- "Tareas de tu tutor" sigue arriba, a todo el ancho. "Repasar cursos anteriores" abre las mismas
+  baldosas agrupadas por curso ("Repaso de 2° básico") con un chip del curso en cada una.
+- Sin candados ni tarjeta de sugerencia ("Para hoy"): el niño elige libremente.
+
+### Tamaños durante la práctica
+- Numi se achica mientras hay un ejercicio (96 px en teléfono, 140 px en tablet) para que la casilla
+  de respuesta y "Responder" se vean sin desplazar.
+- La zona de juego (ejercicio, respuesta, resultado, explicación) mide 480 px en teléfono y 600 px
+  desde 768 px. El enunciado escala con el ancho ("481 + 155 = ?" cabe en una línea a 360 px).
+- En teléfono, el nombre de la habilidad va en su propia fila sobre el reloj, el nivel y el bloque.
+- El marcador "N de M correctas" aparece recién con la primera respuesta (antes decía "0 de 0").
+- Con `prefers-reduced-motion` se apagan las animaciones.
+
+### Login del tutor: colores
+"Ya tengo cuenta" usa el verde azulado y "Soy nuevo" (crear cuenta) el **lila** de Numi en la barra,
+la pestaña elegida, los pasos y el botón (antes coral, que contrastaba demasiado). Texto blanco
+sobre lila: 5,5:1.
+
+### Globo de Numi y frases
+- El globo envuelve las frases largas (antes no envolvía y se salía en pantallas angostas) y el
+  lector de pantalla lo lee (ya no es `aria-hidden`; no es `aria-live` para no leer dos veces).
+- Numi **complementa** el aviso de la pantalla, no lo repite: tras un error dice "¡Tú puedes!",
+  "¡Así se aprende!" o "¡Sigue así, vas bien!" (el aviso ya dice "Casi…"); al subir de nivel,
+  al dominar, al ganar medalla y al terminar tareas usa frases distintas del aviso. Sin género
+  gramatical ("¡Qué crack!", "¡Esto ya lo manejas!" en vez de "un crack" o "experto") y sin frases
+  que inviten a no parar. Frases de 32 caracteres o menos.
+- Tras una respuesta incorrecta Numi queda "pensando" (no triste): sin culpa. El estado triste
+  queda solo para fallas técnicas.
+- Errores en pantallas del niño (`core/kid-messages.ts`): sin "servidor", "sesión" ni "acceso"; si
+  el niño no puede resolverlo, se le pide ayuda a un adulto ("Pide ayuda a un adulto para volver a
+  entrar."). Las pantallas del tutor mantienen sus mensajes para adultos.
+
+## Ejercicios propios ("Tareas de tu tutor")
+
+Migración: `supabase/migrations/20261027100000_assigned_exercises.sql`.
+
+### Qué es
+El tutor escribe un enunciado (1–200 caracteres) y la respuesta (entero de 0 a 1.000.000).
+El niño tiene siempre un botón "📌 Tareas de tu tutor" arriba de los temas que abre su pantalla
+de tareas (`/tareas/:id`): **pendientes** (tocar una para resolverla, o "Resolver todas") y **ya
+hechas** con ✔ o ↻ (sin mostrar la respuesta). Sin tareas: "Todavía no hay tareas". Se resuelven
+con la misma pantalla de práctica (solo números, papel para calcular, confeti), en modo tareas
+(`/practica/:id?tareas=1&desde=<id>`).
+
+### Reglas
+| Situación | Resultado |
+|---|---|
+| Crear con texto que no pasa el filtro | 422 con un mensaje para el adulto (sin repetir el texto) |
+| Más de 20 pendientes por perfil | 409 (`limit`) |
+| Responder | Se marca respondida, se guarda si acertó y se registra un intento (tema `tarea_tutor`), que suma al progreso y a la racha diaria |
+| Responder otra vez | 409 (`already_answered`) |
+| Borrar una pendiente | Se borra |
+| Borrar una respondida | No se puede (404) |
+| Editar | No existe: se borra y se crea otra |
+
+### Seguridad y privacidad
+- El texto pasa por `check_input` (datos personales, groserías, temas inseguros, intentos de
+  manipular, fuera de matemáticas) **antes de guardarse**. Aviso en el formulario: "No escribas el
+  nombre real ni datos del niño". El filtro no detecta todos los nombres propios.
+- El texto del tutor **nunca se envía a la IA**: estas tareas no tienen explicación de Numi.
+- La vista del niño recibe `{pending: [{id, text}], done: [{id, text, status}]}` (últimas 20
+  hechas), **nunca la respuesta**. La corrección es del servidor.
+- Escritura solo vía FastAPI (service_role); el tutor solo lee las de sus perfiles (RLS).
+- Nada del texto aparece en logs (solo códigos).
+
+## Informe y feedback para el adulto
+
+`GET /v1/students/{id}/report?today=YYYY-MM-DD`. Se calcula con los últimos 500 intentos; no guarda
+datos nuevos.
+
+### Contenido
+- Resumen: intentos, % de aciertos, días practicados en los últimos 7 días, racha de días.
+- `weeks`: 8 periodos de 7 días que terminan "hoy" (fecha local del dispositivo, validada a ±1 día
+  como la racha), cada uno con intentos y aciertos. Fecha de cada intento: UTC.
+- Por tema: intentos y % de aciertos.
+- `feedback`: frases fijas elegidas por reglas (`api/app/report_feedback.py`), sin IA:
+
+| Regla | Condición | Frase (ejemplo) |
+|---|---|---|
+| Pocos datos | < 5 intentos en total | "Aún hay pocos ejercicios para sacar conclusiones. ¡Anímalo a practicar!" |
+| Punto fuerte | tema con mayor %, ≥ 5 intentos y ≥ 70 % | "Su punto fuerte es Sumas hasta 20 (90 % de aciertos)." |
+| A reforzar | tema con menor %, ≥ 5 intentos y < 70 % (distinto del fuerte) | "Le conviene practicar más Restas con canje (45 % de aciertos)." |
+| Constancia baja | < 3 días practicados en 7 | "Practicó 1 día esta semana: unos 10 minutos diarios ayudan mucho." |
+| Constancia alta | ≥ 5 días en 7 | "¡Practicó 6 días esta semana! La constancia se nota." |
+| Mejora | % de esta semana ≥ % anterior + 10 (ambas con ≥ 5 intentos) | "Esta semana mejoró: de 60 % a 80 % de aciertos." |
+| Baja | % de esta semana ≤ % anterior − 10 (ambas con ≥ 5) | "Esta semana le costó más (de 80 % a 60 %). Repasar con calma puede ayudar." |
+
+Tono para adultos, sin culpar al niño ni compararlo con otros.
+
+### Gráfico
+SVG propio (`app/src/app/core/charts/`), sin librerías: una barra por semana (alto = intentos,
+tramo de aciertos destacado) y el % encima. Accesible: `role="img"`, `aria-label` con resumen y una
+tabla oculta para lectores de pantalla. Colores del tema (claro/oscuro).
+
+## Tiempo por ejercicio
+
+Decidido el 2026-10-27. Migración: `supabase/migrations/20261027130000_attempt_duration.sql`.
+
+### Para el niño (sin presión)
+Reloj pequeño "⏱ 0:42" en la esquina de la tarjeta del ejercicio (`core/timer/`): cuenta **hacia
+arriba**, en gris, sin colores de alerta, sin sonidos y sin mensajes de apuro. Se detiene al
+responder y vuelve a 0 con el siguiente ejercicio. Tocarlo lo oculta o lo muestra (mientras siga
+abierta la pantalla). Es solo informativo: no se envía nada desde la app.
+
+### Cómo se mide (en el servidor)
+- Ejercicios: el token firmado lleva la hora de emisión (`i`, versión 3); al responder,
+  segundos = ahora − emisión.
+- Tareas del tutor: al abrir una, `POST …/assignments/{id}/start` entrega un ticket firmado
+  (tarea, perfil, hora); la respuesta lo devuelve. Ticket ausente, alterado o de otra tarea → se
+  registra sin tiempo (la respuesta nunca se bloquea por esto).
+- Tope: 600 s (lo que dura un ejercicio). Más que eso o una hora "del futuro" → sin tiempo.
+- Se guarda en `student_attempts.duration_s` (segundos, nullable).
+
+### Para el tutor
+"Tiempo típico" = **mediana** de los segundos (no la distorsiona un ejercicio que quedó abierto
+mucho rato). En el panel: una tarjeta con el tiempo típico general y "⏱ 35 s" por tema. Con menos
+de 3 intentos con tiempo en un tema se muestra "—".
+
+
+## Perfil del profesor (BORRADOR, pendiente de aprobación)
+
+Entrevista del 2026-10-27. Nada de esto está implementado. Cambia dos reglas de base:
+1. Hoy "solo el tutor tiene cuenta". Pasa a ser: **solo adultos tienen cuenta** (tutor o profesor);
+   el alumno sigue sin credenciales. Hay que actualizar CLAUDE.md.
+2. Hoy el papel para calcular no se guarda nunca. Pasa a guardarse una imagen **solo si el alumno
+   está en un curso**. Sin curso, todo sigue igual que hoy.
+
+### Cuenta del profesor
+- Registro con email en Supabase Auth, eligiendo "Soy profesor". Solo se aceptan emails de
+  **dominios de colegios en una lista permitida** (tabla `teacher_email_domains`, la edita solo un
+  administrador vía service_role). Email verificado obligatorio.
+- Un rol por cuenta: `tutors` o `teachers`. Una persona que es tutor y profesor usa dos emails.
+- Términos y privacidad propios del profesor, con el mismo registro de consentimiento (versión y
+  fecha-hora UTC).
+
+### Curso y vínculo
+- El profesor crea un curso (nombre del curso, p. ej. "3°B", y nivel 1° a 4°). Recibe un código
+  corto (6 caracteres, sin letras ambiguas), que puede regenerar.
+- El tutor, **detrás de la puerta parental**, ingresa el código en el perfil del niño, ve el nombre
+  del curso y del profesor, y acepta compartir. Se guarda ese consentimiento (tutor, alumno, curso,
+  versión del texto, fecha-hora UTC).
+- **Un alumno, un curso.** Para cambiar: desvincular e ingresar otro código.
+- El tutor puede desvincular cuando quiera. Al desvincular, el profesor deja de ver todo al
+  instante y las hojas de ese alumno se borran.
+- El profesor ve del alumno solo **apodo y curso** (lo mismo que ya existe). Puede sacar a un
+  alumno de su curso.
+
+### Qué ve el profesor
+- **Por alumno:** ejercicios hechos, % de aciertos por tema, nivel por tema, tiempo típico por
+  tema, racha, y la lista de intentos (fecha, tema, enunciado, respuesta, correcto, tiempo) con la
+  **foto de la hoja** de cada uno.
+- **Por curso:** no pedido en esta etapa.
+- Solo datos desde que el alumno se vinculó al curso, no su historial anterior.
+
+### Foto de la hoja
+- Se envía en **todos los ejercicios** respondidos mientras el alumno está en un curso, **solo si
+  dibujó algo** en el papel.
+- La imagen se genera en el dispositivo desde los trazos (hoja blanca + cuadrícula, recortada a la
+  zona dibujada, WebP o PNG, tope de tamaño). Sin metadatos.
+- Se sube por FastAPI, que comprueba alumno ↔ tutor ↔ curso, y la guarda en un bucket privado de
+  Supabase Storage. El profesor la ve con URL firmada de corta duración.
+- **Retención: 30 días**, borrado automático (cron). Las estadísticas quedan sin la imagen.
+- **No llega a la IA**, no se analiza ni se hace OCR.
+- **Aviso al niño:** con curso, el papel muestra "👀 Tu profe verá esta hoja" en lenguaje simple.
+
+### Quién ve las hojas
+- Decisión: **solo el profesor** ve las hojas en la app.
+- ⚠️ Pendiente legal: el tutor, como representante del niño, tiene derecho de acceso y supresión
+  (Ley 21.719, ARCOP). Propuesta mínima: el tutor no las ve en el día a día, pero desde la zona de
+  tutor puede "Descargar las hojas de mi hijo/a" y "Borrar todas las hojas". Confirmar.
+
+### Tareas del profesor
+- Igual que "Tareas de tu tutor" (enunciado + respuesta, filtrados por FastAPI), asignadas a todo
+  el curso o a alumnos elegidos. El niño las ve como "Tareas de tu profe".
+
+### Comentarios del profesor
+- Nota corta (máx. 200 caracteres) sobre un intento/hoja. Filtrada por FastAPI igual que las tareas
+  (datos personales, groserías, fuera de matemáticas). El niño la ve en "Mis tareas". Sin
+  respuestas del niño (no es un chat).
+
+### Seguridad y datos
+- Tablas nuevas (`teachers`, `teacher_email_domains`, `courses`, `course_enrollments`,
+  `enrollment_consents`, `sheet_snapshots`, `teacher_assignments`, `teacher_comments`) con RLS:
+  el profesor solo ve alumnos con vínculo activo en sus cursos; el tutor solo lo suyo. Tests pgTAP
+  de que otro profesor y otro tutor no leen ni escriben.
+- Políticas de Storage por curso/alumno, y tests de que otro profesor no obtiene la imagen.
+- Actualizar `docs/privacy/inventario-datos.md` (imagen de la hoja = dato nuevo del niño, datos del
+  profesor), la EIPD y los textos legales del tutor y del profesor.
+- Revisores antes del PR: `privacy-cl-auditor`, `child-safety-ai-reviewer`, `security-reviewer`,
+  `code-reviewer`, `scalability-reviewer`.
+
+### Lotes propuestos
+1. Cuenta del profesor + dominios permitidos + consentimiento del profesor.
+2. Cursos, código y vínculo con consentimiento del tutor; desvincular.
+3. Estadísticas por alumno para el profesor (reusa progreso, niveles y tiempos).
+4. Foto de la hoja: generación, subida, Storage, aviso al niño, retención 30 días.
+5. Tareas del profesor.
+6. Comentarios del profesor.
+
+### Preguntas abiertas
+- Acceso del tutor a las hojas (ver arriba).
+- ¿Quién llena la lista de dominios de colegios al inicio?
+- ¿El profesor puede ver o descargar datos de alumnos que salieron del curso? (Propuesta: no.)
+- Los colegios podrían querer actuar como responsables del tratamiento: puede requerir un acuerdo
+  con cada colegio. Revisar con asesoría legal.
+
+## Catálogo curricular: decisiones sobre el mapa (2026-10-27)
+
+Base: `docs/MAPA_CURRICULAR_MATEMATICA_1A4.md` y `docs/habilidades_1a4_basico.csv`. Estas decisiones
+ajustan el mapa; mientras no se edite el mapa, mandan las de aquí.
+
+- **Regla de dominio nueva** (reemplaza "3 aciertos seguidos sube / 2 errores seguidos baja"):
+  bloques de 10 ejercicios de una habilidad en un mismo nivel; con 8 o más aciertos sube de nivel,
+  con 4 o menos baja, con 5 a 7 repite el nivel. Dominar el nivel 3 desbloquea la habilidad
+  siguiente.
+- **Sin alternativas ni teclado numérico especial.** El niño siempre escribe la respuesta a mano
+  en la casilla de respuesta, apoyado en el papel para calcular. Las habilidades marcadas
+  "alternativas" en el CSV se reformulan para que la respuesta sea un número.
+- **Bloque de 10:** se va llenando aunque el niño cambie de día o salga de la app; se evalúa al
+  llegar a 10 ejercicios de esa habilidad en ese nivel. Al cambiar de nivel empieza un bloque nuevo.
+- **Fracciones: casilla de fracción.** Dos casillas apiladas (numerador arriba, denominador abajo),
+  escritas a mano. El enunciado muestra fracciones apiladas con CSS propio (`app-math-text`; KaTeX no
+  está instalado y no hizo falta agregarlo). El servidor acepta
+  fracciones equivalentes (6/10 = 3/5); si acierta sin simplificar, Numi muestra la forma simple
+  como dato extra, sin marcar error. Un ejercicio que pida simplificar exige la forma simple.
+  Sirve para 4-10 y, más adelante, 3-13, 4-09, 4-11 y 4-13.
+- **Reformulación de las habilidades "alternativas" de fase A** (respuesta = número escrito):
+  - 1-03, 2-03, 3-03, 4-02 (comparar y ordenar): "¿Cuál es el número mayor/menor: a o b?" →
+    escribe el número. Ordenar: "Ordena a, b y c de menor a mayor. ¿Qué número queda al medio?"
+    (con 4 números: "¿cuál queda segundo?").
+  - 2-16 (igualdad y desigualdad): N1 completar la igualdad hasta 10 (3 + 4 = □ + 2);
+    N2 hasta 20; N3 "¿Cuánto le falta al lado menor para ser igual?" (9 + 6 y 8 + 4 → 3).

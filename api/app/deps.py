@@ -13,6 +13,7 @@ from app.auth.jwt import AuthenticatedTutor, InvalidToken, TokenVerifier
 from app.db.gateway import Gateway
 from app.errors import ApiError
 from app.logging import get_logger, log_event
+from app.parental import InvalidParentalToken, verify_parental_token
 
 logger = get_logger("mathtutor.auth")
 
@@ -51,3 +52,48 @@ async def get_authorized_student(
 
 # Uso en rutas: `async def ruta(student: AuthorizedStudentDep): ...`
 AuthorizedStudentDep = Annotated[AuthorizedStudent, Depends(get_authorized_student)]
+
+
+def parental_key(request: Request) -> bytes:
+    """Clave base del token parental. Falla cerrado si no hay clave configurada."""
+    key = request.app.state.settings.exercise_signing_key.get_secret_value()
+    if not key:
+        log_event(logger, "parental.denied", code="signing_key_missing")
+        raise ApiError(503, "service_unavailable")
+    return key.encode()
+
+
+def _require_parental(request: Request, tutor: AuthenticatedTutor) -> None:
+    try:
+        verify_parental_token(
+            parental_key(request), request.headers.get("x-parental-token"), tutor.tutor_id
+        )
+    except InvalidParentalToken:
+        log_event(logger, "parental.denied", code="token_invalid")
+        raise ApiError(
+            401, "parental_required", message="Escribe tu PIN para entrar al panel."
+        ) from None
+
+
+async def get_parental_student(
+    student_id: uuid.UUID, tutor: CurrentTutor, request: Request
+) -> AuthorizedStudent:
+    """Como `get_authorized_student`, pero además exige el token parental (PIN verificado)."""
+    _require_parental(request, tutor)
+    return await get_authorized_student(student_id, tutor, request)
+
+
+# Rutas de la zona del tutor (panel): `async def ruta(student: ParentalStudentDep): ...`
+ParentalStudentDep = Annotated[AuthorizedStudent, Depends(get_parental_student)]
+
+
+async def get_parental_tutor(tutor: CurrentTutor, request: Request) -> AuthenticatedTutor:
+    """Tutor con PIN verificado, sin exigir consentimiento vigente ni perfil desbloqueado.
+
+    Para borrar perfiles: es un derecho del titular y debe funcionar siempre.
+    """
+    _require_parental(request, tutor)
+    return tutor
+
+
+ParentalTutorDep = Annotated[AuthenticatedTutor, Depends(get_parental_tutor)]

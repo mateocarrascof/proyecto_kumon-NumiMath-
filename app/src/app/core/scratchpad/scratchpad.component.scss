@@ -1,0 +1,168 @@
+:host {
+  display: block;
+  max-width: 480px;
+  margin: 0 auto 16px;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tool {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  font-weight: 800;
+  color: var(--ion-text-color);
+  background: var(--kid-card-bg);
+  border: 3px solid var(--kid-lilac-soft);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tool.on {
+  border-color: var(--ion-color-primary);
+  box-shadow: 0 0 0 3px var(--kid-teal-soft);
+}
+
+.tool:focus-visible {
+  outline: 4px solid var(--ion-color-primary);
+  outline-offset: 2px;
+}
+
+.pen { padding: 0; width: 48px; }
+
+.dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--pen);
+}
+
+.tool:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.confirm {
+  margin-bottom: 8px;
+  padding: 12px;
+  text-align: center;
+  font-weight: 800;
+  background: var(--kid-card-bg);
+  border: 3px solid #c0392b;
+  border-radius: var(--kid-radius);
+}
+
+.confirm p {
+  margin: 0 0 10px;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.danger {
+  min-width: 140px;
+  color: #fff;
+  background: #c0392b;
+  border-color: #c0392b;
+}
+
+/* Ventana al papel. Fuera de la hoja se ve un fondo gris suave. */
+.paper {
+  position: relative;
+  height: 360px;
+  max-height: 55vh;
+  border: 3px solid var(--kid-lilac-soft);
+  border-radius: var(--kid-radius);
+  overflow: hidden;
+  background-color: #e9e7f0;
+}
+
+/* La hoja: siempre clara (como papel), también en modo oscuro. Tamaño y posición desde el código. */
+.sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  background-color: #fffdf6;
+  background-image:
+    linear-gradient(to right, #cfe3f5 1px, transparent 1px),
+    linear-gradient(to bottom, #cfe3f5 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+canvas {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  // Sin esto, arrastrar el dedo haría scroll en vez de dibujar.
+  touch-action: none;
+  cursor: crosshair;
+}
+
+canvas.moving {
+  cursor: grab;
+}
+
+.zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: rgb(255 255 255 / 85%);
+  border: 2px solid var(--kid-lilac-soft);
+  border-radius: 999px;
+}
+
+.zoom-btn {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #2b2d42;
+  background: #fff;
+  border: 3px solid var(--kid-lilac-soft);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.zoom-btn:focus-visible {
+  outline: 4px solid var(--ion-color-primary);
+  outline-offset: 2px;
+}
+
+.zoom-level {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #2b2d42;
+}

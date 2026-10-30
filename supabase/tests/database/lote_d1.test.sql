@@ -75,13 +75,33 @@ select is(
 -- ===== 3. Límite de altas de perfiles por tutor cada 24 h =====
 select set_config('request.jwt.claims', '{"sub":"aaaa1111-0000-0000-0000-000000000004","role":"authenticated"}', true);
 set local role authenticated;
+-- 10 altas en dos tandas de 5; el borrado lo hace el servidor (delete_student).
+do $do$ begin
+  for i in 1..5 loop
+    insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
+    values ('aaaa1111-0000-0000-0000-000000000004', 'Ciclo', 1, true);
+  end loop;
+end $do$;
+reset role;
+set local role service_role;
+do $do$ begin
+  perform public.delete_student(s.tutor_id, s.id) from public.students s
+    where s.tutor_id = 'aaaa1111-0000-0000-0000-000000000004';
+end $do$;
+set local role authenticated;
 select lives_ok($t$do $do$ begin
-    for i in 1..10 loop
+    for i in 1..5 loop
       insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
       values ('aaaa1111-0000-0000-0000-000000000004', 'Ciclo', 1, true);
-      delete from public.students where tutor_id = 'aaaa1111-0000-0000-0000-000000000004';
     end loop;
   end $do$ $t$ , 'U4 crea y borra 10 perfiles en 24 horas');
+reset role;
+set local role service_role;
+do $do$ begin
+  perform public.delete_student(s.tutor_id, s.id) from public.students s
+    where s.tutor_id = 'aaaa1111-0000-0000-0000-000000000004';
+end $do$;
+set local role authenticated;
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaa1111-0000-0000-0000-000000000004', 'Once', 1, true)$$,
   'P0001', 'student_create_rate_limited', 'la alta número 11 en 24 horas es rechazada aunque no haya perfiles vivos');

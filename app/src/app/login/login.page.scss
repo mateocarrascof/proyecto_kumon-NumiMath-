@@ -1,25 +1,118 @@
 .login {
-  max-width: 420px;
+  max-width: 440px;
   margin: 0 auto;
   text-align: center;
+  --accent: var(--ion-color-primary);
+  --accent-soft: var(--kid-teal-soft);
 }
 
-.who {
-  font-size: 0.9rem;
-  color: var(--ion-color-medium-shade);
+/* Crear cuenta: lila (el color de Numi) en todo: barra, pestaña, pasos y botón. El coral
+   contrastaba demasiado. Texto blanco sobre #6e4bd8: 5,5:1. */
+.login[data-mode='signup'] {
+  --accent: var(--ion-color-tertiary);
+  --accent-soft: var(--kid-lilac-soft);
 }
+
+.tabs {
+  margin: 4px 0 12px;
+  --background: var(--kid-card-bg);
+  border: 2px solid var(--accent-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.tabs ion-segment-button {
+  --indicator-color: var(--accent);
+  --color-checked: var(--accent);
+  font-weight: 800;
+  min-height: 44px;
+}
+
+/* global.scss pinta la pestaña elegida de verde menta en toda la app: aquí sigue el color del modo. */
+.tabs ion-segment-button.segment-button-checked { background: var(--accent-soft); }
+
+app-mascot { max-width: 150px; }
+
+h1 {
+  font-size: 1.6rem;
+  margin: 8px 0 4px;
+  color: var(--accent);
+}
+
+.lead {
+  font-size: 0.95rem;
+  color: var(--ion-color-medium-shade, #555);
+  margin: 0 0 10px;
+}
+
+/* Pasos (solo al crear cuenta) */
+.steps {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--kid-card-bg);
+  border: 1px solid var(--kid-border);
+}
+
+.steps li span {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--kid-border);
+  font-size: 0.75rem;
+}
+
+.steps li.now { border-color: var(--accent); color: var(--accent); }
+.steps li.now span { background: var(--accent); color: #fff; }
+
+.promises {
+  list-style: none;
+  padding: 10px 14px;
+  margin: 0 0 4px;
+  text-align: left;
+  border-radius: var(--kid-radius-sm);
+  background: var(--accent-soft);
+  font-size: 0.92rem;
+}
+
+.promises li { margin: 2px 0; }
+.promises span { color: var(--kid-green-text); font-weight: 900; margin-right: 4px; }
 
 form {
+  display: grid;
+  gap: 10px;
   text-align: left;
-  margin-top: 8px;
+  margin-top: 14px;
+  padding: 16px;
+  border-top: 5px solid var(--accent);
 }
 
-ion-button[type='submit'] {
-  margin-top: 16px;
+.check {
+  margin: -4px 0 0;
+  font-size: 0.85rem;
+  color: var(--ion-color-medium-shade, #555);
 }
 
-.error {
-  color: var(--ion-color-danger);
-  font-weight: 600;
-  margin: 12px 0 0;
-}
+.check.ok { color: var(--kid-green-text); font-weight: 700; }
+
+.show { font-size: 0.9rem; }
+
+ion-button[type='submit'] { margin-top: 4px; }
+
+.error { margin: 4px 0 0; }

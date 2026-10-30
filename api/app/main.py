@@ -17,7 +17,16 @@ from app.db.supabase_gateway import SupabaseGateway
 from app.errors import install_error_handlers
 from app.logging import configure_logging
 from app.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
-from app.routes import exercises, explanations, health, progress, students
+from app.routes import (
+    assignments,
+    exercises,
+    explanations,
+    health,
+    pin,
+    progress,
+    report,
+    students,
+)
 
 
 def create_app(
@@ -63,8 +72,8 @@ def create_app(
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
-            allow_methods=["GET", "POST"],
-            allow_headers=["Authorization", "Content-Type"],
+            allow_methods=["GET", "POST", "DELETE"],
+            allow_headers=["Authorization", "Content-Type", "X-Parental-Token"],
             allow_credentials=False,
             max_age=600,
         )
@@ -74,6 +83,9 @@ def create_app(
     app.include_router(explanations.router)
     app.include_router(exercises.router)
     app.include_router(progress.router)
+    app.include_router(assignments.router)
+    app.include_router(report.router)
+    app.include_router(pin.router)
     return app
 
 

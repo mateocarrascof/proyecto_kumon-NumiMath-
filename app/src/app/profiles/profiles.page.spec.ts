@@ -1,92 +1,184 @@
 import { TestBed } from '@angular/core/testing';
-import { FormsModule } from '@angular/forms';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
-import { ConsentPort } from '../core/consent/consent.port';
-import { LegalTextComponent } from '../core/legal/legal-text.component';
+import { MascotComponent } from '../core/mascot/mascot.component';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
-import { CreateResult, Profile, ProfilesPort } from '../core/profiles/profiles.port';
+import { avatarFor } from '../core/profiles/avatar';
+import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
+import { ProgressPort } from '../core/progress/progress.port';
 import { ProfilesPage } from './profiles.page';
 
-function setup(opts: { profiles?: Profile[]; create?: CreateResult; verified?: boolean } = {}) {
-  const create = vi.fn(async () => opts.create ?? { ok: false as const, reason: 'unknown' as const });
-  const remove = vi.fn(async () => true);
-  const list = vi.fn(async () => opts.profiles ?? []);
+const ANA: Profile = { id: 'p-ana', nickname: 'Ana', grade: 2, blocked: false };
+const BETO: Profile = { id: 'p-beto', nickname: 'Beto', grade: 3, blocked: true };
+const CATA: Profile = { id: 'p-cata', nickname: 'Cata', grade: 4, blocked: false };
+const DANI: Profile = { id: 'p-dani', nickname: 'Dani', grade: 1, blocked: false };
+
+function setup(
+  list: () => Promise<Profile[]> = async () => [ANA, BETO],
+  dailyStreak: (id: string) => Promise<number> = async () => 3,
+) {
+  const profiles = { list: vi.fn(list), create: vi.fn(), remove: vi.fn() };
+  const progress = {
+    get: vi.fn(async (id: string) => ({
+      total: 0,
+      correct: 0,
+      streak: 0,
+      dailyStreak: await dailyStreak(id),
+      practicedToday: false,
+      byTopic: [],
+      recent: [],
+    })),
+  };
+  const nav = { navigateForward: vi.fn(async () => true) };
   TestBed.configureTestingModule({
-    declarations: [ProfilesPage, LegalTextComponent],
-    imports: [IonicModule.forRoot(), FormsModule],
+    declarations: [ProfilesPage, MascotComponent],
+    imports: [IonicModule.forRoot()],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
-      { provide: ProfilesPort, useValue: { list, create, remove } },
-      {
-        provide: ConsentPort,
-        useValue: {
-          loadCurrent: async () => ({
-            adult_declaration: {
-              id: 'a',
-              kind: 'adult_declaration',
-              version: 'ad-1',
-              text: 'Declaro…',
-              verified: opts.verified ?? true,
-            },
-          }),
-        },
-      },
-      { provide: NavController, useValue: { navigateForward: vi.fn(async () => true) } },
+      { provide: ProfilesPort, useValue: profiles },
+      { provide: ProgressPort, useValue: progress },
+      { provide: NavController, useValue: nav },
     ],
   });
-  return { page: TestBed.createComponent(ProfilesPage).componentInstance, create, remove, list };
+  const fixture = TestBed.createComponent(ProfilesPage);
+  return { page: fixture.componentInstance, fixture, profiles, progress, nav };
 }
 
-const p = (n: number): Profile => ({ id: `p${n}`, nickname: `N${n}`, grade: 1, blocked: false });
+/** Deja que Angular llame a ngOnInit (una sola vez) y espera las cargas. */
+async function render(fixture: { detectChanges(): void; whenStable(): Promise<unknown> }) {
+  fixture.detectChanges();
+  await fixture.whenStable();
+  await new Promise((r) => setTimeout(r, 0));
+  fixture.detectChanges();
+}
 
-describe('ProfilesPage', () => {
-  it('con 5 perfiles marca el tope', async () => {
-    const { page } = setup({ profiles: [1, 2, 3, 4, 5].map(p) });
-    await page.ngOnInit();
-    expect(page.full).toBe(true);
+function el(fixture: { nativeElement: unknown }): HTMLElement {
+  return fixture.nativeElement as HTMLElement;
+}
+
+describe('ProfilesPage (¿Quién practica?)', () => {
+  it('muestra una tarjeta por niño con su animalito, curso y racha', async () => {
+    const { page, fixture } = setup();
+    await render(fixture);
+    const ana = el(fixture).querySelector('[data-testid="kid-Ana"]');
+    expect(ana?.textContent).toContain(avatarFor('p-ana').emoji);
+    expect(ana?.textContent).toContain('2° básico');
+    expect(ana?.textContent).toContain('3 días seguidos');
+    expect(page.message).toBe('¿Quién va a practicar hoy?');
   });
 
-  it('no crea sin marcar la declaración del adulto', async () => {
-    const { page, create } = setup();
-    await page.ngOnInit();
-    await page.openForm();
-    page.nickname = 'Luz';
-    await page.create();
-    expect(create).not.toHaveBeenCalled();
-    expect(page.error).toContain('declaración');
+  it('no permite crear ni borrar perfiles aquí', async () => {
+    const { page, fixture } = setup();
+    await render(fixture);
+    const text = el(fixture).textContent ?? '';
+    expect(text).not.toContain('Borrar');
+    expect(text).not.toContain('Eliminar');
+    expect(text).not.toContain('Crear perfil');
   });
 
-  it('no crea si el texto de la declaración no está verificado', async () => {
-    const { page, create } = setup({ verified: false });
-    await page.ngOnInit();
-    await page.openForm();
-    page.declared = true;
-    page.nickname = 'Luz';
-    await page.create();
-    expect(create).not.toHaveBeenCalled();
+  it('la tarjeta del centro entra con "¡A practicar!" o al tocarla; "Mi progreso" abre el progreso', async () => {
+    const { fixture, nav } = setup();
+    await render(fixture);
+    const ana = el(fixture).querySelector('[data-testid="kid-Ana"]') as HTMLElement;
+    (ana.querySelector('[data-testid="practice-btn"]') as HTMLElement).click();
+    expect(nav.navigateForward).toHaveBeenCalledTimes(1);
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/practica', 'p-ana']);
+    nav.navigateForward.mockClear();
+    ana.click();
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/practica', 'p-ana']);
+    nav.navigateForward.mockClear();
+    (ana.querySelector('.progress-btn') as HTMLElement).click();
+    expect(nav.navigateForward).toHaveBeenCalledTimes(1);
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/progreso', 'p-ana']);
   });
 
-  it('crea y recarga la lista', async () => {
-    const { page, create, list } = setup({ create: { ok: true, profile: p(1) } });
-    await page.ngOnInit();
-    await page.openForm();
-    page.declared = true;
-    page.nickname = 'Luz';
-    page.grade = 3;
-    await page.create();
-    expect(create).toHaveBeenCalledWith('Luz', 3);
-    expect(list).toHaveBeenCalledTimes(2);
-    expect(page.showForm).toBe(false);
+  it('tocar una tarjeta del lado la centra sin entrar; solo la del centro tiene botones', async () => {
+    const { page, fixture, nav } = setup(async () => [ANA, CATA]);
+    await render(fixture);
+    expect(page.active).toBe(0);
+    const cata = el(fixture).querySelector('[data-testid="kid-Cata"]') as HTMLElement;
+    expect(cata.querySelector('[data-testid="practice-btn"]')).toBeNull();
+    cata.click();
+    fixture.detectChanges();
+    expect(nav.navigateForward).not.toHaveBeenCalled();
+    expect(page.active).toBe(1);
+    expect(cata.querySelector('[data-testid="practice-btn"]')).not.toBeNull();
+    expect(el(fixture).querySelector('[data-testid="kid-Ana"] [data-testid="practice-btn"]')).toBeNull();
   });
 
-  it('borrar pide confirmación antes de llamar al puerto', async () => {
-    const { page, remove } = setup({ profiles: [p(1)] });
-    await page.ngOnInit();
-    page.askDelete('p1');
-    expect(remove).not.toHaveBeenCalled();
-    await page.confirmDelete();
-    expect(remove).toHaveBeenCalledWith('p1');
+  it('las flechas, los puntos y el teclado mueven el carrusel', async () => {
+    const { page, fixture } = setup(async () => [ANA, CATA, DANI]);
+    await render(fixture);
+    const prev = el(fixture).querySelector('[data-testid="carousel-prev"]') as HTMLButtonElement;
+    const next = el(fixture).querySelector('[data-testid="carousel-next"]') as HTMLButtonElement;
+    expect(prev.disabled).toBe(true);
+    next.click();
+    fixture.detectChanges();
+    expect(page.active).toBe(1);
+    const dots = el(fixture).querySelectorAll('[data-testid="carousel-dot"]');
+    expect(dots).toHaveLength(3);
+    expect(dots[1].getAttribute('aria-current')).toBe('true');
+    expect(dots[2].getAttribute('aria-label')).toBe('Ir al perfil de Dani');
+    (dots[2] as HTMLElement).click();
+    fixture.detectChanges();
+    expect(page.active).toBe(2);
+    expect(next.disabled).toBe(true);
+    page.onKey(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    expect(page.active).toBe(1);
+    page.onKey(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    page.onKey(new KeyboardEvent('keydown', { key: 'ArrowRight' })); // ya está en la última
+    expect(page.active).toBe(2);
+  });
+
+  it('cada tarjeta dice quién es y su posición; con un solo perfil no hay flechas ni puntos', async () => {
+    const { fixture } = setup(async () => [ANA]);
+    await render(fixture);
+    const ana = el(fixture).querySelector('[data-testid="kid-Ana"]');
+    expect(ana?.getAttribute('aria-label')).toBe('Ana, 2° básico, perfil 1 de 1');
+    expect(el(fixture).querySelector('[data-testid="carousel-next"]')).toBeNull();
+    expect(el(fixture).querySelector('[data-testid="carousel-dot"]')).toBeNull();
+  });
+
+  it('un perfil en pausa se ve apagado, se puede centrar pero no abre la práctica', async () => {
+    const { page, fixture, nav, progress } = setup();
+    await render(fixture);
+    const beto = el(fixture).querySelector('[data-testid="kid-Beto"]') as HTMLElement;
+    expect(beto.classList).toContain('paused');
+    expect(beto.textContent).toContain('En pausa');
+    expect(beto.getAttribute('aria-label')).toContain('en pausa');
+    beto.click(); // la centra
+    fixture.detectChanges();
+    expect(page.active).toBe(1);
+    expect(beto.querySelector('[data-testid="practice-btn"]')).toBeNull();
+    beto.click(); // ya al centro: igual no entra
+    expect(nav.navigateForward).not.toHaveBeenCalled();
+    expect(progress.get).not.toHaveBeenCalledWith('p-beto');
+  });
+
+  it('si la racha no carga, la tarjeta se ve igual sin la racha', async () => {
+    const { page, fixture } = setup(undefined, async () => {
+      throw new Error('red');
+    });
+    await render(fixture);
+    const ana = el(fixture).querySelector('[data-testid="kid-Ana"]');
+    expect(ana).not.toBeNull();
+    expect(ana?.textContent).not.toContain('días seguidos');
+  });
+
+  it('sin perfiles pide a un adulto que los cree en el Panel', async () => {
+    const { page, fixture } = setup(async () => []);
+    await render(fixture);
+    expect(el(fixture).querySelector('[data-testid="no-profiles"]')?.textContent).toContain(
+      'Panel del tutor',
+    );
+  });
+
+  it('si la base no responde muestra un error amable', async () => {
+    const { page, fixture } = setup(async () => {
+      throw new Error('red');
+    });
+    await render(fixture);
+    expect(page.error).toContain('No pude cargar los perfiles');
   });
 });

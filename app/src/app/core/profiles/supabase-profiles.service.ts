@@ -1,8 +1,21 @@
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
+
+import { environment } from '../../../environments/environment';
 
 import { AuthPort } from '../auth/auth.port';
 import { SUPABASE_CLIENT } from '../auth/supabase.client';
-import { CreateFailure, CreateResult, Grade, NICKNAME_MAX, Profile, ProfilesPort } from './profiles.port';
+import { ParentalSession } from '../parental/parental-session';
+import {
+  CreateFailure,
+  CreateResult,
+  Grade,
+  NICKNAME_MAX,
+  Profile,
+  ProfilesPort,
+  RemoveResult,
+} from './profiles.port';
 
 interface Row {
   id: string;
@@ -31,6 +44,8 @@ function failureOf(message: string): CreateFailure {
 export class SupabaseProfilesService extends ProfilesPort {
   private readonly client = inject(SUPABASE_CLIENT);
   private readonly auth = inject(AuthPort);
+  private readonly http = inject(HttpClient);
+  private readonly parental = inject(ParentalSession);
 
   async list(): Promise<Profile[]> {
     const { data, error } = await this.client
@@ -64,12 +79,27 @@ export class SupabaseProfilesService extends ProfilesPort {
     }
   }
 
-  async remove(id: string): Promise<boolean> {
+  /**
+   * El cliente ya no puede borrar en la base (migración student_delete_via_server): el borrado
+   * pasa por la API, que exige el token del PIN del tutor.
+   */
+  async remove(id: string): Promise<RemoveResult> {
+    const token = await this.auth.accessToken();
+    if (!token) return 'error';
     try {
-      const { error } = await this.client.from('students').delete().eq('id', id);
-      return !error;
-    } catch {
-      return false;
+      await firstValueFrom(
+        this.http.delete(`${environment.apiUrl}/v1/students/${encodeURIComponent(id)}`, {
+          headers: { Authorization: `Bearer ${token}`, ...this.parental.header() },
+        }),
+      );
+      return 'ok';
+    } catch (error) {
+      if (error instanceof HttpErrorResponse) {
+        const code = (error.error as { error?: { code?: string } } | null)?.error?.code;
+        if (code === 'parental_required') return 'pin';
+        if (error.status === 404) return 'not_found';
+      }
+      return 'error';
     }
   }
 }

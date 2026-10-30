@@ -72,9 +72,10 @@ select is((select nickname from public.students where id = 'a1000000-0000-0000-0
 select is_empty(
   $$update public.students set nickname = 'Hack' where id = 'b1000000-0000-0000-0000-000000000001' returning 1$$,
   'A no puede modificar alumnos de B');
-select is_empty(
-  $$delete from public.students where id = 'b1000000-0000-0000-0000-000000000001' returning 1$$,
-  'A no puede borrar alumnos de B');
+select throws_ok(
+  $$delete from public.students where id = 'b1000000-0000-0000-0000-000000000001'$$,
+  '42501', 'permission denied for table students',
+  'A no puede borrar alumnos de B (el cliente no borra: solo el servidor, con PIN)');
 select throws_ok(
   $$update public.students set tutor_id = 'bbbbbbbb-0000-0000-0000-000000000002' where id = 'a1000000-0000-0000-0000-000000000001'$$,
   '42501', 'permission denied for table students', 'A no puede traspasar su alumno (tutor_id no es actualizable)');

@@ -25,7 +25,7 @@ URL = f"{BASE_URL}/models/{MODEL}:streamGenerateContent"
 
 
 def _prompt(exercise: str = "¿Cuánto es 7 + 5?") -> MathPrompt:
-    return build_prompt(1, "sumas_hasta_20", check_input(exercise))
+    return build_prompt(1, "1-08", check_input(exercise))
 
 
 def _sse(*events: dict[str, Any]) -> bytes:
@@ -255,7 +255,7 @@ def test_el_servidor_no_registra_la_clave_ni_el_texto_ante_un_error_del_proveedo
     token = jwt.encode(claims, secret, algorithm="HS256")
     response = client.post(
         f"/v1/students/{perfil}/explanations",
-        json={"topic": "sumas_hasta_20", "exercise": "¿Cuánto es 7 + 5?"},
+        json={"topic": "1-08", "exercise": "¿Cuánto es 7 + 5?"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200

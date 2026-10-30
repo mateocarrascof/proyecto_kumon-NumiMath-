@@ -1,0 +1,121 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Globo de diálogo */
+.bubble {
+  position: relative;
+  margin: 0 0 12px;
+  padding: 8px 18px;
+  /* El globo puede ser más ancho que Numi y envuelve las frases largas en vez de salirse. */
+  width: max-content;
+  max-width: min(280px, 80vw);
+  background: #fff;
+  color: #2b2d42;
+  border: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.3;
+  text-align: center;
+  white-space: normal;
+  text-wrap: balance;
+  box-shadow: 0 4px 0 var(--kid-lilac-soft, #ebe4fd);
+  animation: bubble-pop 0.4s cubic-bezier(0.3, 1.6, 0.6, 1);
+}
+
+.bubble.alt {
+  animation-name: bubble-pop-b;
+}
+
+.bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-right: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  border-bottom: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* Cuerpo */
+.skin { fill: #ffd166; stroke: #e0a100; stroke-width: 4; }
+.limb { fill: none; stroke: #e0a100; stroke-width: 12; stroke-linecap: round; }
+.cheek { fill: #ff9f9f; opacity: 0.75; }
+.eye { fill: #2b2d42; }
+.shine { fill: #fff; }
+.shadow { fill: rgba(0, 0, 0, 0.12); }
+.mouth-line { fill: none; stroke: #2b2d42; stroke-width: 6; stroke-linecap: round; }
+.mouth-open { fill: #8d2b3a; stroke: #2b2d42; stroke-width: 4; stroke-linejoin: round; }
+.antenna-line { fill: none; stroke: #e0a100; stroke-width: 4; stroke-linecap: round; }
+.star { fill: var(--ion-color-tertiary, #6e4bd8); stroke: #fff; stroke-width: 1.5; stroke-linejoin: round; }
+.sign { font: 900 34px var(--ion-font-family, sans-serif); fill: var(--ion-color-tertiary, #6e4bd8); }
+.plus { fill: var(--ion-color-secondary, #c24e3f); opacity: 0.7; }
+
+/* Puntos de giro, en coordenadas del dibujo */
+.body,
+.antenna,
+.arm,
+.blink,
+.talk {
+  transform-box: view-box;
+}
+.body { transform-origin: 100px 190px; }
+.antenna { transform-origin: 100px 42px; animation: sway 3s ease-in-out infinite; }
+.arm-left { transform-origin: 42px 128px; }
+.arm-right { transform-origin: 158px 128px; }
+.blink { transform-origin: 100px 104px; animation: blink 4.2s infinite; }
+.talk { transform-origin: 100px 142px; }
+
+/* Estados */
+.idle .body { animation: bob 2.6s ease-in-out infinite; }
+.idle .arm-left { animation: arm-l 2.6s ease-in-out infinite; }
+.idle .arm-right { animation: arm-r 2.6s ease-in-out infinite; }
+
+.thinking .body { animation: tilt 2s ease-in-out infinite; }
+.thinking .arm-right { transform: rotate(-110deg); }
+
+.happy .body { animation: hop 0.7s ease-in-out infinite; }
+.happy .arm-left { animation: wave-l 0.35s ease-in-out infinite alternate; }
+.happy .arm-right { animation: wave-r 0.35s ease-in-out infinite alternate; }
+.happy .antenna { animation: spin 0.7s ease-in-out infinite; }
+
+.sad .body { transform: scaleY(0.95); }
+.sad .eyes { transform: translateY(6px); }
+.sad .arm-left { transform: rotate(-100deg); }
+.sad .arm-right { transform: rotate(100deg); }
+.sad .antenna { animation: none; transform: rotate(18deg); }
+
+.talking .talk { animation: talk 0.35s ease-in-out infinite alternate; }
+
+@keyframes bob { 50% { transform: translateY(-6px); } }
+@keyframes tilt { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes hop { 50% { transform: translateY(-16px); } }
+@keyframes talk { to { transform: scaleY(0.4); } }
+@keyframes sway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+@keyframes spin { 50% { transform: rotate(25deg) scale(1.15); } }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes arm-l { 50% { transform: rotate(-8deg); } }
+@keyframes arm-r { 50% { transform: rotate(8deg); } }
+@keyframes wave-l { from { transform: rotate(10deg); } to { transform: rotate(-35deg); } }
+@keyframes wave-r { from { transform: rotate(-10deg); } to { transform: rotate(35deg); } }
+@keyframes bubble-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes bubble-pop-b { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}

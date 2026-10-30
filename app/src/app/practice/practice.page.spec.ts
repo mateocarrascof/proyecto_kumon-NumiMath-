@@ -1,18 +1,62 @@
 import { TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { IonicModule } from '@ionic/angular/lazy';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
+import { IonicModule, NavController } from '@ionic/angular/lazy';
 
+import { AssignmentsPort, TutorError } from '../core/assignments/assignments.port';
+import { ConfettiComponent } from '../core/celebration/confetti.component';
+import {
+  ExplanationError,
+  ExplanationPort,
+  ExplanationRequest,
+} from '../core/explanation/explanation.port';
 import { MascotComponent } from '../core/mascot/mascot.component';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
-import { PracticeError, PracticePort } from '../core/practice/practice.port';
-import { PracticePage } from './practice.page';
+import { Exercise, PracticeError, PracticePort, Topic } from '../core/practice/practice.port';
+import { Progress, ProgressPort } from '../core/progress/progress.port';
+import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
+import { FractionInputComponent } from '../core/math/fraction-input.component';
+import { MathTextComponent } from '../core/math/math-text.component';
+import { GentleTimerComponent } from '../core/timer/gentle-timer.component';
+import { EXPLAIN_MESSAGES, PracticePage, topicIcon } from './practice.page';
+import { SkillTilesComponent } from './skill-tiles.component';
 
 const TOPIC = { id: 'sumas_hasta_20', label: 'Sumas hasta 20' };
-const EXERCISE = { token: 'tok', topic: TOPIC.id, text: '7 + 5 = ?', expiresIn: 600 };
+const EXERCISE: Exercise = {
+  token: 'tok',
+  topic: TOPIC.id,
+  text: '7 + 5 = ?',
+  level: 1,
+  expiresIn: 600,
+};
+const BADGE = '[data-testid="streak-badge"]';
 
-function setup(overrides: Partial<PracticePort> = {}) {
+const PROGRESS: Progress = {
+  total: 0, correct: 0, streak: 0, dailyStreak: 0, practicedToday: false, byTopic: [], recent: [],
+};
+
+function setup(
+  overrides: Partial<PracticePort> = {},
+  progressGet: () => Promise<Progress> = async () => PROGRESS,
+  assignmentOverrides: Partial<Record<keyof AssignmentsPort, unknown>> = {},
+  query: Record<string, string> = {},
+  explain: ExplanationPort['explain'] = async () => undefined,
+) {
+  const nav = { navigateForward: vi.fn(async () => true) };
+  const explainer = { explain: vi.fn(explain) };
+  const queryParams = new BehaviorSubject(convertToParamMap(query));
+  const progress = { get: vi.fn(progressGet) };
+  const assignments = {
+    forKid: vi.fn(async () => ({ pending: [] as { id: string; text: string }[], done: [] })),
+    answer: vi.fn(async () => ({ correct: true, correctAnswer: 7 })),
+    start: vi.fn(async (_s: string, id: string) => `ticket-${id}`),
+    all: vi.fn(),
+    create: vi.fn(),
+    remove: vi.fn(),
+    ...assignmentOverrides,
+  };
   const port = {
     topics: vi.fn(async () => [TOPIC]),
     newExercise: vi.fn(async () => EXERCISE),
@@ -20,15 +64,48 @@ function setup(overrides: Partial<PracticePort> = {}) {
     ...overrides,
   };
   TestBed.configureTestingModule({
-    declarations: [PracticePage, MascotComponent],
+    declarations: [
+      PracticePage,
+      SkillTilesComponent,
+      MascotComponent,
+      ConfettiComponent,
+      ScratchpadComponent,
+      GentleTimerComponent,
+      MathTextComponent,
+      FractionInputComponent,
+    ],
     imports: [IonicModule.forRoot(), FormsModule],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: PracticePort, useValue: port },
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'perfil-1' } } } },
+      { provide: ProgressPort, useValue: progress },
+      { provide: AssignmentsPort, useValue: assignments },
+      { provide: NavController, useValue: nav },
+      { provide: ExplanationPort, useValue: explainer },
+      {
+        provide: ActivatedRoute,
+        useValue: {
+          snapshot: { paramMap: { get: () => 'perfil-1' } },
+          queryParamMap: queryParams,
+        },
+      },
     ],
   });
-  return { page: TestBed.createComponent(PracticePage).componentInstance, port };
+  const fixture = TestBed.createComponent(PracticePage);
+  return {
+    page: fixture.componentInstance,
+    fixture,
+    port,
+    progress,
+    assignments,
+    nav,
+    queryParams,
+    explainer,
+  };
+}
+
+function query(fixture: { nativeElement: unknown }, selector: string): Element | null {
+  return (fixture.nativeElement as HTMLElement).querySelector(selector);
 }
 
 describe('PracticePage', () => {
@@ -69,7 +146,7 @@ describe('PracticePage', () => {
     expect(port.answer).toHaveBeenCalledTimes(1);
   });
 
-  it('una respuesta incorrecta pone triste a la mascota pero no suma', async () => {
+  it('una respuesta incorrecta no pone triste a Numi (piensa contigo) y no suma', async () => {
     const { page } = setup({
       answer: vi.fn(async () => ({ correct: false, correctAnswer: 12 })),
     });
@@ -79,7 +156,7 @@ describe('PracticePage', () => {
     await page.submit();
     expect(page.correctCount).toBe(0);
     expect(page.total).toBe(1);
-    expect(TestBed.inject(MascotPort).state()).toBe('sad');
+    expect(TestBed.inject(MascotPort).state()).toBe('thinking');
   });
 
   it('si el ejercicio venció, avisa y pide otro automáticamente', async () => {
@@ -95,14 +172,14 @@ describe('PracticePage', () => {
     expect(port.newExercise).toHaveBeenCalledTimes(2);
   });
 
-  it('un 401 dice que la sesión no es válida, no que falta acceso al perfil', async () => {
+  it('un 401 pide ayuda a un adulto, no dice que falta acceso al perfil', async () => {
     const { page } = setup({
       topics: vi.fn(async () => {
         throw new PracticeError('session');
       }),
     });
     await page.ngOnInit();
-    expect(page.error).toBe('Tu sesión no es válida, vuelve a iniciar sesión.');
+    expect(page.error).toBe('Pide ayuda a un adulto para volver a entrar.');
   });
 
   it('si no hay red, muestra un mensaje amable', async () => {
@@ -112,7 +189,816 @@ describe('PracticePage', () => {
       }),
     });
     await page.ngOnInit();
-    expect(page.error).toContain('No pude conectar');
+    expect(page.error).toContain('No pude conectarme');
     expect(page.loading).toBe(false);
+  });
+
+  it.each(['session', 'forbidden', 'network', 'unavailable', 'expired'] as const)(
+    'el error %s le habla al niño, sin palabras técnicas',
+    async (code) => {
+      const { page } = setup({
+        topics: vi.fn(async () => {
+          throw new PracticeError(code);
+        }),
+      });
+      await page.ngOnInit();
+      expect(page.error).not.toMatch(/servidor|sesión|acceso|encendido/i);
+    },
+  );
+
+  it('elige un símbolo por tema y uno por defecto si no reconoce el id', () => {
+    expect(topicIcon('Sumas hasta 20')).toBe('+');
+    expect(topicIcon('Sumar y restar fracciones de igual denominador')).toBe('½');
+    expect(topicIcon('División como reparto y agrupación')).toBe('÷');
+    expect(topicIcon('restas_con_canje')).toBe('−');
+    expect(topicIcon('multiplicacion_dos_cifras')).toBe('×');
+    expect(topicIcon('tablas_del_2_5_10')).toBe('×');
+    expect(topicIcon('division_con_resto')).toBe('÷');
+    expect(topicIcon('fracciones_equivalentes')).toBe('½');
+    expect(topicIcon('tema_nuevo')).toBe('★');
+  });
+
+  it('la racha sube con cada acierto, da medalla a las 5 y vuelve a 0 al fallar', async () => {
+    let correct = true;
+    const { page } = setup({
+      answer: vi.fn(async () => ({ correct, correctAnswer: 12 })),
+    });
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    for (let i = 0; i < 5; i++) {
+      page.onAnswerInput('12');
+      await page.submit();
+      if (i < 4) await page.next();
+    }
+    expect(page.streak).toBe(5);
+    expect(page.medals).toBe(1);
+    expect(page.medalNow).toBe(true);
+    expect(page.filledStars).toBe(5);
+    expect(page.confetti).toBe(5);
+
+    await page.next();
+    correct = false;
+    page.onAnswerInput('3');
+    await page.submit();
+    expect(page.streak).toBe(0);
+    expect(page.filledStars).toBe(0);
+    expect(page.medals).toBe(1);
+  });
+
+  it('muestra los días seguidos al entrar', async () => {
+    const { page } = setup({}, async () => ({ ...PROGRESS, dailyStreak: 4, practicedToday: true }));
+    await page.ngOnInit();
+    expect(page.dailyStreak).toBe(4);
+  });
+
+  it('si la racha de días no carga, la práctica sigue sin error', async () => {
+    const { page } = setup({}, async () => {
+      throw new PracticeError('network');
+    });
+    await page.ngOnInit();
+    expect(page.error).toBe('');
+    expect(page.topics).toEqual([TOPIC]);
+    expect(page.dailyStreak).toBe(0);
+  });
+
+  it('la primera respuesta del día celebra los días seguidos una sola vez', async () => {
+    const days = [
+      { ...PROGRESS, dailyStreak: 2, practicedToday: false },
+      { ...PROGRESS, dailyStreak: 3, practicedToday: true },
+    ];
+    const { page } = setup({}, async () => days.shift() ?? days[0]);
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    page.onAnswerInput('12');
+    await page.submit();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.dailyStreak).toBe(3);
+    expect(page.dayStreakNow).toBe(true);
+
+    await page.next();
+    expect(page.dayStreakNow).toBe(false);
+    page.onAnswerInput('12');
+    await page.submit();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.dayStreakNow).toBe(false);
+    expect(page.dailyStreak).toBe(3);
+  });
+
+  it('una respuesta incorrecta también cuenta para el día', async () => {
+    const days = [
+      { ...PROGRESS, dailyStreak: 0, practicedToday: false },
+      { ...PROGRESS, dailyStreak: 1, practicedToday: true },
+    ];
+    const { page } = setup(
+      { answer: vi.fn(async () => ({ correct: false, correctAnswer: 12 })) },
+      async () => days.shift() ?? days[0],
+    );
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    page.onAnswerInput('11');
+    await page.submit();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.dailyStreak).toBe(1);
+    expect(page.dayStreakNow).toBe(true);
+  });
+
+  it('la racha de días se ve en la barra al elegir tema, también con 0', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    fixture.detectChanges();
+    const badge = query(fixture, BADGE);
+    expect(badge?.textContent).toContain('0');
+    expect(badge?.getAttribute('aria-label')).toBe('Racha: 0 días seguidos');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      '¡Responde un ejercicio hoy para empezar tu racha de días!',
+    );
+  });
+
+  it('la racha sigue en la barra durante los ejercicios', async () => {
+    const { page, fixture } = setup({}, async () => ({
+      ...PROGRESS,
+      dailyStreak: 4,
+      practicedToday: true,
+    }));
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    const badge = query(fixture, BADGE);
+    expect(badge?.textContent).toContain('4');
+    expect(badge?.classList).toContain('today');
+  });
+
+  it('si la racha no carga, no se muestra la insignia', async () => {
+    const { page, fixture } = setup({}, async () => {
+      throw new PracticeError('network');
+    });
+    await page.ngOnInit();
+    fixture.detectChanges();
+    expect(query(fixture, BADGE)).toBeNull();
+  });
+
+  it('muestra el nivel del ejercicio y celebra solo cuando sube', async () => {
+    const levels: Exercise['level'][] = [2, 2, 3, 2];
+    const { page, fixture } = setup({
+      newExercise: vi.fn(async () => ({ ...EXERCISE, level: levels.shift() ?? 1 })),
+    });
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    // El primer ejercicio del tema no celebra aunque venga en nivel 2 (nivel guardado).
+    expect(page.levelUpNow).toBe(false);
+    fixture.detectChanges();
+    const level = query(fixture, '[data-testid="level"]');
+    expect(level?.getAttribute('aria-label')).toBe('Nivel 2 de 3');
+    expect(level?.textContent).toContain('★★☆');
+
+    await page.next();
+    expect(page.levelUpNow).toBe(false);
+    const confetti = page.confetti;
+    await page.next();
+    expect(page.levelUpNow).toBe(true);
+    expect(page.confetti).toBe(confetti + 1);
+    expect(TestBed.inject(MascotPort).state()).toBe('happy');
+    // Bajar de nivel no se anuncia.
+    await page.next();
+    expect(page.levelUpNow).toBe(false);
+  });
+
+  it('al cambiar de tema no celebra el nivel del tema nuevo', async () => {
+    const levels: Exercise['level'][] = [1, 3];
+    const { page } = setup({
+      newExercise: vi.fn(async () => ({ ...EXERCISE, level: levels.shift() ?? 1 })),
+    });
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    page.changeTopic();
+    await page.choose({ id: 'restas_hasta_20', label: 'Restas' });
+    expect(page.exercise?.level).toBe(3);
+    expect(page.levelUpNow).toBe(false);
+  });
+
+  it('el papel para calcular se abre y se cierra', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    expect(query(fixture, 'app-scratchpad')).toBeNull();
+    const toggle = query(fixture, '.paper-toggle') as HTMLElement;
+    toggle.click();
+    fixture.detectChanges();
+    expect(page.paperOpen).toBe(true);
+    expect(query(fixture, 'app-scratchpad')).not.toBeNull();
+    toggle.click();
+    fixture.detectChanges();
+    expect(query(fixture, 'app-scratchpad')).toBeNull();
+  });
+
+  it('el botón de tareas se ve siempre, aunque no haya tareas, y abre su pantalla', async () => {
+    const { page, fixture, nav } = setup();
+    await page.ngOnInit();
+    fixture.detectChanges();
+    const card = query(fixture, '[data-testid="tasks-card"]') as HTMLElement;
+    expect(card.textContent).toContain('Tareas de tu tutor');
+    card.click();
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/tareas', 'perfil-1']);
+  });
+
+  it('desde la pantalla de tareas arranca en modo tareas por la elegida', async () => {
+    const { page } = setup(
+      {},
+      undefined,
+      {
+        forKid: vi.fn(async () => ({
+          pending: [
+            { id: 't1', text: '1 + 1 = ?' },
+            { id: 't2', text: '2 + 2 = ?' },
+          ],
+          done: [],
+        })),
+      },
+      { tareas: '1', desde: 't2' },
+    );
+    await page.ngOnInit();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.taskMode).toBe(true);
+    expect(page.exercise?.token).toBe('t2');
+    expect(page.tasks.map((t) => t.id)).toEqual(['t2', 't1']);
+  });
+
+  it('las tareas del tutor aparecen arriba de los temas y se responden una por una', async () => {
+    const { page, fixture, port, assignments } = setup({}, undefined, {
+      forKid: vi.fn(async () => ({
+        pending: [
+          { id: 't1', text: 'Tienes 3 y te dan 4. ¿Cuántos tienes?' },
+          { id: 't2', text: '10 − 2 = ?' },
+        ],
+        done: [],
+      })),
+    });
+    await page.ngOnInit();
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="tasks-card"]')?.textContent).toContain('2');
+
+    await page.chooseTasks();
+    expect(page.taskMode).toBe(true);
+    expect(page.exercise?.text).toContain('Tienes 3');
+    expect(port.newExercise).not.toHaveBeenCalled();
+    fixture.detectChanges();
+    // Las tareas no muestran nivel.
+    expect(query(fixture, '[data-testid="level"]')).toBeNull();
+
+    page.onAnswerInput('7');
+    await page.submit();
+    // Manda el ticket de la tarea para que el servidor mida el tiempo.
+    expect(assignments.answer).toHaveBeenCalledWith('perfil-1', 't1', 7, 'ticket-t1');
+    expect(page.result?.correct).toBe(true);
+    expect(page.correctCount).toBe(1);
+
+    await page.next();
+    expect(page.exercise?.text).toBe('10 − 2 = ?');
+    page.onAnswerInput('8');
+    await page.submit();
+    await page.next();
+    expect(page.exercise).toBeNull();
+    expect(page.tasksDone).toBe(true);
+    expect(page.tasks).toEqual([]);
+  });
+
+  it('una tarea ya respondida en otro lado se salta', async () => {
+    const { page } = setup({}, undefined, {
+      forKid: vi.fn(async () => ({
+        pending: [
+          { id: 't1', text: '1 + 1 = ?' },
+          { id: 't2', text: '2 + 2 = ?' },
+        ],
+        done: [],
+      })),
+      answer: vi.fn(async () => {
+        throw new TutorError('already_answered');
+      }),
+    });
+    await page.ngOnInit();
+    await page.chooseTasks();
+    page.onAnswerInput('2');
+    await page.submit();
+    expect(page.exercise?.token).toBe('t2');
+  });
+
+  it('si las tareas no cargan, la práctica sigue normal', async () => {
+    const { page } = setup({}, undefined, {
+      forKid: vi.fn(async () => {
+        throw new TutorError('network');
+      }),
+    });
+    await page.ngOnInit();
+    expect(page.error).toBe('');
+    expect(page.tasks).toEqual([]);
+    expect(page.topics).toEqual([TOPIC]);
+  });
+
+  it('si la práctica ya estaba abierta, entrar a una tarea igual arranca el modo tareas', async () => {
+    // Ionic vuelve a la pantalla existente: no se llama otra vez a ngOnInit, solo cambia la dirección.
+    // Al abrir había 1 tarea; el tutor agregó otra después: se debe recargar la lista.
+    let pending = [{ id: 't1', text: '1 + 1 = ?' }];
+    const { page, queryParams } = setup({}, undefined, {
+      forKid: vi.fn(async () => ({ pending, done: [] })),
+    });
+    await page.ngOnInit();
+    expect(page.taskMode).toBe(false);
+    pending = [...pending, { id: 't2', text: '2 + 2 = ?' }];
+    queryParams.next(convertToParamMap({ tareas: '1', desde: 't2', n: '1' }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.taskMode).toBe(true);
+    expect(page.exercise?.token).toBe('t2');
+  });
+
+  it('el ejercicio muestra el reloj amable', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="gentle-timer"]')?.textContent).toContain('0:00');
+  });
+
+  it('si no se puede pedir el ticket, la tarea se responde igual (sin tiempo)', async () => {
+    const { page, assignments } = setup({}, undefined, {
+      forKid: vi.fn(async () => ({ pending: [{ id: 't1', text: '1 + 1 = ?' }], done: [] })),
+      start: vi.fn(async () => {
+        throw new TutorError('network');
+      }),
+    });
+    await page.ngOnInit();
+    await page.chooseTasks();
+    await new Promise((r) => setTimeout(r, 0));
+    page.onAnswerInput('2');
+    await page.submit();
+    expect(assignments.answer).toHaveBeenCalledWith('perfil-1', 't1', 2, null);
+    expect(page.result?.correct).toBe(true);
+  });
+
+  describe('habilidades del catálogo', () => {
+    const own = (id: string, label: string, module: string, extra: Partial<Topic> = {}): Topic => ({
+      id, label, module, grade: 2, review: false, level: 1, blockDone: 0, blockSize: 10,
+      mastered: false, ...extra,
+    });
+
+    it('agrupa por eje y deja el repaso plegado', async () => {
+      const topics = [
+        own('2-07', 'Sumas hasta 100 sin reserva', 'Números y operaciones', { level: 2 }),
+        own('2-15', 'Patrones numéricos', 'Patrones y álgebra', { mastered: true }),
+        own('1-06', 'Sumas hasta 10', 'Números y operaciones', { grade: 1, review: true }),
+      ];
+      const { fixture, page } = setup({ topics: vi.fn(async () => topics) });
+      await page.ngOnInit();
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      const groups = [...el.querySelectorAll('[data-testid="skill-group"]')];
+      expect(groups.map((g) => g.querySelector('.group-name')?.textContent?.trim())).toEqual([
+        'Números y operaciones',
+        'Patrones y álgebra',
+      ]);
+      // Cada eje con su color fijo (no rota por posición).
+      expect(groups.map((g) => g.getAttribute('data-tone'))).toEqual(['teal', 'lilac']);
+      const tiles = [...el.querySelectorAll('[data-testid="topic-tile"]')];
+      expect(tiles.map((t) => t.getAttribute('data-tone'))).toEqual(['teal', 'lilac']);
+      // Avance visible y leído por el lector de pantalla.
+      expect(tiles[0].getAttribute('aria-label')).toBe(
+        'Sumas hasta 100 sin reserva, nivel 2 de 3, 0 de 10 ejercicios',
+      );
+      expect(tiles[0].textContent).toContain('★★☆');
+      expect(tiles[0].textContent).toContain('0/10');
+      expect(tiles[1].querySelector('[data-testid="tile-mastered"]')?.textContent).toContain('Dominada');
+      expect(tiles[1].getAttribute('aria-label')).toBe('Patrones numéricos, dominada');
+      expect(groups[1].querySelector('.group-count')?.textContent?.trim()).toBe('1 de 1 dominadas');
+      expect(el.querySelector('[data-testid="review-list"]')).toBeNull();
+      (el.querySelector('[data-testid="review-toggle"]') as HTMLElement).click();
+      fixture.detectChanges();
+      const review = el.querySelector('[data-testid="review-list"]') as HTMLElement;
+      expect(review.textContent).toContain('Repaso de 1° básico');
+      expect(review.textContent).toContain('Sumas hasta 10');
+      expect(review.querySelector('.tile-grade')?.textContent?.trim()).toBe('1°');
+      expect(review.querySelector('[data-testid="topic-tile"]')?.getAttribute('aria-label')).toContain(
+        'repaso de 1° básico',
+      );
+    });
+
+    it('la barrita del bloque muestra el avance', () => {
+      const tiles = new SkillTilesComponent();
+      const percent = (t: Partial<Topic>) => tiles.percent(t as Topic);
+      expect(percent({ blockDone: 3, blockSize: 10 })).toBe(30);
+      expect(percent({ blockDone: 12, blockSize: 10 })).toBe(100);
+      expect(percent({})).toBe(0);
+    });
+
+    it('el marcador de la sesión aparece recién con la primera respuesta', async () => {
+      const { fixture, page } = setup();
+      await page.ngOnInit();
+      await page.choose(TOPIC);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.score')).toBeNull();
+      page.onAnswerInput('12');
+      await page.submit();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.score')?.textContent).toContain('1 de 1 correctas');
+    });
+
+    it('muestra el ejercicio del bloque y celebra al dominar', async () => {
+      const first = { ...EXERCISE, level: 3 as const, blockDone: 9, mastered: false };
+      const second = { ...EXERCISE, token: 'tok2', level: 3 as const, blockDone: 0, mastered: true };
+      const newExercise = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+      const { fixture, page } = setup({ newExercise });
+      await page.ngOnInit();
+      await page.choose(TOPIC);
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelector('[data-testid="block"]')?.textContent).toContain('10/10');
+      expect(el.querySelector('[data-testid="mastered"]')).toBeNull();
+      await page.next();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="mastered"]')?.textContent).toContain('Dominaste');
+    });
+
+    it('un ejercicio de fracciones se responde con numerador y denominador', async () => {
+      const exercise = { ...EXERCISE, text: '2/5 + 1/5 = ?', answerKind: 'fraction' as const };
+      const answer = vi.fn(async () => ({
+        correct: true, correctAnswer: 3, correctAnswerDen: 5, simplified: { num: 3, den: 5 },
+      }));
+      const { fixture, page } = setup({ newExercise: vi.fn(async () => exercise), answer });
+      await page.ngOnInit();
+      await page.choose(TOPIC);
+      fixture.detectChanges();
+      const el: HTMLElement = fixture.nativeElement;
+      expect(el.querySelectorAll('[data-testid="exercise-text"] .frac').length).toBe(2);
+      expect(el.querySelector('[data-testid="fraction-num"]')).not.toBeNull();
+      expect(page.canSubmit).toBe(false);
+      page.fraction = { num: '6', den: '0' };
+      expect(page.canSubmit).toBe(false); // denominador 0 no se envía
+      page.fraction = { num: '6', den: '10' };
+      await page.submit();
+      fixture.detectChanges();
+      expect(answer).toHaveBeenCalledWith('perfil-1', 'tok', 6, 10);
+      expect(el.querySelector('[data-testid="simplified"]')).not.toBeNull();
+    });
+  });
+});
+
+describe('PracticePage: explicación de Numi', () => {
+  const WRONG = { answer: vi.fn(async () => ({ correct: false, correctAnswer: 12 })) };
+
+  type Explain = ExplanationPort['explain'];
+  type Fixture = { nativeElement: unknown };
+
+  /** Ejercicio respondido mal, con la pantalla dibujada. */
+  async function wrongAnswer(explain?: Explain) {
+    const ctx = setup(WRONG, undefined, {}, {}, explain);
+    await ctx.page.ngOnInit();
+    await ctx.page.choose(TOPIC);
+    ctx.page.onAnswerInput('11');
+    await ctx.page.submit();
+    ctx.fixture.detectChanges();
+    return ctx;
+  }
+
+  const button = (fixture: Fixture) => query(fixture, '[data-testid="explain-btn"]');
+  const bubble = (fixture: Fixture) => query(fixture, '[data-testid="explain-bubble"]');
+  const text = (fixture: Fixture, id: string) =>
+    query(fixture, `[data-testid="${id}"]`)?.textContent?.trim();
+
+  it('el botón aparece solo tras una respuesta incorrecta', async () => {
+    const ok = setup();
+    await ok.page.ngOnInit();
+    await ok.page.choose(TOPIC);
+    ok.page.onAnswerInput('12');
+    await ok.page.submit();
+    ok.fixture.detectChanges();
+    expect(button(ok.fixture)).toBeNull();
+    TestBed.resetTestingModule();
+
+    const { fixture } = await wrongAnswer();
+    expect(button(fixture)?.textContent).toContain('Explícame cómo se hace');
+    expect(bubble(fixture)?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('antes de responder no hay botón', async () => {
+    const { page, fixture } = setup(WRONG);
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    expect(button(fixture)).toBeNull();
+  });
+
+  it('en las tareas del tutor no hay botón aunque la respuesta sea incorrecta', async () => {
+    const { page, fixture, explainer } = setup({}, undefined, {
+      forKid: vi.fn(async () => ({ pending: [{ id: 't1', text: '10 − 2 = ?' }], done: [] })),
+      answer: vi.fn(async () => ({ correct: false, correctAnswer: 8 })),
+    });
+    await page.ngOnInit();
+    await page.chooseTasks();
+    page.onAnswerInput('7');
+    await page.submit();
+    fixture.detectChanges();
+    expect(page.result?.correct).toBe(false);
+    expect(page.canExplain).toBe(false);
+    expect(button(fixture)).toBeNull();
+    await page.explain();
+    expect(explainer.explain).not.toHaveBeenCalled();
+  });
+
+  it('envía solo el tema y el enunciado del servidor (sin respuesta, apodo ni curso)', async () => {
+    const { page, explainer } = await wrongAnswer();
+    await page.explain();
+    expect(explainer.explain).toHaveBeenCalledTimes(1);
+    const [studentId, request] = explainer.explain.mock.calls[0] as unknown as [
+      string,
+      ExplanationRequest,
+    ];
+    expect(studentId).toBe('perfil-1');
+    expect(request).toEqual({ topic: TOPIC.id, exercise: '7 + 5 = ?' });
+    expect(Object.keys(request).sort()).toEqual(['exercise', 'topic']);
+  });
+
+  it('muestra "pensando", luego el texto a medida que llega, y no permite dos peticiones', async () => {
+    let push!: (t: string) => void;
+    let finish!: () => void;
+    const explain: Explain = (_s, _r, onChunk) => {
+      push = onChunk;
+      return new Promise<void>((resolve) => (finish = resolve));
+    };
+    const { page, fixture, explainer } = await wrongAnswer(explain);
+    const mascot = TestBed.inject(MascotPort);
+
+    const pending = page.explain();
+    fixture.detectChanges();
+    expect(text(fixture, 'explain-loading')).toBe('Numi está pensando…');
+    expect(button(fixture)?.getAttribute('aria-disabled')).toBe('true');
+    expect(bubble(fixture)?.getAttribute('aria-busy')).toBe('true');
+    expect(mascot.state()).toBe('thinking');
+
+    await page.explain(); // segundo toque: se ignora
+    expect(explainer.explain).toHaveBeenCalledTimes(1);
+
+    push('¡Vamos a sumar 7 + 5!');
+    fixture.detectChanges();
+    expect(mascot.state()).toBe('talking');
+    expect(text(fixture, 'explain-text')).toBe('¡Vamos a sumar 7 + 5!');
+    push('El resultado es 12.');
+    fixture.detectChanges();
+    expect(text(fixture, 'explain-text')).toBe('¡Vamos a sumar 7 + 5! El resultado es 12.');
+
+    finish();
+    await pending;
+    fixture.detectChanges();
+    expect(page.explainState).toBe('done');
+    expect(button(fixture)).toBeNull(); // no se gasta otra explicación del mismo ejercicio
+    expect(mascot.state()).toBe('idle');
+  });
+
+  it('pasar al siguiente ejercicio cancela la petición y borra el texto', async () => {
+    let signal!: AbortSignal;
+    let push!: (t: string) => void;
+    const explain: Explain = (_s, _r, onChunk, s) => {
+      signal = s;
+      push = onChunk;
+      return new Promise<void>(() => undefined);
+    };
+    const { page } = await wrongAnswer(explain);
+    void page.explain();
+    push('Primero.');
+    expect(page.explainText).toBe('Primero.');
+
+    await page.next();
+    expect(signal.aborted).toBe(true);
+    expect(page.explainText).toBe('');
+    expect(page.explainState).toBe('idle');
+    push('Llega tarde.'); // lo que llegue de la petición vieja se ignora
+    expect(page.explainText).toBe('');
+  });
+
+  it('salir de la pantalla o cambiar de tema cancela la petición', async () => {
+    let signal!: AbortSignal;
+    const explain: Explain = (_s, _r, _c, s) => {
+      signal = s;
+      return new Promise<void>(() => undefined);
+    };
+    const first = await wrongAnswer(explain);
+    void first.page.explain();
+    first.page.ionViewWillLeave();
+    expect(signal.aborted).toBe(true);
+    TestBed.resetTestingModule();
+
+    const second = await wrongAnswer(explain);
+    void second.page.explain();
+    second.page.changeTopic();
+    expect(signal.aborted).toBe(true);
+  });
+
+  const failing =
+    (error: ExplanationError, before: string[] = []): Explain =>
+    async (_s, _r, onChunk) => {
+      before.forEach((t) => onChunk(t));
+      throw error;
+    };
+
+  it.each([
+    ['429', new ExplanationError('quota'), EXPLAIN_MESSAGES.quota, false],
+    ['503 o red', new ExplanationError('unavailable'), EXPLAIN_MESSAGES.unavailable, true],
+    [
+      '422',
+      new ExplanationError('rejected', 'Yo te ayudo con matemáticas.'),
+      'Yo te ayudo con matemáticas.',
+      false,
+    ],
+  ])('%s muestra un mensaje amable y la práctica sigue', async (_name, error, message, retry) => {
+    const { page, fixture, port } = await wrongAnswer(failing(error));
+    await page.explain();
+    fixture.detectChanges();
+    expect(text(fixture, 'explain-notice')).toBe(message);
+    expect(query(fixture, '[role="alert"]')).toBeNull(); // no es un error de la práctica
+    expect(TestBed.inject(MascotPort).state()).toBe('idle'); // Numi no se pone triste
+    expect(button(fixture) !== null).toBe(retry);
+    await page.next();
+    expect(port.newExercise).toHaveBeenCalledTimes(2);
+    expect(page.result).toBeNull();
+    expect(page.explainNotice).toBe('');
+  });
+
+  it('un corte a mitad conserva lo recibido y avisa', async () => {
+    const { page, fixture } = await wrongAnswer(
+      failing(new ExplanationError('interrupted'), ['Primero suma las unidades.']),
+    );
+    await page.explain();
+    fixture.detectChanges();
+    expect(text(fixture, 'explain-text')).toBe('Primero suma las unidades.');
+    expect(text(fixture, 'explain-notice')).toBe(EXPLAIN_MESSAGES.interrupted);
+    expect(button(fixture)?.textContent).toContain('Intentar otra vez');
+  });
+
+  it('un error inesperado del servicio también se muestra como "no pudo"', async () => {
+    const { page } = await wrongAnswer(async () => {
+      throw new Error('boom');
+    });
+    await page.explain();
+    expect(page.explainNotice).toBe(EXPLAIN_MESSAGES.unavailable);
+  });
+
+  it('el texto de la explicación no se guarda en el almacenamiento del navegador', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    const { page } = await wrongAnswer(async (_s, _r, onChunk) => onChunk('Secreto de prueba.'));
+    await page.explain();
+    expect(page.explainText).toBe('Secreto de prueba.');
+    expect(setItem.mock.calls.some((c) => String(c[1]).includes('Secreto'))).toBe(false);
+    setItem.mockRestore();
+  });
+
+  it('la explicación se ve en varias líneas, un paso por línea, sin línea vacía al final', async () => {
+    const lines = [
+      '¡Vamos a sumar 481 + 155!\n',
+      'Separa 155 en 100 + 50 + 5.\n',
+      'Primero: 481 + 100 = 581\n',
+      'Luego: 581 + 50 = 631\n',
+      'Al final: 631 + 5 = 636\n',
+      '¡Así se llega a 636!\n',
+      '¡Tú puedes!',
+    ];
+    const { page, fixture } = await wrongAnswer(async (_s, _r, onChunk) => lines.forEach((l) => onChunk(l)));
+    await page.explain();
+    fixture.detectChanges();
+    const shown = query(fixture, '[data-testid="explain-text"]')?.textContent ?? '';
+    expect(shown.split('\n')).toEqual([
+      '¡Vamos a sumar 481 + 155!',
+      'Separa 155 en 100 + 50 + 5.',
+      'Primero: 481 + 100 = 581',
+      'Luego: 581 + 50 = 631',
+      'Al final: 631 + 5 = 636',
+      '¡Así se llega a 636!',
+      '¡Tú puedes!',
+    ]);
+    // Texto plano: nada se interpreta como HTML.
+    expect(query(fixture, '[data-testid="explain-text"]')?.children.length).toBe(0);
+  });
+
+  it('"Numi dice:" lo lee el lector de pantalla, antes del texto', async () => {
+    const { page, fixture } = await wrongAnswer(async (_s, _r, onChunk) => onChunk('Hola.'));
+    await page.explain();
+    fixture.detectChanges();
+    const region = bubble(fixture) as HTMLElement;
+    const name = region.querySelector('.numi-name') as HTMLElement;
+    expect(name.textContent?.trim()).toBe('Numi dice:');
+    expect(name.closest('[aria-hidden="true"]')).toBeNull();
+    expect(region.textContent?.indexOf('Numi dice:')).toBeLessThan(region.textContent?.indexOf('Hola.') ?? -1);
+  });
+});
+
+describe('PracticePage: aviso tras una respuesta incorrecta', () => {
+  const WRONG = { answer: vi.fn(async () => ({ correct: false, correctAnswer: 636 })) };
+  const plain = (el: Element | null) => (el?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+  async function wrong(explain?: ExplanationPort['explain']) {
+    const ctx = setup(WRONG, undefined, {}, {}, explain);
+    await ctx.page.ngOnInit();
+    await ctx.page.choose(TOPIC);
+    ctx.page.onAnswerInput('600');
+    await ctx.page.submit();
+    ctx.fixture.detectChanges();
+    return ctx;
+  }
+
+  it('sin explicación abierta: "Casi" + invitación a ver cómo se hace, sin "Sigue intentando"', async () => {
+    const { fixture } = await wrong();
+    const result = query(fixture, '.result');
+    expect(plain(query(fixture, '[data-testid="result-text"]'))).toBe('Casi. La respuesta era 636.');
+    expect(plain(query(fixture, '[data-testid="explain-hint"]'))).toBe('¿Quieres ver cómo se hace? 👇');
+    expect(plain(result)).not.toContain('Sigue intentando');
+  });
+
+  it('con la explicación abierta: solo el dato, sin "Casi" ni invitación', async () => {
+    const { page, fixture } = await wrong(async (_s, _r, onChunk) => onChunk('¡Tú puedes!'));
+    await page.explain();
+    fixture.detectChanges();
+    expect(plain(query(fixture, '[data-testid="result-text"]'))).toBe('La respuesta era 636.');
+    expect(query(fixture, '[data-testid="explain-hint"]')).toBeNull();
+  });
+
+  it('si la explicación no se pudo dar, vuelve el "Casi." (no queda sin ánimo)', async () => {
+    const { page, fixture } = await wrong(async () => {
+      throw new ExplanationError('quota');
+    });
+    await page.explain();
+    fixture.detectChanges();
+    expect(plain(query(fixture, '[data-testid="result-text"]'))).toBe('Casi. La respuesta era 636.');
+    expect(query(fixture, '[data-testid="explain-hint"]')).toBeNull();
+  });
+
+  it('en las tareas del tutor no invita a ver la explicación (no la hay)', async () => {
+    const { page, fixture } = setup({}, undefined, {
+      forKid: vi.fn(async () => ({ pending: [{ id: 't1', text: '10 − 2 = ?' }], done: [] })),
+      answer: vi.fn(async () => ({ correct: false, correctAnswer: 8 })),
+    });
+    await page.ngOnInit();
+    await page.chooseTasks();
+    page.onAnswerInput('7');
+    await page.submit();
+    fixture.detectChanges();
+    expect(plain(query(fixture, '[data-testid="result-text"]'))).toBe('Casi. La respuesta era 8.');
+    expect(query(fixture, '[data-testid="explain-hint"]')).toBeNull();
+  });
+
+  it('ningún aviso culpa al niño', async () => {
+    const { page, fixture } = await wrong(async (_s, _r, onChunk) => onChunk('Hola.'));
+    const before = plain(query(fixture, '.result')).toLowerCase();
+    await page.explain();
+    fixture.detectChanges();
+    const after = plain(query(fixture, '.result')).toLowerCase();
+    for (const word of ['mal', 'incorrect', 'fallaste', 'error']) {
+      expect(before).not.toMatch(new RegExp(`\\b${word}`));
+      expect(after).not.toMatch(new RegExp(`\\b${word}`));
+    }
+  });
+});
+
+describe('PracticePage: Numi baja a explicar', () => {
+  const WRONG = { answer: vi.fn(async () => ({ correct: false, correctAnswer: 12 })) };
+  const count = (fixture: { nativeElement: unknown }, sel: string) =>
+    (fixture.nativeElement as HTMLElement).querySelectorAll(sel).length;
+
+  it('hay una sola Numi: arriba sin explicación, junto a la burbuja al explicar y de vuelta arriba', async () => {
+    const scroll = vi.fn();
+    const { page, fixture } = setup(WRONG, undefined, {}, {}, async (_s, _r, onChunk) => onChunk('Hola.'));
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    page.onAnswerInput('11');
+    await page.submit();
+    fixture.detectChanges();
+    expect(count(fixture, 'app-mascot')).toBe(1);
+    expect(count(fixture, '[data-testid="mascot-top"]')).toBe(1);
+
+    const row = query(fixture, '[data-testid="explain-row"]') as HTMLElement;
+    row.scrollIntoView = scroll;
+    await page.explain();
+    fixture.detectChanges();
+    expect(count(fixture, 'app-mascot')).toBe(1);
+    expect(count(fixture, '[data-testid="mascot-top"]')).toBe(0);
+    const explainer = query(fixture, '[data-testid="explain-row"] [data-testid="mascot-explainer"]');
+    expect(explainer).not.toBeNull();
+    // Numi va antes que su burbuja, en la misma fila.
+    expect(explainer?.nextElementSibling?.getAttribute('data-testid')).toBe('explain-bubble');
+    expect(scroll).toHaveBeenCalledTimes(1);
+
+    await page.next();
+    fixture.detectChanges();
+    expect(count(fixture, 'app-mascot')).toBe(1);
+    expect(count(fixture, '[data-testid="mascot-top"]')).toBe(1);
+  });
+
+  it('si el navegador no sabe desplazar (scrollIntoView), la explicación igual funciona', async () => {
+    const { page, fixture } = setup(WRONG, undefined, {}, {}, async (_s, _r, onChunk) => onChunk('Hola.'));
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    page.onAnswerInput('11');
+    await page.submit();
+    fixture.detectChanges();
+    const row = query(fixture, '[data-testid="explain-row"]') as unknown as { scrollIntoView?: unknown };
+    row.scrollIntoView = undefined;
+    await page.explain();
+    expect(page.explainState).toBe('done');
   });
 });

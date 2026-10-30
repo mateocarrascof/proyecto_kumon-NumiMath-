@@ -9,23 +9,35 @@
 
 <ion-content [fullscreen]="true" class="ion-padding">
   <main class="home">
-    <app-mascot [state]="mascot.state()"></app-mascot>
-
-    <h1>¡Hola! Soy Numi</h1>
-    <p>Voy a ayudarte a practicar matemáticas.</p>
-    <p class="note">Sesión de {{ auth.user()?.email }}</p>
-
-    <ion-button expand="block" routerLink="/perfiles">Perfiles de niños</ion-button>
-
-    <div class="status" role="status" aria-live="polite" [attr.data-status]="status">
-      @switch (status) {
-        @case ('checking') { <ion-spinner name="dots"></ion-spinner> Conectando con el servidor… }
-        @case ('ok') { <ion-icon name="checkmark-circle"></ion-icon> Servidor conectado }
-        @case ('down') { <ion-icon name="alert-circle"></ion-icon> No hay conexión con el servidor }
-      }
+    <div class="hero">
+      <app-mascot [state]="mascot.state()" [message]="greeting"></app-mascot>
     </div>
 
-    <ion-button fill="outline" size="small" (click)="refresh()">Volver a probar</ion-button>
-    <p class="note">Versión de demostración. Textos legales provisionales.</p>
+    <h1>¡Hola! Soy Numi</h1>
+    <p class="lead">Voy a ayudarte a practicar matemáticas.</p>
+
+    <div class="main-actions">
+      <ion-button expand="block" routerLink="/perfiles" data-testid="who-practices">
+        <span aria-hidden="true">🎒</span>&nbsp;¿Quién practica?
+      </ion-button>
+      <ion-button expand="block" color="secondary" routerLink="/panel" data-testid="tutor-panel">
+        <span aria-hidden="true">🔒</span>&nbsp;Panel del tutor
+      </ion-button>
+    </div>
+
+    <footer class="footer">
+      <p class="note">Sesión de {{ auth.user()?.email }}</p>
+
+      <div class="status" role="status" aria-live="polite" [attr.data-status]="status">
+        @switch (status) {
+          @case ('checking') { <ion-spinner name="dots"></ion-spinner> Conectando con el servidor… }
+          @case ('ok') { <ion-icon name="checkmark-circle"></ion-icon> Servidor conectado }
+          @case ('down') { <ion-icon name="alert-circle"></ion-icon> No hay conexión con el servidor }
+        }
+      </div>
+
+      <ion-button fill="outline" size="small" (click)="refresh()">Volver a probar</ion-button>
+      <p class="note">Versión de demostración. Textos legales provisionales.</p>
+    </footer>
   </main>
 </ion-content>

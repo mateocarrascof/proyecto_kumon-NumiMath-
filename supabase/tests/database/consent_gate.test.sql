@@ -210,11 +210,13 @@ select ok((select blocked_at is not null from public.students where id = 'a10000
   'el perfil sigue bloqueado tras la segunda revocación');
 
 -- ===== 13. Un perfil bloqueado se puede borrar =====
+-- (El borrado lo hace el servidor con delete_student, tras verificar el PIN del tutor.)
+set local role service_role;
+select is(public.delete_student('aaaaaaaa-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001'),
+  'ok', 'un perfil bloqueado se puede borrar (derecho de supresión)');
+reset role;
 select set_config('request.jwt.claims', '{"sub":"aaaaaaaa-0000-0000-0000-000000000001","role":"authenticated"}', true);
 set local role authenticated;
-select lives_ok(
-  $$delete from public.students where id = 'a1000000-0000-0000-0000-000000000001'$$,
-  'un perfil bloqueado se puede borrar (derecho de supresión)');
 select is_empty($$select 1 from public.students where id = 'a1000000-0000-0000-0000-000000000001'$$,
   'el perfil borrado ya no existe');
 

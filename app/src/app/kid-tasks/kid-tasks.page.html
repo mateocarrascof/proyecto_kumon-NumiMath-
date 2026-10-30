@@ -1,0 +1,57 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="'/practica/' + studentId" text="Temas"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Tareas de tu tutor</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="kid-tasks">
+    <app-mascot [state]="mascot.state()" [message]="message"></app-mascot>
+
+    @if (loading) {
+      <ion-spinner name="dots"></ion-spinner>
+    }
+
+    @if (error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+
+    @if (!loading && !error) {
+      @if (!tasks.pending.length && !tasks.done.length) {
+        <p class="empty" data-testid="no-tasks">Todavía no hay tareas. ¡Pídele una a tu tutor!</p>
+      }
+
+      @if (tasks.pending.length) {
+        <h1>Por hacer <span class="count">{{ tasks.pending.length }}</span></h1>
+        <ion-button expand="block" (click)="solve()" data-testid="solve-all">¡Resolver todas!</ion-button>
+        <ul class="list">
+          @for (t of tasks.pending; track t.id) {
+            <li>
+              <button type="button" class="task pending" (click)="solve(t.id)" data-testid="pending-task">
+                <span class="icon" aria-hidden="true">📌</span>
+                <span class="text">{{ t.text }}</span>
+                <span class="go" aria-hidden="true">›</span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (tasks.done.length) {
+        <h2>Ya hechas</h2>
+        <ul class="list">
+          @for (t of tasks.done; track t.id) {
+            <li class="task done" [class.ok]="t.status === 'correct'" data-testid="done-task">
+              <span class="icon" aria-hidden="true">{{ t.status === 'correct' ? '✔' : '↻' }}</span>
+              <span class="text">{{ t.text }}</span>
+              <span class="sr-only">{{ t.status === 'correct' ? 'correcta' : 'para repasar' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    }
+  </main>
+</ion-content>

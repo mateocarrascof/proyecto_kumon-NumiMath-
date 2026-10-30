@@ -1,0 +1,93 @@
+<div class="tools" role="toolbar" aria-label="Herramientas del papel">
+  @for (c of colors; track c.value) {
+    <button
+      type="button"
+      class="tool pen"
+      [style.--pen]="c.value"
+      [class.on]="isOn('pen', c.value)"
+      [attr.aria-pressed]="isOn('pen', c.value)"
+      [attr.aria-label]="'Lápiz ' + c.name"
+      (click)="pickColor(c.value)"
+    >
+      <span class="dot" aria-hidden="true"></span>
+    </button>
+  }
+  <button
+    type="button"
+    class="tool eraser"
+    [class.on]="isOn('eraser')"
+    [attr.aria-pressed]="isOn('eraser')"
+    (click)="pickEraser()"
+  >
+    <span aria-hidden="true">🧽</span> Goma
+  </button>
+  <button
+    type="button"
+    class="tool move"
+    [class.on]="isOn('move')"
+    [attr.aria-pressed]="isOn('move')"
+    (click)="pickMove()"
+  >
+    <span aria-hidden="true">✋</span> Mover
+  </button>
+  <button
+    type="button"
+    class="tool clear"
+    [attr.aria-expanded]="confirmingClear"
+    [disabled]="confirmingClear"
+    (click)="askClear()"
+  >
+    <span aria-hidden="true">🗑️</span> Borrar todo
+  </button>
+</div>
+
+@if (confirmingClear) {
+  <div class="confirm" role="alertdialog" aria-labelledby="clear-q" data-testid="clear-confirm">
+    <p id="clear-q"><span aria-hidden="true">🤔</span> ¿Seguro que quieres borrar todo el papel?</p>
+    <div class="confirm-actions">
+      <button type="button" class="tool keep" (click)="cancelClear()">No, volver</button>
+      <button
+        type="button"
+        class="tool danger"
+        data-testid="clear-yes"
+        [disabled]="clearCountdown > 0"
+        (click)="confirmClear()"
+      >
+        @if (clearCountdown > 0) {
+          Espera {{ clearCountdown }}…
+        } @else {
+          <span aria-hidden="true">🗑️</span> Sí, borrar
+        }
+      </button>
+    </div>
+  </div>
+}
+
+<div class="paper">
+  <div #sheet class="sheet" aria-hidden="true"></div>
+  <canvas
+    #canvas
+    role="img"
+    aria-label="Papel para hacer cálculos a mano"
+    [class.moving]="isOn('move')"
+    (pointerdown)="onDown($event)"
+    (pointermove)="onMove($event)"
+    (pointerup)="onUp($event)"
+    (pointercancel)="onUp($event)"
+    (lostpointercapture)="onUp($event)"
+    (wheel)="onWheel($event)"
+  ></canvas>
+
+  <div class="zoom" role="group" aria-label="Acercar o alejar el papel">
+    <button type="button" class="zoom-btn" aria-label="Acercar" [disabled]="!canZoomIn" (click)="zoomIn()">
+      <span aria-hidden="true">+</span>
+    </button>
+    <span class="zoom-level" aria-live="polite">{{ zoomPercent }}%</span>
+    <button type="button" class="zoom-btn" aria-label="Alejar" [disabled]="!canZoomOut" (click)="zoomOut()">
+      <span aria-hidden="true">−</span>
+    </button>
+    <button type="button" class="zoom-btn" aria-label="Ver toda la hoja" [disabled]="!canZoomOut" (click)="fitSheet()">
+      <span aria-hidden="true">⤢</span>
+    </button>
+  </div>
+</div>

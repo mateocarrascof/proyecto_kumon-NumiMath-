@@ -1,0 +1,67 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/home" text="Inicio"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Zona del tutor</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="pin kid-card">
+    @if (mode === 'loading') {
+      <ion-spinner name="dots"></ion-spinner>
+    } @else {
+      <h1 data-testid="pin-title">{{ title }}</h1>
+
+      @if (mode === 'forgot') {
+        <p>Escribe la contraseña de tu cuenta para crear un PIN nuevo.</p>
+        <form (ngSubmit)="reauth()" novalidate>
+          <ion-input
+            type="password"
+            label="Contraseña"
+            labelPlacement="stacked"
+            autocomplete="current-password"
+            [value]="password"
+            (ionInput)="password = $any($event.target).value ?? ''"
+          ></ion-input>
+          <ion-button type="submit" expand="block" [disabled]="!password || busy">Continuar</ion-button>
+        </form>
+      } @else {
+        @if (mode === 'create') {
+          <p class="hint">Solo para adultos. No uses tu fecha de cumpleaños ni el PIN de tu teléfono.</p>
+        }
+        <div class="dots" role="status" [attr.aria-label]="digits.length + ' de 4 números escritos'">
+          @for (s of slots; track s) {
+            <span class="dot" [class.on]="s < digits.length" aria-hidden="true"></span>
+          }
+        </div>
+
+        <div class="keypad">
+          @for (k of keys; track $index) {
+            @if (k) {
+              <button
+                type="button"
+                class="key"
+                [attr.aria-label]="k === '⌫' ? 'Borrar' : k"
+                [disabled]="busy"
+                (click)="press(k)"
+              >{{ k }}</button>
+            } @else {
+              <span></span>
+            }
+          }
+        </div>
+      }
+
+      @if (error) {
+        <p class="error" role="alert" data-testid="pin-error">{{ error }}</p>
+      }
+
+      @if (mode === 'enter') {
+        <ion-button fill="clear" expand="block" (click)="forgot()">Olvidé mi PIN</ion-button>
+      }
+      <ion-button fill="clear" expand="block" color="medium" (click)="cancel()">Volver al inicio</ion-button>
+    }
+  </main>
+</ion-content>

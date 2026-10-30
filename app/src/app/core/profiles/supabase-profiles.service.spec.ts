@@ -1,5 +1,10 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+
+import { environment } from '../../../environments/environment';
+import { ParentalSession } from '../parental/parental-session';
 
 import { AuthPort } from '../auth/auth.port';
 import { SUPABASE_CLIENT } from '../auth/supabase.client';
@@ -32,7 +37,15 @@ function setup(result: { data?: unknown; error?: { message: string } | null }) {
   TestBed.configureTestingModule({
     providers: [
       { provide: SUPABASE_CLIENT, useValue: client },
-      { provide: AuthPort, useValue: { user: signal({ id: 'tutor-1', email: 'a@b.test' }) } },
+      {
+        provide: AuthPort,
+        useValue: {
+          user: signal({ id: 'tutor-1', email: 'a@b.test' }),
+          accessToken: async () => 'jwt',
+        },
+      },
+      provideHttpClient(),
+      provideHttpClientTesting(),
     ],
   });
   return { service: TestBed.inject(SupabaseProfilesService), inserted, deleted };
@@ -79,9 +92,34 @@ describe('SupabaseProfilesService', () => {
     expect(await consent.service.create('Luz', 1)).toEqual({ ok: false, reason: 'consent' });
   });
 
-  it('borra por id', async () => {
+  it('borrar NO toca la base directo: va a la API con el token del PIN', async () => {
     const { service, deleted } = setup({});
-    expect(await service.remove('abc')).toBe(true);
-    expect(deleted).toEqual(['abc']);
+    TestBed.inject(ParentalSession).start('token-del-pin', 600);
+    const http = TestBed.inject(HttpTestingController);
+    const result = service.remove('abc');
+    await new Promise((r) => setTimeout(r, 0));
+    const req = http.expectOne(`${environment.apiUrl}/v1/students/abc`);
+    expect(req.request.method).toBe('DELETE');
+    expect(req.request.headers.get('X-Parental-Token')).toBe('token-del-pin');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    expect(await result).toBe('ok');
+    expect(deleted).toEqual([]);
+  });
+
+  it('sin PIN vigente devuelve "pin"; ya borrado, "not_found"', async () => {
+    const { service } = setup({});
+    const http = TestBed.inject(HttpTestingController);
+    const url = `${environment.apiUrl}/v1/students/abc`;
+    const cases: [number, object, string][] = [
+      [401, { error: { code: 'parental_required' } }, 'pin'],
+      [404, { error: { code: 'not_found' } }, 'not_found'],
+      [503, {}, 'error'],
+    ];
+    for (const [status, body, expected] of cases) {
+      const result = service.remove('abc');
+      await new Promise((r) => setTimeout(r, 0));
+      http.expectOne(url).flush(body, { status, statusText: 'x' });
+      expect(await result).toBe(expected);
+    }
   });
 });

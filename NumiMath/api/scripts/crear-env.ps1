@@ -7,8 +7,8 @@ Crea o completa api/.env para desarrollo local. Ejecútalo TÚ, desde la raíz d
 - Verifica con git que .env esté ignorado ANTES de escribir nada.
 - Lee las llaves locales de Supabase con `supabase status` (la base local debe estar encendida).
 - Te pide GEMINI_API_KEY con entrada oculta. No la imprime ni la registra en ningún lado.
-- GEMINI_MODEL queda VACÍO a propósito: elige tú un nombre de versión estable
-  (https://ai.google.dev/gemini-api/docs/models) y escríbelo en api/.env.
+- Si hay GEMINI_API_KEY, deja AI_PROVIDER=gemini y GEMINI_MODEL=gemini-3.6-flash (si estaba vacío).
+  Sin clave, se queda con la IA simulada (AI_PROVIDER=mock).
 #>
 $ErrorActionPreference = 'Stop'
 $api = Split-Path -Parent $PSScriptRoot
@@ -97,6 +97,14 @@ if (-not (Get-Value 'GEMINI_API_KEY')) {
     else { Write-Host 'GEMINI_API_KEY omitida (puedes volver a ejecutar el script).' }
 }
 
+# 7. Proveedor de IA: Gemini si hay clave; si no, la IA simulada
+if (Get-Value 'GEMINI_API_KEY') {
+    $null = Set-Var 'AI_PROVIDER' 'gemini' -Force
+    $null = Set-Var 'GEMINI_MODEL' 'gemini-3.6-flash'
+    Write-Host ('IA: Gemini (' + (Get-Value 'GEMINI_MODEL') + ').')
+} else {
+    Write-Host 'IA: simulada (sin GEMINI_API_KEY).'
+}
+
 Write-Host ''
-Write-Host 'Listo. Pendiente de tu parte: escribir GEMINI_MODEL en api/.env (nombre de versión estable).'
-Write-Host 'Lista de modelos: https://ai.google.dev/gemini-api/docs/models'
+Write-Host 'Listo.'

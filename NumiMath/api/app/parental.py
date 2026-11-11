@@ -69,14 +69,23 @@ def _unb64(text: str) -> bytes:
 
 def issue_parental_token(signing_key: bytes, tutor_id: uuid.UUID, now: float | None = None) -> str:
     expires_at = int((time.time() if now is None else now) + TOKEN_TTL_SECONDS)
-    payload = json.dumps({"t": str(tutor_id), "e": expires_at}, separators=(",", ":")).encode()
+    issued_at = int(time.time() if now is None else now)
+    payload = json.dumps(
+        {"t": str(tutor_id), "e": expires_at, "i": issued_at}, separators=(",", ":")
+    ).encode()
     signature = hmac.new(_key(signing_key), payload, hashlib.sha256).digest()
     return f"{_b64(payload)}.{_b64(signature)}"
 
 
 def verify_parental_token(
-    signing_key: bytes, token: str | None, tutor_id: uuid.UUID, now: float | None = None
+    signing_key: bytes,
+    token: str | None,
+    tutor_id: uuid.UUID,
+    now: float | None = None,
+    max_age_seconds: int | None = None,
 ) -> None:
+    """Valida el token parental. Con `max_age_seconds`, además debe haberse emitido hace poco
+    (acciones destructivas: el PIN tiene que haberse escrito AHORA, no hace minutos)."""
     if not token or len(token) > 300:
         raise InvalidParentalToken
     try:
@@ -91,9 +100,13 @@ def verify_parental_token(
         data = json.loads(payload)
         owner = uuid.UUID(str(data["t"]))
         expires_at = int(data["e"])
+        issued_at = int(data["i"]) if max_age_seconds is not None else None
     except (ValueError, KeyError, TypeError):
         raise InvalidParentalToken from None
-    if owner != tutor_id or (time.time() if now is None else now) >= expires_at:
+    current = time.time() if now is None else now
+    if owner != tutor_id or current >= expires_at:
+        raise InvalidParentalToken
+    if issued_at is not None and not (-60 <= current - issued_at <= (max_age_seconds or 0)):
         raise InvalidParentalToken
 
 

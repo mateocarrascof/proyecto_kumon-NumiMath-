@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.ai.factory import build_provider
 from app.ai.provider import AIProvider
+from app.auth.admin import AuthAdmin, GoTrueAdmin
 from app.auth.jwt import TokenVerifier
 from app.config import Settings, get_settings
 from app.db.gateway import Gateway
@@ -18,6 +19,7 @@ from app.errors import install_error_handlers
 from app.logging import configure_logging
 from app.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.routes import (
+    account,
     assignments,
     exercises,
     explanations,
@@ -33,17 +35,20 @@ def create_app(
     settings: Settings | None = None,
     gateway: Gateway | None = None,
     provider: AIProvider | None = None,
+    auth_admin: AuthAdmin | None = None,
 ) -> FastAPI:
     """`gateway` y `provider` permiten inyectar dobles en pruebas y en la demo."""
     settings = settings or get_settings()
     configure_logging()
     db_gateway: Gateway = gateway or SupabaseGateway(settings)
     ai_provider: AIProvider = provider or build_provider(settings)
+    admin: AuthAdmin = auth_admin or GoTrueAdmin(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         await db_gateway.aclose()
+        await admin.aclose()
         provider_close = getattr(ai_provider, "aclose", None)
         if provider_close is not None:
             await provider_close()
@@ -61,6 +66,7 @@ def create_app(
     app.state.token_verifier = TokenVerifier(settings)
     app.state.gateway = db_gateway
     app.state.ai_provider = ai_provider
+    app.state.auth_admin = admin
 
     # Orden: lo último que se agrega es lo más externo. El límite de tamaño va DENTRO del contexto
     # de petición (para registrar y devolver el id) y CORS por fuera de todo.
@@ -83,6 +89,7 @@ def create_app(
     app.include_router(explanations.router)
     app.include_router(exercises.router)
     app.include_router(progress.router)
+    app.include_router(account.router)
     app.include_router(assignments.router)
     app.include_router(report.router)
     app.include_router(pin.router)

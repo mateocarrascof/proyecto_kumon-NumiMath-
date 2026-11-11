@@ -7,6 +7,8 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular/lazy';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
+import { AccountPort } from './core/account/account.port';
+import { HttpAccountService } from './core/account/http-account.service';
 import { AuthPort } from './core/auth/auth.port';
 import { SupabaseAuthService } from './core/auth/supabase-auth.service';
 import { ConsentPort } from './core/consent/consent.port';
@@ -38,6 +40,7 @@ import { HttpExplanationService } from './core/explanation/http-explanation.serv
     { provide: AuthPort, useExisting: SupabaseAuthService },
     { provide: ConsentPort, useExisting: SupabaseConsentService },
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
+    { provide: AccountPort, useExisting: HttpAccountService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
     { provide: AssignmentsPort, useExisting: HttpAssignmentsService },

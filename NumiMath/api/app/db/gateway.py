@@ -180,6 +180,35 @@ class Gateway(Protocol):
         """Borra el perfil (y en cascada sus datos). `ok` o `not_found`."""
         ...
 
+    async def revoke_consent(self, tutor_id: uuid.UUID) -> str:
+        """Registra una revocación con las versiones del último consentimiento.
+
+        Bloquea los perfiles del tutor.
+
+        Devuelve `ok`, `already_revoked` o `no_consent`. La constancia lleva la fecha-hora
+        del servidor.
+        """
+        ...
+
+    async def archive_consent_evidence(
+        self, tutor_id: uuid.UUID, tutor_ref: str, email_ref: str, key_version: int
+    ) -> int:
+        """Archiva la evidencia mínima del consentimiento. Devuelve las filas NUEVAS."""
+        ...
+
+    async def consent_evidence_complete(self, tutor_id: uuid.UUID) -> bool:
+        """¿Cada consentimiento del tutor ya tiene su evidencia archivada? (ADR 0001, paso 3).
+
+        Se comprueba por consentimiento, no por la huella: sirve aunque la clave haya cambiado.
+        """
+        ...
+
+    async def purge_auth_audit(self, tutor_id: uuid.UUID, email: str | None) -> int:
+        """Borra de Auth el registro de auditoría del tutor (correo, IP). Devuelve las filas."""
+        ...
+
+    async def tutor_exists(self, tutor_id: uuid.UUID) -> bool: ...
+
     async def get_pin_state(self, tutor_id: uuid.UUID) -> PinState | None:
         """PIN del tutor (hash y bloqueo), o `None` si aún no lo crea."""
         ...

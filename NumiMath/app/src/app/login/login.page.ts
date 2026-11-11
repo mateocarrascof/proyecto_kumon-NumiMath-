@@ -16,6 +16,12 @@ const MESSAGES: Record<AuthFailure, string> = {
   unknown: 'Algo salió mal. Inténtalo de nuevo.',
 };
 
+// Un Map (no un objeto): `?aviso=constructor` no debe devolver nada de Object.prototype.
+const NOTICES = new Map<string, string>([
+  ['clave-cambiada', 'Listo: cambiaste tu contraseña. Entra con la nueva.'],
+  ['cuenta-eliminada', 'Tu cuenta y sus datos se eliminaron. Gracias por usar Matemáticas con Numi.'],
+]);
+
 export type LoginMode = 'signin' | 'signup';
 
 /**
@@ -43,11 +49,8 @@ export class LoginPage {
   showPassword = false;
   busy = false;
   error = '';
-  /** Aviso al volver de cambiar la contraseña (`/login?aviso=clave-cambiada`). */
-  readonly notice =
-    this.route?.snapshot.queryParamMap.get('aviso') === 'clave-cambiada'
-      ? 'Listo: cambiaste tu contraseña. Entra con la nueva.'
-      : '';
+  /** Aviso al volver de otra pantalla (`/login?aviso=…`). Solo valores conocidos: nunca se muestra el parámetro. */
+  readonly notice = NOTICES.get(this.route?.snapshot.queryParamMap.get('aviso') ?? '') ?? '';
   protected readonly passwordMin = PASSWORD_MIN;
 
   get title(): string {

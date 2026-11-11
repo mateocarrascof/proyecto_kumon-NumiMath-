@@ -291,7 +291,7 @@ export class TutorPanelPage implements OnInit {
   }
 }
 
-function pinMessage(error: unknown): string {
+export function pinMessage(error: unknown): string {
   if (error instanceof PinError) {
     if (error.code === 'wrong') {
       const n = error.remaining;

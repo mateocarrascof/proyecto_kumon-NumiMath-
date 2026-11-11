@@ -8,6 +8,9 @@ import { ParentalSession } from '../core/parental/parental-session';
 import { ParentalPort, PinError } from '../core/parental/parental.port';
 import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
 import { Report, ReportPort } from '../core/report/report.port';
+import { AccountPort } from '../core/account/account.port';
+import { AuthPort } from '../core/auth/auth.port';
+import { DeleteAccountComponent } from './delete-account.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
@@ -66,13 +69,15 @@ function setup(
   };
   const reports = { get: vi.fn(opts.report ?? (async () => REPORT)) };
   TestBed.configureTestingModule({
-    declarations: [TutorPanelPage, WeeklyChartComponent, ProfileFormComponent],
+    declarations: [TutorPanelPage, WeeklyChartComponent, ProfileFormComponent, DeleteAccountComponent],
     imports: [IonicModule.forRoot()],
     providers: [
       { provide: AssignmentsPort, useValue: assignments },
       { provide: ReportPort, useValue: reports },
       { provide: ProfilesPort, useValue: profiles },
       { provide: ParentalPort, useValue: parental },
+      { provide: AccountPort, useValue: { delete: vi.fn(async () => 'ok') } },
+      { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },
       { provide: ConsentPort, useValue: { loadCurrent: vi.fn(async () => ({})) } },
       { provide: NavController, useValue: nav },
     ],

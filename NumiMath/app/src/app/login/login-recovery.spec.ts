@@ -32,10 +32,15 @@ describe('LoginPage: recuperar contraseña', () => {
     expect(page.notice).toContain('cambiaste tu contraseña');
   });
 
-  it('no muestra aviso con otros valores ni sin parámetro', () => {
-    expect(setup(null).componentInstance.notice).toBe('');
-    TestBed.resetTestingModule();
-    expect(setup('<script>alert(1)</script>').componentInstance.notice).toBe('');
+  it('muestra el aviso al volver de eliminar la cuenta', () => {
+    expect(setup('cuenta-eliminada').componentInstance.notice).toContain('se eliminaron');
+  });
+
+  it('no muestra aviso con otros valores ni sin parámetro (ni nada heredado de Object)', () => {
+    for (const aviso of [null, '<script>alert(1)</script>', 'constructor', '__proto__', 'toString']) {
+      TestBed.resetTestingModule();
+      expect(setup(aviso).componentInstance.notice).toBe('');
+    }
   });
 
   it('ofrece el enlace "¿Olvidaste tu contraseña?" solo al iniciar sesión', () => {

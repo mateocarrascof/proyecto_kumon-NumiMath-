@@ -228,6 +228,19 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 
 ---
 
+## 26. Eliminar la cuenta (T21): lo que se conserva y los registros que no controlamos
+**Qué hace hoy:** borra de verdad la cuenta y todos sus datos (ver SPEC). Conserva solo la evidencia mínima del consentimiento (huellas HMAC, versiones, fecha, canal) y la declaración del adulto sin apodo ni curso. Purga el registro de auditoría de Auth (correo e IP).
+
+**Preguntas:**
+1. **Plazo de conservación de la evidencia** (`consent_evidence_retention_days`, hoy sin definir): ¿cuánto y desde cuándo? Hoy se conserva sin plazo.
+2. **Registros que quedan fuera de la base:** copias de seguridad, registros de la plataforma y correos ya enviados (recuperación de contraseña, avisos). ¿Qué plazo y qué se informa al titular?
+3. **Purga del registro de auditoría de Auth:** se borra el correo y la IP del tutor tras eliminar la cuenta. ¿Hay un deber de conservar registros de seguridad por algún plazo?
+4. **Revocación irreversible:** al empezar el borrado se registra una revocación (bloquea los perfiles) que no se deshace aunque el borrado falle a medias. ¿Es aceptable?
+5. **Constancia del borrado:** hoy solo queda un evento sin datos personales en los registros del servidor. ¿Se debe poder acreditar al titular que se borró y cuándo? ¿Cómo, sin guardar identificadores?
+**Respuesta:** _pendiente_
+
+---
+
 # P3 — Después, con fecha
 
 ## 19. Información al niño (Ley 21.430)

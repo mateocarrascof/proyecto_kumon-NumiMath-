@@ -407,6 +407,48 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def revoke_consent(self, tutor_id: uuid.UUID) -> str:
+        result = await self._rpc("revoke_consent", {"p_tutor_id": str(tutor_id)})
+        if result not in ("ok", "already_revoked", "no_consent"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def archive_consent_evidence(
+        self, tutor_id: uuid.UUID, tutor_ref: str, email_ref: str, key_version: int
+    ) -> int:
+        result = await self._rpc(
+            "archive_consent_evidence",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_tutor_ref": tutor_ref,
+                "p_email_ref": email_ref,
+                "p_key_version": key_version,
+            },
+        )
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def consent_evidence_complete(self, tutor_id: uuid.UUID) -> bool:
+        result = await self._rpc("consent_evidence_is_complete", {"p_tutor_id": str(tutor_id)})
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def purge_auth_audit(self, tutor_id: uuid.UUID, email: str | None) -> int:
+        result = await self._rpc(
+            "purge_auth_audit", {"p_tutor_id": str(tutor_id), "p_email": email}
+        )
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def tutor_exists(self, tutor_id: uuid.UUID) -> bool:
+        result = await self._rpc("tutor_exists", {"p_tutor_id": str(tutor_id)})
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
     async def get_pin_state(self, tutor_id: uuid.UUID) -> PinState | None:
         rows = await self._rpc("get_tutor_pin_state", {"p_tutor_id": str(tutor_id)})
         if not isinstance(rows, list) or len(rows) > 1:

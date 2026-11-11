@@ -524,3 +524,28 @@ El 429 por usuario de Supabase permite saber, llamando directo al endpoint públ
 
 ### Local
 El correo se ve en **Mailpit: http://127.0.0.1:54324** (`supabase start` lo levanta). Pruebas reales: `api/tests/test_integration_password_recovery.py`.
+
+## Eliminar la cuenta y todos los datos (T21)
+
+Se hace en el **Panel del tutor** (sección "Eliminar mi cuenta"), con el orden del ADR 0001, decisión 3. Ruta: `POST /v1/tutor/account/delete` con `{"confirm": "ELIMINAR"}`.
+
+### Confirmación fuerte
+- La app pide la **contraseña de la cuenta** (el PIN lo puede conocer un niño) y la palabra ELIMINAR (acepta minúsculas; al servidor se envía exacta). Vuelve a iniciar sesión con la contraseña: eso da una sesión "recién iniciada con contraseña".
+- El servidor acepta SOLO una de dos: contraseña de hace menos de 5 minutos, o un PIN escrito hace menos de 60 s (el token del PIN lleva su hora de emisión; haber entrado al panel hace minutos no basta). Sin eso: 401 y no se toca nada.
+- El id a borrar sale solo del JWT: no se puede borrar la cuenta de otro.
+
+### Orden (si algo falla antes del paso 5, no se borra nada y se descongela)
+1. **Congelar**: revoca el consentimiento (bloquea los perfiles; la revocación NO se deshace) y bloquea el acceso en Auth por 15 minutos (si algo falla y el desbloqueo también, se levanta solo).
+2. Huellas HMAC del id y del correo (`tutor_ref`, `email_ref`) con la clave del servidor.
+3. y 4. Archivar la evidencia mínima del consentimiento (dos veces, idempotente) y comprobar que cada consentimiento tiene su evidencia (por `source_seq`: sirve aunque la clave haya cambiado).
+5. Borrar el usuario en Auth (borrado real). La cascada borra tutor, perfiles, progreso, rachas, tareas, uso, PIN y consentimientos.
+6. Verificar que ya no queda el tutor (la evidencia ya se comprobó en 3 y 4: tras la cascada no quedan consentimientos contra los que contarla).
+7. Purgar el registro de auditoría de Auth (correo e IP del tutor). Mejor esfuerzo.
+
+Reintentar es seguro: si la cuenta ya no existe, el resultado es el mismo.
+
+### Qué se conserva
+Solo la evidencia mínima que exige la ley: versión y huella de los textos aceptados, fecha-hora, canal y las huellas HMAC (sin id ni correo en claro), y la declaración del adulto de cada perfil sin apodo ni curso. El plazo de conservación está **sin definir** (`pendientes-legales.md`, 26).
+
+### Pruebas
+`supabase/tests/database/account_deletion.test.sql` (revisa DINÁMICAMENTE todas las tablas con `tutor_id` o `student_id`: si alguien agrega una tabla y olvida la cascada, falla), `api/tests/test_account.py` y `api/tests/test_integration_account_deletion.py` (cuenta real: no queda nada). Tras correr pruebas de integración, hacer `supabase db reset` antes de `supabase test db`: la evidencia es inmutable y algunas pruebas antiguas cuentan filas de toda la tabla.

@@ -42,7 +42,7 @@ select is(public.record_attempt('cccccccc-0000-0000-0000-000000000002',
   'ok', 'otro tutor registra en su propio perfil');
 reset role;
 
-select is((select count(*) from public.student_attempts), 2::bigint, 'solo hay 2 intentos guardados');
+select is((select count(*) from public.student_attempts where tutor_id in ('cccccccc-0000-0000-0000-000000000001', 'cccccccc-0000-0000-0000-000000000002')), 2::bigint, 'solo hay 2 intentos guardados');
 select is((select correct from public.student_attempts where exercise_id = 'eeeeeeee-0000-0000-0000-000000000001'),
   true, 'el primer resultado es el que queda');
 

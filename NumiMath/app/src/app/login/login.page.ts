@@ -1,15 +1,17 @@
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
 import { AuthFailure, AuthPort } from '../core/auth/auth.port';
+import { PASSWORD_MIN, passwordProblem } from '../core/auth/password-rules';
 import { MascotPort } from '../core/mascot/mascot.port';
-
-export const PASSWORD_MIN = 8;
 
 const MESSAGES: Record<AuthFailure, string> = {
   invalid_credentials: 'El correo o la contraseña no coinciden.',
   email_taken: 'Ese correo ya tiene una cuenta. Prueba con "Ya tengo cuenta".',
   weak_password: `La contraseña es muy débil. Usa al menos ${PASSWORD_MIN} caracteres.`,
+  same_password: 'Elige una contraseña distinta a la anterior.',
+  link_expired: 'La sesión venció. Entra de nuevo.',
   network: 'No pude conectar con el servidor. Revisa tu conexión.',
   unknown: 'Algo salió mal. Inténtalo de nuevo.',
 };
@@ -31,6 +33,7 @@ export class LoginPage {
   private readonly nav = inject(NavController);
   protected readonly mascot = inject(MascotPort);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly route = inject(ActivatedRoute, { optional: true });
 
   mode: LoginMode = 'signin';
   email = '';
@@ -40,6 +43,11 @@ export class LoginPage {
   showPassword = false;
   busy = false;
   error = '';
+  /** Aviso al volver de cambiar la contraseña (`/login?aviso=clave-cambiada`). */
+  readonly notice =
+    this.route?.snapshot.queryParamMap.get('aviso') === 'clave-cambiada'
+      ? 'Listo: cambiaste tu contraseña. Entra con la nueva.'
+      : '';
   protected readonly passwordMin = PASSWORD_MIN;
 
   get title(): string {
@@ -83,8 +91,9 @@ export class LoginPage {
       this.fail('Escribe un correo válido.');
       return;
     }
-    if (this.password.length < PASSWORD_MIN) {
-      this.fail(`La contraseña debe tener al menos ${PASSWORD_MIN} caracteres.`);
+    const problem = passwordProblem(this.password);
+    if (problem) {
+      this.fail(problem);
       return;
     }
     if (this.mode === 'signup' && this.confirm !== this.password) {

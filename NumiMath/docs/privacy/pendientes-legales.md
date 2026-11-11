@@ -215,6 +215,19 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 
 ---
 
+## 25. Recuperar contraseña: proveedor de correo, registros y enumeración de cuentas (T19)
+**Qué hace hoy:** el tutor pide un enlace por correo; la pantalla muestra SIEMPRE el mismo mensaje, exista o no la cuenta. El enlace (30 minutos, un solo uso) abre la app y el código solo se canjea al pulsar un botón. Al cambiar la contraseña se cierran las sesiones en todos los dispositivos y se envía un aviso. No se guarda ni se trata ningún dato del niño.
+
+**Qué NO está resuelto:**
+1. **Enumeración de cuentas por el límite de Supabase.** Quien llame directo a `/auth/v1/recover` con la llave anon (pública) y pida dos veces seguidas el mismo correo recibe 429 si tiene cuenta y 200 si no. La app no lo muestra, pero el endpoint es público. Mitigación pendiente para producción: captcha de Supabase o un proxy por la API con límite por IP y respuesta uniforme. Hay una prueba que documenta esta limitación a propósito.
+2. **Proveedor de correo (SMTP):** ¿cuál, en qué país, con qué DPA y retención de registros de envío? ¿Se desactiva el seguimiento de clics?
+3. **Registro de auditoría de Auth** (`auth.audit_log_entries`: correo, evento, IP): ¿plazo de conservación? ¿se borra con la cuenta?
+4. **Aviso de cambio de contraseña:** ¿base de licitud (contrato o interés legítimo de seguridad)? ¿debe constar en la política de privacidad?
+5. **Producción:** `site_url`, redirecciones permitidas y `email_sent` (tope global por hora) de `supabase/config.toml` están configurados para localhost; hay que fijarlos al dominio real antes de publicar. En la app nativa (Capacitor) el enlace necesitará un deep link propio.
+**Respuesta:** _pendiente_
+
+---
+
 # P3 — Después, con fecha
 
 ## 19. Información al niño (Ley 21.430)

@@ -507,3 +507,20 @@ ajustan el mapa; mientras no se edite el mapa, mandan las de aquí.
     (con 4 números: "¿cuál queda segundo?").
   - 2-16 (igualdad y desigualdad): N1 completar la igualdad hasta 10 (3 + 4 = □ + 2);
     N2 hasta 20; N3 "¿Cuánto le falta al lado menor para ser igual?" (9 + 6 y 8 + 4 → 3).
+
+## Recuperar contraseña (T19)
+
+Pantallas del ADULTO (el niño no tiene cuenta ni correo): `/recuperar` y `/nueva-clave`. Se llega desde "¿Olvidaste tu contraseña?" en el login.
+
+### Reglas
+- **Misma respuesta exista o no el correo**: la pantalla siempre dice "Si ese correo tiene una cuenta, te enviamos un enlace…". El puerto `requestPasswordReset` nunca lanza ni distingue (tampoco ante un 429). Pausa de 60 s en la pantalla.
+- **El enlace** (en el correo) abre la APP: `<SiteURL>/nueva-clave?token_hash=…&type=recovery`. Dura **30 minutos** (`otp_expiry`) y sirve **una sola vez**. Abrirlo NO lo gasta: el código se canjea (`verifyOtp`) solo cuando la persona **pulsa el botón**, para que un escáner de correo que solo abra el enlace no lo consuma ni obtenga una sesión. El código se borra de la barra de direcciones al abrir.
+- **Sesión de recuperación**: no cuenta como usuario autenticado (no abre el panel ni los perfiles) hasta que se cambie la contraseña. Si la persona se va o recarga a medias, esa sesión se cierra.
+- **Contraseña nueva**: la misma regla que el registro (mínimo 8 caracteres; `password-rules.ts` en la app y `minimum_password_length` en Supabase). Al cambiarla se cierran las sesiones en TODOS los dispositivos y llega un aviso por correo.
+- **Límites** (Supabase, `config.toml`): un correo de recuperación por usuario cada 60 s (`max_frequency`).
+
+### Limitación conocida
+El 429 por usuario de Supabase permite saber, llamando directo al endpoint público, si un correo tiene cuenta. La app no lo muestra. Pendiente para producción: captcha o proxy por la API (`docs/privacy/pendientes-legales.md`, 25).
+
+### Local
+El correo se ve en **Mailpit: http://127.0.0.1:54324** (`supabase start` lo levanta). Pruebas reales: `api/tests/test_integration_password_recovery.py`.

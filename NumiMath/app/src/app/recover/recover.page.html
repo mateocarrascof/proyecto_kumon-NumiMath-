@@ -1,0 +1,51 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/login" text="Entrar"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Recuperar contraseña</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="login">
+    <app-mascot [state]="mascot.state()" [message]="greeting"></app-mascot>
+    <h1>¿Olvidaste tu contraseña?</h1>
+    <p class="lead">Escribe el correo de tu cuenta de adulto y te enviamos un enlace.</p>
+
+    <form class="kid-card" (ngSubmit)="submit()" novalidate>
+      <ion-input
+        label="Correo"
+        labelPlacement="stacked"
+        type="email"
+        name="email"
+        autocomplete="email"
+        [(ngModel)]="email"
+      ></ion-input>
+
+      @if (error) {
+        <p class="error" role="alert">{{ error }}</p>
+      }
+      @if (sent) {
+        <p class="check ok" role="status" data-testid="recover-message">
+          <span aria-hidden="true">✔</span> {{ message }}
+        </p>
+      }
+
+      <ion-button
+        type="submit"
+        expand="block"
+        [disabled]="busy || cooldown > 0"
+        data-testid="recover-submit"
+      >
+        @if (cooldown > 0) {
+          Puedes pedir otro en {{ cooldown }} s
+        } @else {
+          {{ busy ? 'Un momento…' : sent ? 'Enviar otro enlace' : 'Enviarme el enlace' }}
+        }
+      </ion-button>
+    </form>
+
+    <ion-button fill="clear" size="small" routerLink="/login">Volver a entrar</ion-button>
+  </main>
+</ion-content>

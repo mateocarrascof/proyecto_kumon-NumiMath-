@@ -1251,3 +1251,107 @@ tiendas. Medios corregidos en `fix(cu-a21)`:
   progreso de la habilidad. La prueba encontró que el arrastre no detectaba el lugar (la tarjeta
   arrastrada tapaba el punto); corregido con `elementsFromPoint`.
 
+
+## Jugar un juego de refuerzo (CU-A21), parte 3: juegos de 1° básico
+
+Al menos un juego por cada uno de los 10 temas de 1°. Generadores deterministas en
+`api/app/exercises/games.py` (la IA no genera nada), con su prueba de salidas guardadas por
+semilla (`api/tests/test_games_golden.py`). Los juegos publicados no se editan (ADR 0004): todos
+los de esta parte tienen ids nuevos.
+
+### Temas y juegos
+| Tema | Juego | Habilidad |
+|---|---|---|
+| 1. Conteo hasta 100, completar secuencias | `completa-camino-1` "Completa el camino" (tipo `fill`) | 1-01 |
+| 2. Números de 0 a 20 | `cuantos-1` (ya existía, hasta 10) | — |
+| 3. Comparar y ordenar de 0 a 20 | `mayor-1` y `ordena-1` (ya existían) | — |
+| 4. Componer y descomponer | `descompone-1` "¿Cuántos faltan?" ("5 = 3 + ?" con objetos) | 1-04 |
+| 5. Sumas y restas hasta 20 | `junta-1` "Junta y cuenta" (dos grupos de objetos) | 1-08 |
+| 6. Patrones simples | `figura-sigue-1` "¿Qué figura sigue?" (AB, ABC, AAB, ABB) | 1-14 |
+| 7. Figuras 2D y 3D | `toca-figura-1` "Toca la figura" (4 figuras de formas distintas) | 1-17 |
+| 8. Orientación espacial | `donde-esta-1` "Arriba, abajo, izquierda y derecha" (escena en cruz) | 1-16 |
+| 9. Longitud con unidades no estandarizadas | `mide-clips-1` "Mide con clips y pasos" | 1-19 |
+| 10. Tablas de conteo y pictogramas | `pictograma-1` "Lee el pictograma" (2 o 3 filas) | 1-22 |
+
+La selección sigue siendo eje → juego; en 1° hay 5 ejes (Números, Patrones, Geometría, Medición y
+Datos) y el nombre de cada juego dice el tema. Los temas 6 a 10 usan habilidades de fase B: un
+juego no cambia el nivel ni el bloque, así que no hace falta que la habilidad sea practicable.
+
+### Tipo `fill` (completar)
+- El ejercicio trae `slots`: la secuencia con las tarjetas fijas en su lugar y `null` en los
+  huecos. No revela nada: las fijas se ven igual en la pantalla.
+- Camino de 6 números contando de 1, 2, 5 o 10 (0 a 100), 2 huecos (nunca en los dos primeros,
+  para descubrir de cuánto en cuánto se cuenta) y 2 tarjetas que no van (cercanas al camino).
+- El servidor rechaza (422) si una tarjeta fija se mueve o falta, si se repite una tarjeta o si
+  se pone una que no es de las opciones. Mensaje al fallar: "Casi. Así quedaba el camino."
+- En la app usa `app-order-cards` con lugares fijos; con 5 o más lugares las tarjetas se achican
+  para caber en 360 px.
+- En "Junta y cuenta" el resumen accesible dice cada grupo ("3 manzanas y 5 manzanas"), no el
+  total, que sería la respuesta.
+
+### Lo que se dibuja (temas 6 a 10)
+El ejercicio trae a lo más uno de estos campos. Es parte de la pregunta (se ve en la pantalla),
+igual que los emoji del enunciado; la solución sigue sin viajar.
+- **Figuras** (`f:<forma>-<color>`, `kind: 'figure'`): SVG propios (`core/games/figure.component.ts`).
+  Todas con borde oscuro grueso: se distinguen por la forma, nunca solo por el color (en un
+  ejercicio, dos figuras nunca tienen la misma forma). La etiqueta accesible dice nombre y color
+  ("triángulo rojo"); el nombre no se ve en el botón.
+- **`pattern`**: la fila de figuras antes del "?". Se muestran al menos dos vueltas completas, así
+  la respuesta es una sola. Para el lector de pantalla: "En la fila: círculo rojo, cuadrado azul,
+  … ¿Qué sigue?". (Campo agregado en la implementación: el patrón necesitaba dónde viajar.)
+- **`scene`**: la caja al centro y un objeto arriba, a la izquierda, a la derecha y abajo; cada
+  objeto es un botón ("pelota, arriba"). Izquierda y derecha "desde donde miras tú".
+- **`picto`**: tabla con una fila por categoría; los emoji se ocultan al lector de pantalla y se
+  dice la cantidad. Los distractores son las cantidades de las otras filas.
+- **`measure`**: un lápiz, una cinta o una alfombra dibujados del mismo largo que la fila de clips
+  (📎) o pasos (👣) de debajo (34 px por unidad, hasta 8: cabe en 360 px). Cada unidad es un
+  elemento de lista, para contarla con lector de pantalla. (Campo agregado en la implementación.)
+
+Con lector de pantalla, "Toca la figura" y la escena se responden oyendo el nombre o la posición:
+es la única forma accesible de describirlas y se acepta.
+
+### Pendientes
+1. `cuantos-20-1`: contar de 11 a 20, con dos filas de 10 para que quepa en 360 px (hoy el tema 2
+   queda cubierto por `cuantos-1`, hasta 10).
+2. Variedad: "delante" y "detrás" en la escena; "¿de cuál hay más?" en el pictograma; restas en
+   "Junta y cuenta"; relacionar 3D con 2D.
+3. **Bajos de la revisión (no implementados):** en `fill` las tarjetas fijas son botones
+   desactivados con el mismo estilo (el lector dice "atenuado") y al corregir también llevan ✓;
+   tarjetas de 47 × 52 px con 6 lugares (sobre el mínimo de 44, bajo los 64 del proyecto); ícono
+   👆 en vez de 🔢 para `fill` en la lista; comentario viejo en `order-cards` ("solo ordenar");
+   `max_length=6` de la respuesta es justo el largo del camino; la prueba de "dibujo distinto"
+   compara el SVG como texto, no lo que se ve.
+
+### Decisiones posteriores a la revisión (dueño, 2026-11-12)
+- **Textos:** "5 = 3 + ?" se dice completo al lector de pantalla ("5 es igual a 3 más ¿cuántas
+  manzanas?", `spokenEquation`), concordando con el objeto. "Junta y cuenta" y el pictograma
+  concuerdan con el objeto ("las"/"los", "¿Cuántas…?"/"¿Cuántos…?"; hoy todos son femeninos, así
+  que sus salidas no cambian). La instrucción de "¿Cuántos faltan?" queda sin género ("Mira el
+  grupo y toca el número que falta.").
+- **Habilidad de medir con clips: queda `1-19`.** 2B-OA19 es `2-22` "Longitud en cm y m", de 2°
+  y con unidades estandarizadas; la única habilidad de longitud de 1° es `1-19` (1B-OA18,
+  "Comparar longitudes"). Ese vínculo es el que usará "Aprender jugando" en cada tema.
+
+### Prueba manual (2026-11-12, Chromium a 360 px, base y API locales de la rama)
+Selección con los 5 ejes de 1°. Un juego por tema jugado de punta a punta (5 rondas y resumen):
+`completa-camino-1`, `cuantos-1`, `ordena-1`, `descompone-1`, `junta-1`, `figura-sigue-1`,
+`toca-figura-1`, `donde-esta-1`, `mide-clips-1` y `pictograma-1`. Sin desplazamiento horizontal
+(todo dentro de 344 px). Figuras distinguibles por la forma; la escena arma la cruz con botones de
+88 px y etiquetas "flor, arriba"; el pictograma de 8 pasa a dos líneas en grupos de 5 y 3 sin
+cortarse; el patrón y su "?" caben en una línea; lo medido mide lo mismo que la fila de clips. La
+base quedó restaurada con la semilla (`supabase db reset`).
+
+### Revisión antes del PR
+`code-reviewer` y `child-safety-ai-reviewer` sobre `03bb270..6b44d4f`. Sin bloqueantes de
+tiendas. Corregidos en `fix(cu-a21)`:
+- **Alto:** el pictograma con 7 u 8 emoji no cabía en 360 px y se cortaban íconos. Ahora van en
+  grupos de 5 que pasan enteros a la línea siguiente.
+- **Medio:** "Toca la figura" podía tener dos respuestas (un cuadrado también es rectángulo) o
+  parejas que se confunden (círculo y esfera, cuadrado y cubo). Ahora van 3 figuras de familias
+  distintas, y la pedida sale pareja entre las 7 formas. El juego no estaba publicado: se cambió
+  su generador y su salida guardada.
+- **Medio:** en "Junta y cuenta" los dos grupos se mezclaban al pasar de línea. Ahora cada grupo
+  va en su recuadro.
+- **Medio:** un patrón de 7 figuras dejaba el "?" solo en otra línea. Ahora las figuras miden
+  36 px y caben en una línea.
+- Prueba nueva: completar rechaza una tarjeta fija puesta también en un hueco.

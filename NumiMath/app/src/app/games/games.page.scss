@@ -31,6 +31,17 @@ h1 {
   margin-top: 6px;
 }
 
+/* Con dos grupos (juntar), cada uno en su recuadro: a 360 px los emoji de un grupo pueden pasar a
+   otra línea, pero nunca se mezclan con los del otro. */
+.glyph-group.boxed {
+  display: inline-block;
+  margin: 4px;
+  border: 3px dashed #4a5568;
+  border-radius: 14px;
+  padding: 2px 6px;
+  max-width: 100%;
+}
+
 .round,
 .axis {
   font-size: 1rem;

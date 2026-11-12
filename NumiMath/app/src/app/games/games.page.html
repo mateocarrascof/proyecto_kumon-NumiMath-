@@ -67,17 +67,29 @@
         <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
         @if (exercise) {
           <h1 class="prompt" data-testid="game-prompt">
-            {{ prompt.before }}
+            @if (spokenBefore) {
+              <span aria-hidden="true">{{ prompt.before }}</span>
+              <span class="sr-only" data-testid="prompt-spoken">{{ spokenBefore }}</span>
+            } @else {
+              {{ prompt.before }}
+            }
             @if (prompt.glyphs) {
-              <span class="glyphs" aria-hidden="true">{{ prompt.glyphs }}</span>
+              <span class="glyphs" aria-hidden="true">
+                @for (group of glyphGroups; track $index) {
+                  <span class="glyph-group" [class.boxed]="glyphGroups.length > 1" data-testid="glyph-group">{{ group }}</span>
+                }
+              </span>
               <span class="sr-only">{{ prompt.spoken }}</span>
             }
           </h1>
 
+          <app-game-visual [exercise]="exercise"></app-game-visual>
+
           @if (exercise.kind === 'choice') {
             <app-choice-options
               [options]="exercise.options"
-              [label]="prompt.before + prompt.spoken"
+              [scene]="exercise.scene ?? null"
+              [label]="(spokenBefore ? spokenBefore + ' ' : prompt.before) + prompt.spoken"
               [disabled]="busy || !!result"
               [chosen]="chosen"
               [correct]="result?.correctAnswer ?? null"
@@ -86,6 +98,7 @@
           } @else {
             <app-order-cards
               [cards]="exercise.options"
+              [slots]="exercise.kind === 'fill' ? exercise.slots ?? null : null"
               [disabled]="busy || !!result"
               [correct]="result?.correctAnswer ?? null"
               (ready)="onOrderReady($event)"

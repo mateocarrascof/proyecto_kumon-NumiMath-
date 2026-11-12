@@ -16,7 +16,7 @@ import respx
 from app.config import Settings
 from app.db.gateway import GatewayError
 from app.db.supabase_gateway import SupabaseGateway
-from app.exercises.games import GAME_MESSAGES, GAMES
+from app.exercises.games import GAME_MESSAGES, GAMES, valid_answer
 from app.exercises.levels import SkillProgress
 from app.exercises.tokens import InvalidExercise, issue, issue_game, verify_game
 from tests.test_offline_batch import KEY, PERFIL, TUTOR, URL, _client, _gateway, _jwt
@@ -60,7 +60,14 @@ def test_lista_los_juegos_de_1_por_eje() -> None:
     body = _client(_gateway(grade=1)).get(f"/v1/students/{PERFIL}/games", headers=_headers()).json()
     assert body["grade"] == 1
     modules = {g["module"]: [x["id"] for x in g["games"]] for g in body["groups"]}
-    assert set(modules) == {"Números y operaciones", "Patrones y álgebra"}
+    # Los 10 temas de 1° (CU-A21 parte 3) se reparten en los 5 ejes del catálogo.
+    assert set(modules) == {
+        "Números y operaciones",
+        "Patrones y álgebra",
+        "Geometría",
+        "Medición",
+        "Datos y probabilidades",
+    }
     assert "ordena-1" in modules["Números y operaciones"]
     assert all(GAMES[i].grade == 1 for ids in modules.values() for i in ids)
 
@@ -99,7 +106,20 @@ def test_juego_de_otro_curso_o_inexistente_404() -> None:
 @pytest.mark.parametrize("game_id", [CHOICE, ORDER])
 def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
     body = _new(_client(_gateway()), game_id).json()
-    assert set(body) == {"token", "game_id", "kind", "text", "options"}
+    assert set(body) == {
+        "token",
+        "game_id",
+        "kind",
+        "text",
+        "options",
+        "slots",
+        "pattern",
+        "scene",
+        "picto",
+        "measure",
+    }
+    # Solo completar trae lugares fijos, y solo los juegos de la parte 3 traen algo que dibujar.
+    assert all(body[k] is None for k in ("slots", "pattern", "scene", "picto", "measure"))
     assert body["kind"] == GAMES[game_id].kind
     assert all(set(o) == {"id", "kind", "label"} for o in body["options"])
     payload = json.loads(base64.urlsafe_b64decode(body["token"].split(".")[0] + "=="))
@@ -309,22 +329,30 @@ def test_cada_juego_cumple_sus_invariantes_con_muchas_semillas(game_id: str) -> 
         issued = issue_game(KEY, PERFIL, game, 600)
         exercise = issued.exercise
         ids = [o.id for o in exercise.options]
-        assert 2 <= len(ids) <= 4 and len(set(ids)) == len(ids)
-        assert all(o.id.split(":")[0] in {"n", "e", "s"} for o in exercise.options)
+        assert len(set(ids)) == len(ids)
+        assert all(o.id.split(":")[0] in {"n", "e", "s", "f"} for o in exercise.options)
         if game.kind == "choice":
+            assert 2 <= len(ids) <= 4
             assert len(exercise.solution) == 1 and exercise.solution[0] in ids
-        else:
+        elif game.kind == "order":
+            assert 2 <= len(ids) <= 4
             assert sorted(exercise.solution) == sorted(ids) and tuple(ids) != exercise.solution
+        else:  # fill: la solución completa cabe en las tarjetas y respeta las fijas
+            assert exercise.slots is not None and len(exercise.slots) == len(exercise.solution)
+            assert set(exercise.solution) <= set(ids)
+            assert valid_answer(exercise, list(exercise.solution))
         assert verify_game(KEY, issued.token, PERFIL).exercise == exercise
 
 
 def test_cada_juego_usa_una_habilidad_del_catalogo_con_su_curso() -> None:
-    from app.ai.topics import topics_for_grade
+    # Del catálogo completo, no solo de las practicables (fase A): un juego no cambia el nivel,
+    # así que puede usar una habilidad de fase B (figuras, posición, medición, pictogramas).
+    from app.curriculum.catalog import get_skill
 
     for game in GAMES.values():
-        skills = {t.id: t for t in topics_for_grade(game.grade) if t.grade == game.grade}
-        assert game.skill in skills, game.id
-        assert skills[game.skill].module == game.module, game.id
+        skill = get_skill(game.skill)
+        assert skill is not None, game.id
+        assert (skill.grade, skill.module) == (game.grade, game.module), game.id
 
 
 def test_un_token_invalido_no_llega_a_la_base() -> None:
@@ -346,3 +374,198 @@ def test_un_juego_no_cuenta_como_practica_para_el_diagnostico() -> None:
     _answer(client, token, _solution(token))
     result = asyncio.run(gateway.save_diagnostic(TUTOR, PERFIL, "1-03", 1, []))
     assert result == "ok"
+
+
+# ---- CU-A21, parte 3: juegos de 1° básico (tanda 1: temas 1 a 5) --------------------------------
+
+
+def _many(game_id: str, n: int = 3000):
+    for _ in range(n):
+        yield issue_game(KEY, PERFIL, GAMES[game_id], 600).exercise
+
+
+def _num(option_id: str) -> int:
+    return int(option_id.split(":")[1])
+
+
+def test_completa_el_camino_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("completa-camino-1"):
+        values = [_num(i) for i in e.solution]
+        step = values[1] - values[0]
+        assert step in (1, 2, 5, 10)
+        assert all(b - a == step for a, b in zip(values, values[1:], strict=False))
+        assert values[0] >= 0 and values[-1] <= 100 and len(values) == 6
+        assert e.slots is not None
+        gaps = [i for i, s in enumerate(e.slots) if s is None]
+        assert len(gaps) == 2 and e.slots[0] is not None and e.slots[1] is not None
+        loose = {o.id for o in e.options} - {s for s in e.slots if s is not None}
+        assert {e.solution[g] for g in gaps} < loose  # los que faltan, y además 2 que no van
+        assert len(loose) == 4 and all(_num(i) not in values for i in loose - set(e.solution))
+
+
+def test_descompone_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("descompone-1"):
+        total, rest = e.text.split(" = ")
+        have = int(rest.split(" + ")[0])
+        assert 3 <= int(total) <= 10 and 1 <= have < int(total)
+        assert _num(e.solution[0]) == int(total) - have
+
+
+def test_junta_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("junta-1"):
+        groups = e.text.rsplit("? ", 1)[1].split(" ")
+        assert len(groups) == 2
+        count = sum(len(g) // len(g[0]) for g in groups)  # mismo emoji repetido
+        assert _num(e.solution[0]) == count <= 18
+
+
+def _shape(option_id: str) -> str:
+    return option_id.split(":")[1].split("-")[0]
+
+
+def test_los_textos_concuerdan_con_un_objeto_masculino(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hoy todos los objetos son femeninos; si se agrega uno masculino, "Junta y cuenta" y el
+    pictograma dicen "los" y "¿Cuántos…?"."""
+    from app.exercises import games
+
+    monkeypatch.setattr(games, "_MASCULINE_OBJECTS", frozenset(games._OBJECTS))
+    for _ in range(50):
+        assert "Junta los " in _many_one("junta-1").text
+        text = _many_one("pictograma-1").text
+        assert "¿Cuántos " in text and "¿Cuántas " not in text
+
+
+def _many_one(game_id: str):
+    return next(_many(game_id, 1))
+
+
+def test_figura_que_sigue_es_valida_en_miles_de_ejercicios() -> None:
+    for e in _many("figura-sigue-1"):
+        assert e.pattern is not None
+        ids = [o.id for o in e.options]
+        # Se distinguen por la forma (no solo por el color) y la etiqueta dice nombre y color.
+        assert len({_shape(i) for i in ids}) == 3
+        assert all(o.kind == "figure" and len(o.label.split()) == 2 for o in e.options)
+        shown = [p.id for p in e.pattern]
+        assert set(shown) <= set(ids)
+        period = next(p for p in (2, 3) if all(s == shown[i % p] for i, s in enumerate(shown)))
+        assert len(shown) >= 2 * period and len(set(shown[:period])) >= 2
+        assert e.solution == (shown[len(shown) % period],)
+
+
+def test_toca_la_figura_es_valida_en_miles_de_ejercicios() -> None:
+    # Parejas que se confunden (un cuadrado también es rectángulo): nunca juntas.
+    confusable = [{"cuadrado", "rectangulo"}, {"cuadrado", "cubo"}, {"rectangulo", "cubo"}]
+    confusable.append({"circulo", "esfera"})
+    seen: set[str] = set()
+    for e in _many("toca-figura-1"):
+        shapes = [_shape(o.id) for o in e.options]
+        assert len(set(shapes)) == 3 and all(o.kind == "figure" for o in e.options)
+        assert not any(pair <= set(shapes) for pair in confusable), shapes
+        seen.update(shapes)
+        right = next(o for o in e.options if o.id == e.solution[0])
+        name = right.label.split()[0]
+        assert e.text in (f"Toca el {name}.", f"Toca la {name}.")
+        assert sum(o.label.startswith(name + " ") for o in e.options) == 1
+    assert len(seen) == 7  # igual salen las 7 formas
+
+
+def test_donde_esta_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("donde-esta-1"):
+        assert e.scene is not None and e.scene.center_name == "caja"
+        positions = [p for p, _ in e.scene.places]
+        assert positions == ["arriba", "izquierda", "derecha", "abajo"]
+        assert [i for _, i in e.scene.places] == [o.id for o in e.options]
+        asked = next(p for p in positions if f" {p} " in e.text)
+        assert e.solution == (dict(e.scene.places)[asked],)
+        if asked in ("izquierda", "derecha"):
+            assert "desde donde miras tú" in e.text
+
+
+def test_mide_con_clips_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("mide-clips-1"):
+        assert e.measure is not None and 2 <= e.measure.length <= 8
+        assert e.solution == (f"n:{e.measure.length}",)
+        assert all(1 <= _num(o.id) <= 10 for o in e.options)
+        unit = {"clip": ("clips", "📎"), "paso": ("pasos", "👣")}[e.measure.unit]
+        assert e.text.startswith(f"¿Cuántos {unit[0]} mide") and e.measure.glyph == unit[1]
+        assert e.measure.name in e.text
+
+
+def test_pictograma_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("pictograma-1"):
+        assert e.picto is not None and 2 <= len(e.picto) <= 3
+        counts = [r.count for r in e.picto]
+        assert len(set(counts)) == len(counts) and all(1 <= c <= 8 for c in counts)
+        asked = next(r for r in e.picto if f"¿Cuántas {r.name} hay?" in e.text)
+        assert e.solution == (f"n:{asked.count}",)
+        assert len(e.options) == 3 and all(_num(o.id) >= 1 for o in e.options)
+
+
+@pytest.mark.parametrize(
+    ("game_id", "field"),
+    [
+        ("figura-sigue-1", "pattern"),
+        ("toca-figura-1", None),
+        ("donde-esta-1", "scene"),
+        ("mide-clips-1", "measure"),
+        ("pictograma-1", "picto"),
+    ],
+)
+def test_juegos_de_la_parte_3_traen_lo_que_se_dibuja(game_id: str, field: str | None) -> None:
+    body = _new(_client(_gateway()), game_id).json()
+    for key in ("pattern", "scene", "picto", "measure"):
+        assert (body[key] is not None) == (key == field)
+    if field == "scene":
+        assert [p["id"] for p in body["scene"]["places"]] == [o["id"] for o in body["options"]]
+    if game_id in ("figura-sigue-1", "toca-figura-1"):
+        assert all(o["kind"] == "figure" and o["id"].startswith("f:") for o in body["options"])
+
+
+def _fill_token(client: Any) -> tuple[str, Any]:
+    token = _new(client, "completa-camino-1").json()["token"]
+    return token, verify_game(KEY, token, PERFIL).exercise
+
+
+def test_completar_respuesta_correcta_e_incorrecta() -> None:
+    client = _client(_gateway())
+    token, e = _fill_token(client)
+    body = _answer(client, token, list(e.solution)).json()
+    assert body["correct"] is True
+    token, e = _fill_token(client)
+    gaps = [i for i, s in enumerate(e.slots) if s is None]
+    wrong = list(e.solution)
+    wrong[gaps[0]], wrong[gaps[1]] = wrong[gaps[1]], wrong[gaps[0]]  # huecos intercambiados
+    body = _answer(client, token, wrong).json()
+    assert body["correct"] is False
+    assert body["message"] == GAME_MESSAGES["fill_wrong"]
+    assert body["correct_answer"] == list(e.solution)
+
+
+def test_completar_el_ejercicio_trae_los_lugares_fijos_sin_la_solucion() -> None:
+    body = _new(_client(_gateway()), "completa-camino-1").json()
+    assert body["kind"] == "fill"
+    assert body["slots"].count(None) == 2
+    e = verify_game(KEY, body["token"], PERFIL).exercise
+    assert [s for s in body["slots"] if s is not None] == [s for s in e.slots if s is not None]
+
+
+@pytest.mark.parametrize("break_it", ["mover", "faltar", "repetir", "ajena", "fija-en-hueco"])
+def test_completar_rechaza_si_una_tarjeta_fija_se_mueve_o_falta(break_it: str) -> None:
+    client = _client(_gateway())
+    token, e = _fill_token(client)
+    answer = list(e.solution)
+    fixed_i = next(i for i, s in enumerate(e.slots) if s is not None)
+    gap_i = next(i for i, s in enumerate(e.slots) if s is None)
+    if break_it == "mover":
+        answer[fixed_i], answer[gap_i] = answer[gap_i], answer[fixed_i]
+    elif break_it == "faltar":
+        answer = answer[:-1]
+    elif break_it == "repetir":
+        other = next(i for i, s in enumerate(e.slots) if s is None and i != gap_i)
+        answer[other] = answer[gap_i]
+    elif break_it == "fija-en-hueco":
+        answer[gap_i] = e.slots[fixed_i]  # una fija también puesta en un hueco
+    else:
+        answer[gap_i] = "n:999"
+    assert _answer(client, token, answer).status_code == 422

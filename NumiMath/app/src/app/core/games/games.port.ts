@@ -3,11 +3,12 @@
  * y los corrige el servidor; la solución NUNCA llega antes de responder.
  */
 
-export type GameKind = 'choice' | 'order';
+export type GameKind = 'choice' | 'order' | 'fill';
 
 /**
- * Opción o tarjeta. `id` es estable y lleva su tipo (`n:7`, `e:manzana-3`, `s:mayor`); la app
- * muestra `label` y responde con ids. `kind` puede crecer (figuras SVG propias en la parte 3).
+ * Opción o tarjeta. `id` es estable y lleva su tipo (`n:7`, `e:manzana-3`, `s:mayor`,
+ * `f:cubo-rojo`); la app muestra `label` (en las figuras, la dibuja y `label` es su nombre y color)
+ * y responde con ids.
  */
 export interface GameOption {
   id: string;
@@ -34,6 +35,37 @@ export interface GameExercise {
   text: string;
   /** En el orden en que se muestran. */
   options: GameOption[];
+  /** Solo `fill` (completar): la secuencia con las tarjetas fijas y `null` en los huecos. */
+  slots?: (string | null)[] | null;
+  /** Parte 3: lo que se dibuja encima de las opciones (a lo más uno por juego). */
+  pattern?: GameOption[] | null;
+  scene?: GameScene | null;
+  picto?: GamePictoRow[] | null;
+  measure?: GameMeasure | null;
+}
+
+/** Escena en cruz: un objeto al centro y cada opción en una posición. */
+export interface GameScene {
+  center: string;
+  centerName: string;
+  places: { position: ScenePosition; id: string }[];
+}
+export type ScenePosition = 'arriba' | 'abajo' | 'izquierda' | 'derecha';
+
+export interface GamePictoRow {
+  glyph: string;
+  /** En plural: "manzanas". */
+  name: string;
+  count: number;
+}
+
+/** Un objeto medido con clips o pasos (`length` unidades). */
+export interface GameMeasure {
+  thing: string;
+  name: string;
+  unit: string;
+  glyph: string;
+  length: number;
 }
 
 export interface GameResult {

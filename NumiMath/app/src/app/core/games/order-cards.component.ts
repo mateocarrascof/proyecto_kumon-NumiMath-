@@ -39,7 +39,7 @@ const DRAG_THRESHOLD = 8;
   template: `
     <div class="order">
       <p class="help">{{ text.orderHelp }}</p>
-      <ol class="slots" [attr.aria-label]="text.orderSlots">
+      <ol class="slots" [attr.aria-label]="text.orderSlots" [class.many]="placed.length >= 5">
         @for (id of placed; track $index; let i = $index) {
           <li class="slot" [attr.data-slot]="i" [class.filled]="id !== null" [class.locked]="locked[i]">
             @if (id !== null) {
@@ -183,6 +183,21 @@ const DRAG_THRESHOLD = 8;
       }
       .slot .card {
         width: 100%;
+      }
+      /* 5 o 6 lugares (completar el camino): tarjetas compactas para que quepan en 360 px. */
+      .slots.many {
+        gap: 4px;
+      }
+      .slots.many .slot {
+        min-height: 60px;
+        border-width: 2px;
+      }
+      .slots.many .card {
+        min-width: 0;
+        min-height: 52px;
+        padding: 2px;
+        font-size: 1.15rem;
+        border-width: 2px;
       }
       .card:focus-visible,
       .ready:focus-visible {

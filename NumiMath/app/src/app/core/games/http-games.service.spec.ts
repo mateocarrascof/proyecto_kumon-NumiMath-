@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
-import { optionLabel, splitEmojiRun } from './games.messages';
+import { optionLabel, splitEmojiRun, spokenEquation } from './games.messages';
 import { GameError } from './games.port';
 import { HttpGamesService } from './http-games.service';
 
@@ -40,7 +40,44 @@ describe('HttpGamesService (CU-A21)', () => {
     http.expectOne(`${BASE}/games/ordena-1/exercise`).flush({
       token: 'tok', game_id: 'ordena-1', kind: 'order', text: 'Ordena', options: [{ id: 'n:3', kind: 'number', label: '3' }],
     });
-    expect(await ex).toMatchObject({ token: 'tok', gameId: 'ordena-1', kind: 'order' });
+    expect(await ex).toMatchObject({ token: 'tok', gameId: 'ordena-1', kind: 'order', slots: null });
+
+    const fill = service.exercise('p1', 'completa-camino-1');
+    await tick();
+    http.expectOne(`${BASE}/games/completa-camino-1/exercise`).flush({
+      token: 'tf', game_id: 'completa-camino-1', kind: 'fill', text: 'Completa',
+      options: [{ id: 'n:2', kind: 'number', label: '2' }], slots: ['n:2', null],
+    });
+    expect(await fill).toMatchObject({ kind: 'fill', slots: ['n:2', null] });
+
+    // Parte 3: lo que se dibuja encima de las opciones llega con nombres de la app.
+    const scene = service.exercise('p1', 'donde-esta-1');
+    await tick();
+    http.expectOne(`${BASE}/games/donde-esta-1/exercise`).flush({
+      token: 'ts', game_id: 'donde-esta-1', kind: 'choice', text: 'Toca',
+      options: [{ id: 'e:pelota-1', kind: 'emoji', label: '⚽' }], slots: null,
+      pattern: null, picto: null, measure: null,
+      scene: { center: '📦', center_name: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },
+    });
+    expect(await scene).toMatchObject({
+      pattern: null, picto: null, measure: null,
+      scene: { center: '📦', centerName: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },
+    });
+
+    const measure = service.exercise('p1', 'mide-clips-1');
+    await tick();
+    http.expectOne(`${BASE}/games/mide-clips-1/exercise`).flush({
+      token: 'tm', game_id: 'mide-clips-1', kind: 'choice', text: '¿Cuántos?', options: [],
+      measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 4 },
+      picto: [{ glyph: '🍎', name: 'manzanas', count: 3 }],
+      pattern: [{ id: 'f:cubo-rojo', kind: 'figure', label: 'cubo rojo' }],
+    });
+    expect(await measure).toMatchObject({
+      scene: null,
+      measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 4 },
+      picto: [{ glyph: '🍎', name: 'manzanas', count: 3 }],
+      pattern: [{ id: 'f:cubo-rojo', kind: 'figure', label: 'cubo rojo' }],
+    });
 
     const ans = service.answer('p1', 'tok', ['n:3']);
     await tick();
@@ -99,6 +136,22 @@ describe('Textos accesibles de los juegos', () => {
     expect(optionLabel({ id: 'e:manzana-3', kind: 'emoji', label: '🍎🍎🍎' })).toBe('3 manzanas');
     expect(optionLabel({ id: 'e:flor-1', kind: 'emoji', label: '🌸' })).toBe('1 flor');
     expect(optionLabel({ id: 's:mayor', kind: 'symbol', label: '>' })).toBe('mayor que');
+  });
+
+  it('el "?" suelto de "5 = 3 + ?" se dice, concordando con el objeto', () => {
+    expect(spokenEquation('5 = 3 + ? ', '🍎🍎🍎')).toBe('5 es igual a 3 más ¿cuántas manzanas?');
+    expect(spokenEquation('9 = 4 + ? ', '⚽⚽⚽⚽')).toBe('9 es igual a 4 más ¿cuántas pelotas?');
+    expect(spokenEquation('7 − ? = 2 ', '')).toBe('7 menos ¿cuántos? es igual a 2');
+    expect(spokenEquation('¿Cuál es mayor?', '')).toBeNull(); // un "?" pegado a la palabra se lee
+  });
+
+  it('dos grupos de emoji se resumen por separado (no se dice el total, que sería la respuesta)', () => {
+    expect(spokenEquation('Junta las flores. ¿Cuántas hay? ', '🌸🌸🌸 🌸🌸')).toBeNull(); // sin hueco
+    expect(splitEmojiRun('Junta las flores. ¿Cuántas hay? 🌸🌸🌸 🌸🌸')).toEqual({
+      before: 'Junta las flores. ¿Cuántas hay? ',
+      glyphs: '🌸🌸🌸 🌸🌸',
+      spoken: '3 flores y 2 flores',
+    });
   });
 
   it('separa los emoji repetidos del enunciado y los resume', () => {

@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular/lazy';
 
 import { CoreModule } from '../core/core.module';
 import { ChoiceOptionsComponent } from '../core/games/choice-options.component';
+import { GameVisualComponent } from '../core/games/game-visual.component';
 import { OrderCardsComponent } from '../core/games/order-cards.component';
 import { GamesPage } from './games.page';
 
@@ -15,6 +16,7 @@ import { GamesPage } from './games.page';
     CoreModule,
     ChoiceOptionsComponent,
     OrderCardsComponent,
+    GameVisualComponent,
     RouterModule.forChild([{ path: '', component: GamesPage }]),
   ],
   declarations: [GamesPage],

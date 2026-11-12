@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
-import { GAME_TEXT, optionLabel } from './games.messages';
-import { GameOption } from './games.port';
+import { FigureComponent } from './figure.component';
+import { GAME_TEXT, objectName, optionLabel } from './games.messages';
+import { GameOption, GameScene } from './games.port';
 
 /**
  * Opciones táctiles (CU-A21): de 2 a 4 botones grandes con un número, un emoji o un símbolo (y en la
@@ -14,11 +15,16 @@ import { GameOption } from './games.port';
 @Component({
   selector: 'app-choice-options',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FigureComponent],
   template: `
-    <div class="options" [attr.aria-label]="label" role="group">
+    <div class="options" [class.scene]="!!scene" [attr.aria-label]="label" role="group">
+      @if (scene) {
+        <span class="center" aria-hidden="true" data-testid="scene-center">{{ scene.center }}</span>
+      }
       @for (o of options; track o.id) {
         <button
           type="button"
+          [style.grid-area]="placeOf(o.id)"
           class="option"
           [class.chosen]="chosen === o.id"
           [class.right]="isRight(o.id)"
@@ -30,7 +36,11 @@ import { GameOption } from './games.port';
           (click)="choose(o.id)"
           [attr.data-testid]="'option-' + o.id"
         >
-          <span class="value" aria-hidden="true">{{ o.label }}</span>
+          @if (o.kind === 'figure') {
+            <app-figure class="value" [figureId]="o.id"></app-figure>
+          } @else {
+            <span class="value" aria-hidden="true">{{ o.label }}</span>
+          }
           @if (isRight(o.id)) {
             <span class="badge" aria-hidden="true">✓ {{ text.correctBadge }}</span>
           } @else if (isWrong(o.id)) {
@@ -78,6 +88,26 @@ import { GameOption } from './games.port';
         line-height: 1.1;
         overflow-wrap: anywhere;
       }
+      /* Escena en cruz (orientación): la caja al centro y un objeto en cada lado. */
+      .options.scene {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-areas:
+          '. arriba .'
+          'izquierda centro derecha'
+          '. abajo .';
+        gap: 8px;
+      }
+      .center {
+        grid-area: centro;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+      }
+      app-figure.value {
+        width: 64px;
+        height: 64px;
+      }
       .option[data-kind='emoji'] .value {
         font-size: 1.6rem;
         letter-spacing: 2px;
@@ -124,6 +154,8 @@ export class ChoiceOptionsComponent {
   @Input() chosen: string | null = null;
   /** Después de corregir: ids correctos (antes, null). */
   @Input() correct: string[] | null = null;
+  /** Orientación (parte 3): cada opción va en su lugar de la cruz y su etiqueta dice dónde está. */
+  @Input() scene: GameScene | null = null;
   @Output() readonly pick = new EventEmitter<string>();
 
   protected readonly text = GAME_TEXT;
@@ -136,8 +168,15 @@ export class ChoiceOptionsComponent {
     return this.correct !== null && this.chosen === id && !this.correct.includes(id);
   }
 
+  protected placeOf(id: string): string | null {
+    return this.scene?.places.find((p) => p.id === id)?.position ?? null;
+  }
+
   protected ariaFor(option: GameOption): string {
-    const base = optionLabel(option);
+    const place = this.placeOf(option.id);
+    const base = place
+      ? `${objectName(option)}, ${GAME_TEXT.scenePlace[place] ?? place}`
+      : optionLabel(option);
     if (this.isRight(option.id)) return `${base}. ${GAME_TEXT.correctBadge}`;
     if (this.isWrong(option.id)) return `${base}. ${GAME_TEXT.chosenBadge}`;
     return base;

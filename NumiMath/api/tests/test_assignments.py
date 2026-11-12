@@ -237,6 +237,82 @@ def test_se_borra_una_pendiente_pero_no_una_respondida() -> None:
     assert client.delete(f"{BASE}/{second}", headers=_h()).status_code == 404
 
 
+# ---- editar (T8) -------------------------------------------------------------------------
+
+
+def _patch(
+    client: TestClient, aid: str, headers: dict[str, str], text: str = "5 + 5 = ?", answer: int = 10
+) -> Any:
+    return client.patch(f"{BASE}/{aid}", json={"text": text, "answer": answer}, headers=headers)
+
+
+def test_el_tutor_edita_una_pendiente_y_el_nino_ve_el_cambio_sin_la_respuesta() -> None:
+    client = _client(_gateway())
+    _create(client)
+    aid = _pending_id(client)
+    assert _patch(client, aid, _h()).status_code == 204
+    row = client.get(f"{BASE}/all", headers=_h()).json()[0]
+    assert (row["text"], row["answer"]) == ("5 + 5 = ?", 10)
+    assert client.get(BASE, headers=_kid()).json()["pending"][0] == {"id": aid, "text": "5 + 5 = ?"}
+
+
+def test_editar_pasa_por_el_mismo_filtro_que_crear() -> None:
+    client = _client(_gateway())
+    _create(client)
+    aid = _pending_id(client)
+    r = _patch(client, aid, _h(), text="Mi teléfono es +56 9 1234 5678, ¿cuánto es 2 + 2?")
+    assert r.status_code == 422 and r.json()["error"]["code"] == "assignment_rejected"
+    assert client.get(f"{BASE}/all", headers=_h()).json()[0]["text"] == TEXTO  # no cambió
+
+
+def test_editar_una_respondida_es_409_y_no_cambia_nada() -> None:
+    client = _client(_gateway())
+    _create(client)
+    aid = _pending_id(client)
+    client.post(f"{BASE}/{aid}/answer", json={"answer": 7}, headers=_h())
+    r = _patch(client, aid, _h())
+    assert r.status_code == 409 and r.json()["error"]["code"] == "already_answered"
+    assert client.get(f"{BASE}/all", headers=_h()).json()[0]["text"] == TEXTO
+
+
+def test_otro_tutor_no_puede_editar_una_tarea_ajena() -> None:
+    client = _client(_gateway())
+    _create(client)
+    aid = _pending_id(client)
+    # Con su propio perfil y el id ajeno, y con el perfil ajeno: siempre 404 y nada cambia.
+    assert _patch(client, aid, _h(OTRO_TUTOR)).status_code in (403, 404)
+    otro = client.patch(
+        f"/v1/students/{OTRO_PERFIL}/assignments/{aid}",
+        json={"text": "9 + 9 = ?", "answer": 18},
+        headers=_h(OTRO_TUTOR),
+    )
+    assert otro.status_code == 404
+    assert client.get(f"{BASE}/all", headers=_h()).json()[0]["text"] == TEXTO
+
+
+def test_editar_exige_el_pin_recien_verificado() -> None:
+    client = _client(_gateway())
+    _create(client)
+    aid = _pending_id(client)
+    assert _patch(client, aid, _h(parental=False)).status_code == 401
+    old = {
+        "Authorization": f"Bearer {_jwt()}",
+        "X-Parental-Token": issue_parental_token(SIGN.encode(), TUTOR, now=time.time() - 600),
+    }
+    r = _patch(client, aid, old)
+    assert r.status_code == 401 and r.json()["error"]["code"] == "parental_required"
+    assert client.get(f"{BASE}/all", headers=_h()).json()[0]["text"] == TEXTO
+
+
+def test_el_navegador_puede_enviar_patch_por_cors() -> None:
+    client = _client(_gateway())
+    r = client.options(
+        BASE + "/x",
+        headers={"Origin": "http://localhost:8100", "Access-Control-Request-Method": "PATCH"},
+    )
+    assert "PATCH" in r.headers.get("access-control-allow-methods", "")
+
+
 # ---- fallos de la base ----------------------------------------------------------------------
 
 

@@ -5,7 +5,7 @@ import { AuthPort } from '../core/auth/auth.port';
 import { TeacherPort, TeacherProfile } from '../core/teacher/teacher.port';
 
 /** Lo que vendrá: se muestra desactivado. El docente no ve a ningún niño sin un vínculo activo. */
-export const UPCOMING = ['Evolución del progreso'];
+export const UPCOMING: string[] = [];
 
 /** Inicio del docente: su código de vínculo (D3), el acceso a sus alumnos (D4, con sus hojas, D8) y lo que vendrá. */
 @Component({

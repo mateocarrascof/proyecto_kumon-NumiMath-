@@ -42,15 +42,17 @@
           Solo verás a los niños cuyos tutores te hayan vinculado. Las hojas de cálculo se abren desde
           cada alumno y solo muestran lo guardado desde el vínculo.
         </p>
-        <h3>Lo que viene</h3>
-        <ion-list>
-          @for (item of upcoming; track item) {
-            <ion-item [disabled]="true">
-              <ion-label>{{ item }}</ion-label>
-              <ion-note slot="end">Próximamente</ion-note>
-            </ion-item>
-          }
-        </ion-list>
+        @if (upcoming.length) {
+          <h3>Lo que viene</h3>
+          <ion-list>
+            @for (item of upcoming; track item) {
+              <ion-item [disabled]="true">
+                <ion-label>{{ item }}</ion-label>
+                <ion-note slot="end">Próximamente</ion-note>
+              </ion-item>
+            }
+          </ion-list>
+        }
       </section>
     }
   </main>

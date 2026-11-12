@@ -118,14 +118,12 @@ describe('TeacherHomePage (D3)', () => {
     expect(el.textContent).toContain('no cambia');
   });
 
-  it('solo muestra el menú de lo que vendrá, desactivado, y ningún dato de niños', async () => {
+  it('ya no queda nada "Próximamente" (la evolución está activa) y no hay datos de niños', async () => {
     const { fixture } = await setup(ok);
     const el = fixture.nativeElement as HTMLElement;
-    for (const item of UPCOMING) expect(el.textContent).toContain(item);
-    const items = Array.from(el.querySelectorAll('ion-item')) as unknown as { disabled: boolean }[];
-    expect(items.length).toBe(UPCOMING.length);
-    expect(items.every((item) => item.disabled === true)).toBe(true);
-    expect(el.textContent).toContain('Próximamente');
+    expect(UPCOMING).toEqual([]);
+    expect(el.textContent).not.toContain('Próximamente');
+    expect(el.textContent).not.toContain('Lo que viene');
   });
 
   it('copia el código al portapapeles', async () => {

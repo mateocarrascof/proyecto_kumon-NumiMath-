@@ -56,6 +56,17 @@ Los cinco revisores del CLAUDE.md corrieron una vez; sus hallazgos críticos y a
 - **Administradores degradados:** `admin_list_teachers` y las demás rutas del administrador solo confían en el rol del token
   (vence en minutos); borrar un docente ya lo comprueba en la base.
 
+## Pendientes de D6, T8 y T22
+- **Descarga en el dispositivo nativo (T22):** el CSV se ofrece con un `Blob` y un enlace de descarga, que funciona en el
+  navegador. En la app nativa (Capacitor) puede requerir los plugins Filesystem y Share, que **no se agregaron sin
+  preguntar**; decidir y probar en un equipo real.
+- **T22 solo CSV:** el PDF que menciona la ficha no se hizo. Hora UTC (no hay base de zonas horarias en el servidor).
+- **T22, portabilidad parcial (privacidad):** el CSV solo cubre la práctica; deja fuera diagnóstico, juegos, tareas, hojas,
+  consentimientos y el perfil (apodo y curso), y corta en las 5 000 filas más recientes (con aviso). Formato, plazo y alcance
+  siguen abiertos con Legal (`pendientes-legales.md`, 20).
+- **T8:** editar pide el PIN de nuevo (reciente) aunque el panel ya esté abierto con PIN.
+- **D6:** umbral de "pocos ejercicios" = 5 en total; ajustar con la experiencia de uso.
+
 ## Para más adelante
 - **PRIORIDAD ALTA: registro de lecturas del docente** (EIPD R38). Hacerlo si sobra tiempo después
   de T8, T22 y D6. Tabla de solo anexar con docente, perfil, recurso (D4, D5, D7) y **día**, sin contenido;

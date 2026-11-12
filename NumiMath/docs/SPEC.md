@@ -329,7 +329,9 @@ con la misma pantalla de práctica (solo números, papel para calcular, confeti)
 | Responder otra vez | 409 (`already_answered`) |
 | Borrar una pendiente | Se borra |
 | Borrar una respondida | No se puede (404) |
-| Editar | No existe: se borra y se crea otra |
+| Editar una pendiente (T8, `PATCH`) | Mismo filtro que al crear, **PIN recién verificado** (2 min); 204 |
+| Editar una respondida | 409 (`already_answered`) |
+| Editar la tarea de otro tutor | 404 |
 
 ### Seguridad y privacidad
 - El texto pasa por `check_input` (datos personales, groserías, temas inseguros, intentos de
@@ -369,6 +371,14 @@ Tono para adultos, sin culpar al niño ni compararlo con otros.
 SVG propio (`app/src/app/core/charts/`), sin librerías: una barra por semana (alto = intentos,
 tramo de aciertos destacado) y el % encima. Accesible: `role="img"`, `aria-label` con resumen y una
 tabla oculta para lectores de pantalla. Colores del tema (claro/oscuro).
+
+## Exportar historial y estadísticas (T22)
+`GET /v1/students/{id}/export.csv` (zona del tutor, con PIN). CSV con las estadísticas por habilidad y el
+historial (`fecha_hora_utc`, habilidad, resultado, segundos); **nunca enunciados ni respuestas** y las tareas del
+tutor salen como "Tarea del tutor". Toda celda de texto que empiece con `=`, `+`, `-`, `@`, tab o CR (también tras espacios o tabs) se antecede con
+`'` (inyección de fórmulas). Se arma en memoria y se devuelve como descarga (`no-store`): **no se guarda en el
+servidor**. Hasta 5 000 intentos (los más recientes); si hay más, una línea final lo avisa. Sin datos: 404 `no_data` y la app lo informa. La app pide el archivo por HTTP (lleva la
+sesión y el PIN en cabeceras) y lo ofrece con un `Blob`; solo CSV (el PDF de la ficha no se hace).
 
 ## Tiempo por ejercicio
 
@@ -486,6 +496,11 @@ el mismo 404**, exista o no un niño con ese id. Las rutas del docente solo acep
 - **T5 Historial del hijo** (tutor, `GET /v1/students/{id}/history`, zona del tutor con PIN): los intentos de
   práctica de su hijo (habilidad, resultado, nivel y **hora**), paginados; lista vacía si no hay. Sección
   "Historial" del panel del tutor.
+
+- **D6 Evolución** (docente, `GET /v1/teacher/students/{id}/evolution`): ejercicios y aciertos por semana de las
+  últimas 8 semanas (hora de Chile), **solo práctica desde `accepted_at`** (sin diagnóstico ni juegos), solo
+  totales (sin duración, hora ni textos). Mismo `teacher_can_view` y 404 genérico. Gráfico `app-weekly-chart`
+  con tabla accesible; con menos de 5 ejercicios: "Aún hay pocos ejercicios para sacar conclusiones".
 
 ### Vincular y quitar docentes (T25, con T24 integrado, y T26)
 Hecho en el panel del tutor, sección "Docentes de <apodo>" del perfil seleccionado. **Cada hijo se

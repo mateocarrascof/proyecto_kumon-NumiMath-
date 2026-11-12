@@ -151,9 +151,45 @@
                   @case ('wrong') { <span class="badge wrong">✗ Incorrecta</span> }
                 }
                 @if (t.status === 'pending') {
+                  <ion-button size="small" fill="clear" (click)="startEdit(t)" data-testid="edit-task">Editar</ion-button>
                   <ion-button size="small" fill="clear" color="danger" (click)="remove(t)">Borrar</ion-button>
                 }
               </div>
+              @if (editing?.id === t.id) {
+                <div class="confirm" role="group" aria-label="Editar la tarea" data-testid="edit-form">
+                  <ion-textarea
+                    label="Enunciado"
+                    labelPlacement="stacked"
+                    [maxlength]="textMax"
+                    [value]="editText"
+                    (ionInput)="editText = ($any($event.target).value ?? '').slice(0, textMax)"
+                  ></ion-textarea>
+                  <ion-input
+                    label="Respuesta (número entero)"
+                    labelPlacement="stacked"
+                    inputmode="numeric"
+                    [value]="editAnswer"
+                    (ionInput)="editAnswer = ($any($event.target).value ?? '').replace(/\D/g, '').slice(0, 7)"
+                  ></ion-input>
+                  <ion-input
+                    type="password"
+                    inputmode="numeric"
+                    label="PIN"
+                    labelPlacement="stacked"
+                    [maxlength]="4"
+                    [value]="editPin"
+                    (ionInput)="editPin = ($any($event.target).value ?? '').replace(/\D/g, '').slice(0, 4)"
+                    data-testid="edit-pin"
+                  ></ion-input>
+                  @if (editError) {
+                    <p class="error" role="alert" data-testid="edit-error">{{ editError }}</p>
+                  }
+                  <ion-button [disabled]="!canSaveEdit" (click)="saveEdit()" data-testid="save-edit">
+                    {{ editBusy ? 'Guardando…' : 'Guardar cambios' }}
+                  </ion-button>
+                  <ion-button fill="outline" (click)="cancelEdit()" data-testid="cancel-edit">Cancelar</ion-button>
+                </div>
+              }
             </li>
           }
         </ul>
@@ -164,6 +200,8 @@
 
     <!-- ===== Docentes del niño seleccionado (vincular y quitar, con PIN) ===== -->
     <app-student-history [studentId]="studentId" [nickname]="selectedNickname"></app-student-history>
+
+    <app-student-export [studentId]="studentId" [nickname]="selectedNickname"></app-student-export>
 
     <app-student-sheets [studentId]="studentId" [nickname]="selectedNickname"></app-student-sheets>
 

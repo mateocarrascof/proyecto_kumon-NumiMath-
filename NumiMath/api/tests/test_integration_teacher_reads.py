@@ -136,7 +136,7 @@ def test_lecturas_del_docente_contra_la_base_real(base: str) -> None:
 
             # Sin vínculo: no ve nada y la respuesta es la misma que para un niño inexistente.
             assert api.get("/v1/teacher/students", headers=teacher).json() == {"students": []}
-            for kind in ("progress", "history"):
+            for kind in ("progress", "history", "evolution"):
                 unlinked = api.get(f"/v1/teacher/students/{pia}/{kind}", headers=teacher)
                 absent = api.get(f"/v1/teacher/students/{missing}/{kind}", headers=teacher)
                 assert unlinked.status_code == absent.status_code == 404
@@ -185,6 +185,12 @@ def test_lecturas_del_docente_contra_la_base_real(base: str) -> None:
                 == 200
             )
 
+            # D6: 8 semanas con solo lo posterior al vínculo (2 intentos), solo totales.
+            evolution = api.get(f"/v1/teacher/students/{pia}/evolution", headers=teacher).json()
+            assert len(evolution["weeks"]) == 8
+            assert sum(w["total"] for w in evolution["weeks"]) == 2
+            assert all(set(w) == {"start", "total", "correct"} for w in evolution["weeks"])
+
             # Se quita el vínculo: el docente deja de ver todo.
             removed = rest.post(
                 "/rpc/remove_teacher_link",
@@ -192,7 +198,7 @@ def test_lecturas_del_docente_contra_la_base_real(base: str) -> None:
             )
             assert removed.json() == "ok"
             assert api.get("/v1/teacher/students", headers=teacher).json() == {"students": []}
-            for kind in ("progress", "history"):
+            for kind in ("progress", "history", "evolution"):
                 assert (
                     api.get(f"/v1/teacher/students/{pia}/{kind}", headers=teacher).status_code
                     == 404

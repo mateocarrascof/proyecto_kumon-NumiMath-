@@ -21,7 +21,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db.gateway import Gateway, GatewayError
-from app.deps import AuthorizedStudentDep, ParentalStudentDep, parental_key
+from app.deps import AuthorizedStudentDep, FreshParentalStudentDep, ParentalStudentDep, parental_key
 from app.errors import ApiError
 from app.exercises.tickets import issue_ticket, ticket_duration
 from app.logging import get_logger, log_event
@@ -185,6 +185,35 @@ async def create(
     if outcome != "ok":
         raise ApiError(403, "forbidden")
     return {"status": "ok"}
+
+
+@router.patch("/{student_id}/assignments/{assignment_id}", status_code=204)
+async def update(
+    assignment_id: uuid.UUID,
+    body: AssignmentCreate,
+    student: FreshParentalStudentDep,
+    request: Request,
+) -> Response:
+    """T8: corrige el enunciado o la respuesta de una tarea pendiente. Mismo filtro que al crear y
+    PIN recién verificado. 409 si ya fue respondida; 404 si no es de este tutor y perfil."""
+    check = check_tutor_text(body.text)
+    if not check.allowed or not check.text:
+        reason: Reason = check.reason or "off_topic"
+        log_event(logger, "assignment.rejected", code=reason)
+        raise ApiError(
+            422, "assignment_rejected", message=_REJECT[reason], extra={"reason": reason}
+        )
+    try:
+        outcome = await _gateway(request).update_assignment(
+            student.tutor_id, student.student_id, assignment_id, check.text, body.answer
+        )
+    except GatewayError as exc:
+        raise _unavailable("update", exc) from None
+    if outcome == "answered":
+        raise ApiError(409, "already_answered", message=_ALREADY)
+    if outcome != "ok":
+        raise ApiError(404, "not_found")
+    return Response(status_code=204)
 
 
 @router.delete("/{student_id}/assignments/{assignment_id}", status_code=204)

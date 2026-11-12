@@ -366,7 +366,7 @@ export class OrderCardsComponent implements OnChanges {
     this.drag = null;
     if (!d.moved) return; // fue un toque: lo maneja el click
     this.suppressClick = true;
-    const target = this.targetAt(event.clientX, event.clientY);
+    const target = this.targetAt(event.clientX, event.clientY, d.el);
     if (target === null) {
       // Soltada fuera de los lugares: vuelve al montón si estaba puesta.
       const from = this.placed.indexOf(d.id);
@@ -404,11 +404,18 @@ export class OrderCardsComponent implements OnChanges {
     this.ready.emit(this.placed.filter((id): id is string => id !== null));
   }
 
-  private targetAt(x: number, y: number): number | null {
-    const el = document.elementFromPoint?.(x, y) as HTMLElement | null;
-    const slot = el?.closest('[data-slot]');
-    if (!slot || !this.host.nativeElement.contains(slot)) return null;
-    return Number(slot.getAttribute('data-slot'));
+  /**
+   * Lugar bajo el punto donde se soltó. Se miran TODAS las capas (`elementsFromPoint`): la de arriba
+   * es la misma tarjeta arrastrada, que va encima del lugar.
+   */
+  private targetAt(x: number, y: number, dragged: HTMLElement): number | null {
+    const stack = (document.elementsFromPoint?.(x, y) ?? []) as HTMLElement[];
+    for (const el of stack) {
+      if (el === dragged || dragged.contains(el)) continue;
+      const slot = el.closest('[data-slot]');
+      if (slot && this.host.nativeElement.contains(slot)) return Number(slot.getAttribute('data-slot'));
+    }
+    return null;
   }
 
   private resetDragStyle(): void {

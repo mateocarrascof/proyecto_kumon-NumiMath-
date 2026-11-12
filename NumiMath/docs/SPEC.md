@@ -665,3 +665,87 @@ En "Mi progreso", el niño ve un gráfico de barras de las **últimas 8 semanas*
 - `api/tests/test_integration_progress_evolution.py`: cuenta real con diagnóstico y 2 prácticas; la evolución cuenta solo las 2.
 - `progress.page.spec.ts`: barras, tabla y ánimo; mensaje con 2 ejercicios; umbral de 5; sin comparaciones.
 - `http-progress.service.spec.ts`.
+
+## Usar la aplicación sin conexión (CU-A12)
+
+Ficha CU-A12 de los Anexos ("Usar aplicación sin conexión", RF-18, RNF-06; la extiende CU-A13).
+Diseño y decisiones: **ADR 0002** (opción A). Decidido e implementado el 2026-11-12. Migración:
+`supabase/migrations/20261112120000_offline_batch_limit.sql`. CU-A13 (sincronizar) es otro encargo:
+aquí los intentos solo quedan en una cola local.
+
+### Qué es
+Con conexión, al abrir la práctica de un perfil, la app descarga sola un **lote de ejercicios
+firmados**. Sin internet, el niño practica con ese lote: la app corrige con la solución guardada y
+**guarda cada intento en el dispositivo antes de mostrar el resultado**.
+
+### Reglas
+| Situación | Resultado |
+|---|---|
+| Lote | Habilidades del **curso** del perfil (sin repaso); por habilidad, 10 ejercicios en el nivel actual y 10 en cada nivel vecino. Unos 240 a 300 ejercicios y 100 a 125 kB |
+| Vigencia | 7 días para responder; 14 días más de margen para sincronizar (CU-A13) |
+| Descarga | Sola, al abrir la práctica con conexión, si no hay lote, quedan menos de la mitad o vence en menos de 2 días. Máximo 5 por perfil y día (429). El lote nuevo reemplaza al anterior |
+| Sin conexión | Se detecta por `navigator.onLine` **o** porque una petición falló por red. Aviso: "Estás sin internet. Puedes practicar con los ejercicios guardados." |
+| Disponible sin conexión | Inicio, "¿Quién practica?" (copia local de apodo y curso) y la práctica de las habilidades del lote. Sin tareas del tutor, diagnóstico, repaso, racha, progreso ni explicación de Numi |
+| Corrección | Provisional, con la solución en hash. Correcto: "¡Correcto!" (y la forma simple de una fracción). Incorrecto: **solo "Casi."**, porque el dispositivo no conoce la solución |
+| Nivel y bloque | Se calculan en el dispositivo con la misma regla de bloques de 10, solo para mostrar estrellas y "¡Subiste de nivel!". El nivel real lo recalcula el servidor al sincronizar (CU-A13) |
+| Lote agotado (excepción de la ficha) | La baldosa dice "Ya hiciste los ejercicios guardados" y al tocarla: "Ya hiciste todos los ejercicios guardados de este tema. Para traer más hace falta conectarse a internet." |
+| Sin lote | "Para practicar sin internet, primero hay que conectarse una vez. Pide ayuda a un adulto." |
+| No se pudo guardar el intento | No se muestra resultado: "No pude guardar tu respuesta. Intenta otra vez." |
+| Vuelve la red | Al volver a la lista de temas, si el navegador cree que hay red, se intenta en línea; si responde, sale del modo sin conexión |
+
+### Seguridad
+- Token del lote con **dominio propio** (`offline-token|`, versión 5): no sirve para responder en
+  línea ni en el diagnóstico, y los de práctica no sirven como lote. Va ligado al perfil y no lleva
+  la respuesta.
+- La solución viaja como `SHA-256(sal | forma canónica)`: no se lee a simple vista, pero **no es
+  una barrera** (las respuestas son números chicos). Lo que cuenta lo corrige el servidor desde el
+  token al sincronizar; el "acertó" del dispositivo se ignora. Riesgo aceptado (ADR 0002).
+- `POST /v1/students/{id}/offline-batch`: mismas comprobaciones que la práctica
+  (`AuthorizedStudentDep`). No usa IA. Si no puede leer el progreso, no entrega lote (503).
+- Guards sin red: solo las rutas con `data: { offline: true }` y solo si hay copia local de
+  perfiles. El servidor sigue sin caché (ADR 0001) y vuelve a comprobar todo al sincronizar.
+- El service worker guarda solo los archivos de la app (sin `dataGroups`): nunca respuestas de la
+  API ni de Supabase.
+
+### Datos en el dispositivo
+IndexedDB `numimath-offline`, sin cifrar: `profiles` (apodo, curso, en pausa), `batches` (lote) y
+`queue` (intentos con la respuesta escrita del niño). Escritura con `durability: 'strict'`; el
+resultado se muestra recién cuando la transacción terminó. Se borra todo al cerrar sesión o revocar
+el consentimiento; lo de un perfil, al borrarlo o si el servidor responde 403. Ver
+`docs/privacy/inventario-datos.md`.
+
+### Pendientes (no implementados; revisar)
+1. **Revocación sin red (decisión 8 del ADR):** un dispositivo sin red sigue practicando con su lote
+   hasta conectarse (máx. 7 días). **Revisión pendiente de Adolfo y `privacy-cl-auditor`.**
+2. **"Casi." sin la solución:** para mostrar "La respuesta era X" habría que guardar la solución de
+   forma reversible. Decidir.
+3. **Racha sin conexión:** no se muestra (el ADR decía "estimada"). Decidir.
+4. **Tareas y "Mi progreso"** se ocultan sin red en vez de decir "Esto necesita internet". Confirmar.
+5. **Manifiesto PWA:** falta, porque se necesitan íconos de 192 y 512 px (recurso gráfico nuevo).
+   Sin él no se puede "instalar" la app y Safari/iOS puede borrar los datos de un sitio tras 7 días
+   sin uso.
+6. **Límite de descargas solo por perfil** (comentario inline en la migración): ¿hace falta un tope
+   por tutor?
+7. **Antes de CU-A13:** renovar el lote con intentos en cola muestra el nivel del servidor (sin esos
+   intentos). Cerrar sesión con intentos sin enviar los pierde (el aviso es parte de CU-A13).
+8. **Copia de perfiles cuando la base no responde:** si `list()` falla por cualquier motivo (no solo
+   red) y hay copia local, se muestra la copia con el aviso de sin conexión.
+9. **Presupuestos de estilos:** `practice.page.scss` (7,95 de 8 kB) y `profiles.page.scss` siguen
+   sobre el aviso de 4 kB (ya lo estaban). Los estilos nuevos van en `app-offline-notice` y en las
+   baldosas.
+10. **Revisores antes del PR:** `code-reviewer`, `security-reviewer`, `scalability-reviewer`,
+    `privacy-cl-auditor` (datos nuevos en el dispositivo) y `child-safety-ai-reviewer` (UI infantil).
+    No se corrieron en este encargo.
+
+### Pruebas
+- Servidor: `api/tests/test_offline_batch.py` (contenido, 10 por nivel, vigencia, hash = solución
+  regenerada, filtro RNF-10 en los 4 cursos, dominio propio, manipulación del token, acceso, límite
+  diario, logs sin datos) y `test_supabase_gateway.py` (`consume_offline_batch`).
+- Base: `supabase/tests/database/offline_batch_limit.test.sql` (permisos, límite, perfil ajeno, RLS).
+- App: `offline-grading.spec.ts` (hash igual al de Python, fracciones, regla de bloques con los casos
+  de `test_levels.py`), `offline-practice.service.spec.ts` (lote agotado, guardado antes de mostrar,
+  fallo al guardar, manipulación del lote local, renovación, 403, purga), `http-offline-batch.service.spec.ts`,
+  `practice.page.spec.ts` y `profiles.page.spec.ts` (modo sin conexión simulado), y guards.
+- Manual (2026-11-12, Chromium con Playwright, compilación con service worker): sin red la app abre,
+  muestra el aviso y las habilidades del lote; tras responder y **cerrar la pestaña a la fuerza**, el
+  intento sigue en la cola de IndexedDB (RNF-06).

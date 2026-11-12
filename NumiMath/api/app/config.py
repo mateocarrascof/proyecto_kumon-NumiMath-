@@ -65,6 +65,16 @@ class Settings(BaseSettings):
     # Vida corta del ejercicio firmado: tiempo máximo para responderlo.
     exercise_token_ttl_seconds: int = Field(600, ge=30, le=3600)
 
+    # Modo sin conexión (CU-A12, ADR 0002). El lote se responde sin internet, así que sus tokens
+    # viven días: 7 por defecto. El tope de 3600 s de arriba sigue valiendo para la práctica en
+    # línea (son tokens de otro dominio).
+    offline_token_ttl_seconds: int = Field(7 * 24 * 3600, ge=3600, le=7 * 24 * 3600)
+    # Ejercicios por nivel en el lote (nivel actual y vecinos): 10 = un bloque completo.
+    offline_batch_per_level: int = Field(10, ge=1, le=10)
+    # Descargas del lote por perfil y día (hora de Chile): evita acumular lotes y cargar al
+    # servidor, que genera cientos de ejercicios por descarga.
+    offline_batch_daily_limit: int = Field(5, ge=1, le=20)
+
     hmac_keys: SecretStr = SecretStr("")
     hmac_active_version: int = Field(1, ge=1)
 

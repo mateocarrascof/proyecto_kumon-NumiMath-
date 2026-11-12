@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 
 import { AuthPort } from '../auth/auth.port';
 import { SUPABASE_CLIENT } from '../auth/supabase.client';
+import { OfflineStore } from '../offline/offline-store.port';
 import { ParentalSession } from '../parental/parental-session';
 import {
   CreateFailure,
@@ -46,6 +47,7 @@ export class SupabaseProfilesService extends ProfilesPort {
   private readonly auth = inject(AuthPort);
   private readonly http = inject(HttpClient);
   private readonly parental = inject(ParentalSession);
+  private readonly offlineStore = inject(OfflineStore);
 
   async list(): Promise<Profile[]> {
     const { data, error } = await this.client
@@ -92,6 +94,8 @@ export class SupabaseProfilesService extends ProfilesPort {
           headers: { Authorization: `Bearer ${token}`, ...this.parental.header() },
         }),
       );
+      // CU-A12: el lote, la cola y la copia del perfil en este dispositivo también se borran.
+      await this.offlineStore.forgetStudent(id).catch(() => undefined);
       return 'ok';
     } catch (error) {
       if (error instanceof HttpErrorResponse) {

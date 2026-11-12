@@ -30,16 +30,22 @@ const routes: Routes = [
   {
     path: 'home',
     canActivate: [authGuard, consentGuard],
+    // CU-A12: se puede abrir sin conexión (ver core/offline/offline-access.ts).
+    data: { offline: true },
     loadChildren: () => import('./home/home.module').then((m) => m.HomePageModule),
   },
   {
     path: 'perfiles',
     canActivate: [authGuard, consentGuard],
+    // CU-A12: se puede abrir sin conexión (ver core/offline/offline-access.ts).
+    data: { offline: true },
     loadChildren: () => import('./profiles/profiles.module').then((m) => m.ProfilesPageModule),
   },
   {
     path: 'practica/:id',
     canActivate: [authGuard, consentGuard],
+    // CU-A12: se puede abrir sin conexión (ver core/offline/offline-access.ts).
+    data: { offline: true },
     loadChildren: () => import('./practice/practice.module').then((m) => m.PracticePageModule),
   },
   {

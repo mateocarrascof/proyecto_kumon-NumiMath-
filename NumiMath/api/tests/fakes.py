@@ -90,6 +90,23 @@ class FakeGateway:
     tutor_used: dict[uuid.UUID, int] = field(default_factory=dict)
     usage_calls: list[tuple[uuid.UUID, uuid.UUID, int, int, int]] = field(default_factory=list)
 
+    # descargas del lote sin conexión por perfil (imita la columna offline_batches del día)
+    offline_batches: dict[uuid.UUID, int] = field(default_factory=dict)
+    offline_batch_error: Exception | None = None
+
+    async def consume_offline_batch(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, daily_limit: int
+    ) -> str:
+        if self.offline_batch_error is not None:
+            raise self.offline_batch_error
+        if (tutor_id, student_id) not in self.grades:
+            return "student_not_found"
+        used = self.offline_batches.get(student_id, 0)
+        if used >= daily_limit:
+            return "limit"
+        self.offline_batches[student_id] = used + 1
+        return "ok"
+
     async def authorize_student_use(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> str:
         self.calls.append((tutor_id, student_id))
         if self.error is not None and (

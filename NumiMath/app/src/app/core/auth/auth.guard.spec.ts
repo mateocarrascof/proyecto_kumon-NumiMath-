@@ -2,6 +2,8 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree } from '@angular/router';
 
+import { MemoryOfflineStore } from '../offline/memory-offline-store';
+import { OfflineStore } from '../offline/offline-store.port';
 import { authGuard, guestGuard } from './auth.guard';
 import { AuthPort, AuthUser } from './auth.port';
 
@@ -32,5 +34,36 @@ describe('guards de sesión', () => {
 
   it('guestGuard deja ver /login sin sesión', async () => {
     expect(await run(guestGuard, null)).toBe(true);
+  });
+});
+
+describe('authGuard sin conexión (CU-A12)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  async function runOffline(data: Record<string, unknown>, cached: boolean) {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const store = new MemoryOfflineStore();
+    if (cached) await store.saveProfiles([{ id: 'p1', nickname: 'Ana', grade: 2, blocked: false }]);
+    TestBed.configureTestingModule({
+      providers: [
+        // Sin red la sesión puede no renovarse: el usuario queda en null.
+        { provide: AuthPort, useValue: { user: signal(null), ready: async () => undefined } },
+        { provide: Router, useValue: { createUrlTree: (c: string[]) => ({ to: c.join('/') }) } },
+        { provide: OfflineStore, useValue: store },
+      ],
+    });
+    return TestBed.runInInjectionContext(() => authGuard({ data } as never, {} as never));
+  }
+
+  it('acepta las rutas de práctica si hay copia local de perfiles', async () => {
+    expect(await runOffline({ offline: true }, true)).toBe(true);
+  });
+
+  it('sin copia local manda a /login', async () => {
+    expect(await runOffline({ offline: true }, false)).toEqual({ to: '/login' });
+  });
+
+  it('otras rutas siguen exigiendo sesión', async () => {
+    expect(await runOffline({}, true)).toEqual({ to: '/login' });
   });
 });

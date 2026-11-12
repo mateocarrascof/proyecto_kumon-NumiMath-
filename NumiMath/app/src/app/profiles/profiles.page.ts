@@ -10,6 +10,9 @@ import {
 import { NavController } from '@ionic/angular/lazy';
 
 import { MascotPort } from '../core/mascot/mascot.port';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
+import { OfflineStore } from '../core/offline/offline-store.port';
 import { Avatar, avatarFor } from '../core/profiles/avatar';
 import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
 import { daysLabel } from '../core/progress/daily-streak';
@@ -40,8 +43,13 @@ export class ProfilesPage implements OnInit {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly offlineStore = inject(OfflineStore);
+  private readonly connectivity = inject(ConnectivityService);
 
   cards: KidCard[] = [];
+  /** CU-A12: sin conexión se muestra la copia local de los perfiles (solo apodo y curso). */
+  offlineMode = false;
+  protected readonly offlineMessages = OFFLINE_MESSAGES;
   /** Tarjeta al centro del carrusel: la única que entra a practicar. */
   active = 0;
   private scrollFrame = 0;
@@ -70,7 +78,7 @@ export class ProfilesPage implements OnInit {
     this.loading = true;
     this.mascot.set('thinking');
     try {
-      const profiles = await this.profilesPort.list();
+      const profiles = await this.loadProfiles();
       this.cards = profiles.map((profile) => ({ profile, avatar: avatarFor(profile.id), days: null }));
       this.active = 0;
       this.error = '';
@@ -85,10 +93,33 @@ export class ProfilesPage implements OnInit {
     // Ya dibujadas las tarjetas, la primera queda al centro (sin animación).
     this.cdr.detectChanges();
     this.recenter();
-    await this.loadStreaks();
+    // La racha la calcula el servidor: sin conexión no se muestra.
+    if (!this.offlineMode) await this.loadStreaks();
     // La racha cambia el alto de las tarjetas: se vuelve a centrar por si el navegador movió la pista.
     this.cdr.detectChanges();
     this.recenter();
+  }
+
+  /**
+   * Con conexión: la lista de la base, y se guarda una copia local (solo apodo, curso y si está
+   * en pausa) para poder elegir perfil sin internet. Sin conexión, o si la base no responde:
+   * esa copia. Si no hay copia, se muestra el error de siempre.
+   */
+  private async loadProfiles(): Promise<Profile[]> {
+    if (this.connectivity.online() && this.connectivity.browserOnline()) {
+      try {
+        const profiles = await this.profilesPort.list();
+        this.offlineMode = false;
+        await this.offlineStore.saveProfiles(profiles).catch(() => undefined);
+        return profiles;
+      } catch {
+        // Puede ser falta de red: se prueba con la copia local.
+      }
+    }
+    const cached = await this.offlineStore.profiles().catch(() => []);
+    if (!cached.length) throw new Error('profiles_unavailable');
+    this.offlineMode = true;
+    return [...cached].sort((a, b) => a.nickname.localeCompare(b.nickname));
   }
 
   practice(card: KidCard): Promise<boolean> | void {

@@ -9,6 +9,7 @@ import {
   RecoveryLink,
   RecoveryStart,
 } from './auth.port';
+import { OfflineStore } from '../offline/offline-store.port';
 import { passwordProblem } from './password-rules';
 import { SUPABASE_CLIENT } from './supabase.client';
 
@@ -64,6 +65,7 @@ function recoveryFlag(value?: boolean): boolean {
 @Injectable({ providedIn: 'root' })
 export class SupabaseAuthService extends AuthPort {
   private readonly client = inject(SUPABASE_CLIENT);
+  private readonly offlineStore = inject(OfflineStore);
   private readonly current = signal<AuthUser | null>(null);
   private readonly initialized: Promise<void>;
   /** Mientras es true, la sesión de recuperación NO se expone como usuario autenticado. */
@@ -204,6 +206,8 @@ export class SupabaseAuthService extends AuthPort {
     try {
       await this.client.auth.signOut();
     } finally {
+      // CU-A12: al cerrar sesión se borra todo lo guardado para practicar sin conexión.
+      await this.offlineStore.clear().catch(() => undefined);
       this.current.set(null);
     }
   }

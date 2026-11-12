@@ -107,6 +107,21 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def consume_offline_batch(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, daily_limit: int
+    ) -> str:
+        result = await self._rpc(
+            "consume_offline_batch",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_daily_limit": daily_limit,
+            },
+        )
+        if result not in ("ok", "limit", "student_not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
         if not self._key:
             raise GatewayError("not_configured")

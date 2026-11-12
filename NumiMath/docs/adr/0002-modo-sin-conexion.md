@@ -1,6 +1,7 @@
 # ADR 0002 — Modo sin conexión (CU-A12) y su convivencia con la corrección en el servidor
 
-**Estado:** propuesto (pendiente de decisión) · **Fecha:** 2026-11-12
+**Estado:** aceptado (opción A), decidido el 2026-11-12 · implementado CU-A12 el 2026-11-12 · la
+decisión 8 queda **pendiente de revisión** (ver "Decisiones tomadas")
 **Alcance:** CU-A12 "Usar aplicación sin conexión" (RF-18, RNF-06). Deja preparado CU-A13
 (sincronizar, RF-19, RF-25), que se implementa aparte.
 **Apoyo técnico, no asesoría legal.**
@@ -255,17 +256,52 @@ RLS y pgTAP.
 Es la **opción C**. Si se elige, el texto de la app debe dejar claro que "no se guarda", y CU-A12
 debe marcarse como parcial en el resumen de avance (la postcondición no se cumple).
 
-## Decisiones que necesito antes de implementar
+## Decisiones tomadas (2026-11-12)
 
-1. Opción: **A** (recomendada), B o C.
-2. Service worker: `@angular/service-worker` (dependencia nueva) o uno escrito a mano.
-3. Vigencias: 7 días para responder y 14 de gracia para sincronizar.
-4. Tamaño del lote: 10 por nivel en el nivel actual y los vecinos (máx. 30 por habilidad).
-5. Copia local del apodo para elegir perfil sin red (o, sin ella, el niño elige entre "perfil 1,
-   perfil 2", que es peor para un niño de 6 años).
-6. Sin cifrado local (datos mínimos y vida corta).
-7. Tiempo por ejercicio sin conexión: aceptarlo con tope de 600 s, o guardarlo vacío.
-8. Aceptar que una revocación no alcanza a un dispositivo sin red hasta que se conecte.
+1. **Opción A.**
+2. **`@angular/service-worker` 22.1.7**, la librería oficial de Angular, sin service worker escrito
+   a mano. Es la **única dependencia nueva** de este cambio. Por qué:
+   - es del mismo equipo y versión que el resto de Angular del proyecto (no entra un tercero nuevo);
+   - no trae analítica ni publicidad (Apple Kids Category y Google Families Policy);
+   - resuelve la caché y la actualización de versiones, que a mano es fácil hacer mal (una app
+     que queda "pegada" en una versión vieja).
+
+   Se configura solo para los archivos de la app (`ngsw-config.json`, **sin `dataGroups`**): nunca
+   guarda respuestas de la API ni de Supabase, así que ningún dato del niño queda en su caché.
+   Apagado en desarrollo (`ng serve`); activo en la compilación de producción.
+3. **7 días** para responder y **14 de margen** para sincronizar.
+4. **10 ejercicios por nivel**, en el nivel actual y en los vecinos.
+5. **Sí** a la copia local, solo de **apodo y curso** (y si está en pausa) para elegir perfil.
+6. **Sin cifrado** local.
+7. Tiempo por ejercicio: **se guarda con tope de 600 s**.
+8. **Se acepta para esta etapa** que una revocación o un bloqueo no alcance a un dispositivo sin
+   red hasta que se conecte. **Pendiente de revisión por Adolfo y por `privacy-cl-auditor`.**
+
+## Lo que cambió al implementar (2026-11-12)
+
+- **Límite de descargas:** se reutilizó `usage_student_daily` (columna `offline_batches`) y la
+  función `consume_offline_batch` (solo `service_role`), en la migración
+  `20261112120000_offline_batch_limit.sql`. No suma a la cuota de la IA.
+- **Ante una respuesta incorrecta sin conexión se muestra solo "Casi."**, sin la solución: el lote
+  la guarda en hash (sección 1), así que el dispositivo sabe si acertó pero no cuál era la
+  respuesta. Para mostrarla habría que guardarla de forma reversible: **decisión pendiente**.
+- **Racha de días sin conexión:** no se muestra (la sección 4 decía "estimada"); se comporta como
+  cuando la racha no se puede leer. **Decisión pendiente** si se quiere una estimación.
+- **Sin conexión se ocultan** "Tareas de tu tutor" y "Mi progreso", en vez de mostrar "Esto
+  necesita internet". El repaso y el diagnóstico no se ofrecen. **Confirmar.**
+- **Manifiesto PWA: no se agregó.** Solo hay un ícono de 64×64 y un manifiesto instalable necesita
+  íconos de 192 y 512 px (recursos gráficos nuevos que hay que registrar en
+  `docs/creditos-recursos.md`). Sin él, la mitigación de Safari ("instalar la app") no está
+  disponible. **Pendiente.**
+- **Guards:** sin red, `authGuard` y `consentGuard` aceptan solo las rutas marcadas
+  `data: { offline: true }` (Inicio, "¿Quién practica?" y la práctica) y solo si existe la copia
+  local de perfiles (señal de que un tutor entró con sesión y consentimiento en ese equipo y no
+  cerró sesión). Las demás rutas no se abren sin red.
+- **Datos locales que se borran:** al cerrar sesión, al revocar el consentimiento, al borrar un
+  perfil y cuando el servidor responde 403 al pedir el lote.
+- **Mientras no exista CU-A13:** al renovar el lote con conexión, el nivel que se muestra vuelve al
+  del servidor, aunque haya intentos en cola sin enviar. Se resuelve sincronizando antes de
+  renovar (CU-A13).
 
 ## Consecuencias
 

@@ -20,6 +20,12 @@ import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
 import { FractionInputComponent } from '../core/math/fraction-input.component';
 import { MathTextComponent } from '../core/math/math-text.component';
 import { GentleTimerComponent } from '../core/timer/gentle-timer.component';
+import { MemoryOfflineStore } from '../core/offline/memory-offline-store';
+import { OfflineBatch } from '../core/offline/offline.model';
+import { OfflineBatchPort } from '../core/offline/offline-batch.port';
+import { solutionHash } from '../core/offline/offline-grading';
+import { OFFLINE_MESSAGES, OfflineNoticeComponent } from '../core/offline/offline-notice.component';
+import { OfflineStore } from '../core/offline/offline-store.port';
 import { EXPLAIN_MESSAGES, PracticePage, topicIcon } from './practice.page';
 import { SkillTilesComponent } from './skill-tiles.component';
 
@@ -74,7 +80,7 @@ function setup(
       MathTextComponent,
       FractionInputComponent,
     ],
-    imports: [IonicModule.forRoot(), FormsModule],
+    imports: [IonicModule.forRoot(), FormsModule, OfflineNoticeComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: PracticePort, useValue: port },
@@ -182,14 +188,17 @@ describe('PracticePage', () => {
     expect(page.error).toBe('Pide ayuda a un adulto para volver a entrar.');
   });
 
-  it('si no hay red, muestra un mensaje amable', async () => {
+  it('si no hay red, pasa al modo sin conexión con un aviso amable (CU-A12)', async () => {
     const { page } = setup({
       topics: vi.fn(async () => {
         throw new PracticeError('network');
       }),
     });
     await page.ngOnInit();
-    expect(page.error).toContain('No pude conectarme');
+    // Sin lote descargado: no es un error, es un aviso de qué hace falta.
+    expect(page.offlineMode).toBe(true);
+    expect(page.error).toBe('');
+    expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.noBatch);
     expect(page.loading).toBe(false);
   });
 
@@ -1169,5 +1178,152 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     expect(page.diag).toBe('done');
     expect(page.diagLevel).toBe(1);
     expect(port.submitDiagnostic).not.toHaveBeenCalled();
+  });
+});
+
+describe('PracticePage: sin conexión (CU-A12)', () => {
+  const NOW_S = Math.floor(Date.now() / 1000);
+
+  async function batch(n: number): Promise<OfflineBatch> {
+    const exercises = [];
+    for (let k = 0; k < n; k++) {
+      exercises.push({
+        token: `off-${k}`,
+        topic: '2-06',
+        level: 1 as const,
+        text: `${k} + 2 = ?`,
+        answerKind: 'integer' as const,
+        solutionHash: await solutionHash('sal', String(k + 2)),
+        used: false,
+      });
+    }
+    return {
+      studentId: 'perfil-1',
+      salt: 'sal',
+      issuedAt: NOW_S,
+      expiresAt: NOW_S + 7 * 24 * 3600,
+      topics: [
+        {
+          id: '2-06', label: 'Sumas hasta 100', module: 'Números y operaciones', grade: 2,
+          level: 1, blockDone: 0, blockCorrect: 0, blockSize: 10, mastered: false,
+        },
+      ],
+      exercises,
+    };
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * Simula el dispositivo sin red y con un lote de `n` ejercicios guardado. Todo se prepara ANTES
+   * de crear la pantalla: el fixture llama a ngOnInit apenas se crea.
+   */
+  async function offlineSetup(n = 3) {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const store = new MemoryOfflineStore();
+    if (n > 0) await store.saveBatch(await batch(n));
+    TestBed.overrideProvider(OfflineStore, { useValue: store });
+    const ctx = setup();
+    await ctx.page.ngOnInit();
+    await ctx.fixture.whenStable();
+    ctx.fixture.detectChanges();
+    return { ...ctx, store };
+  }
+
+  it('avisa que no hay internet y muestra solo las habilidades del lote, sin tareas ni racha', async () => {
+    const { page, port, fixture, assignments, progress } = await offlineSetup();
+    expect(page.offlineMode).toBe(true);
+    expect(port.topics).not.toHaveBeenCalled();
+    expect(assignments.forKid).not.toHaveBeenCalled();
+    expect(progress.get).not.toHaveBeenCalled();
+    expect(query(fixture, '[data-testid="offline-banner"]')?.textContent).toContain(
+      OFFLINE_MESSAGES.banner,
+    );
+    expect(query(fixture, '[data-testid="tasks-card"]')).toBeNull();
+    expect(page.topics.map((t) => t.id)).toEqual(['2-06']);
+  });
+
+  it('practica con el lote: corrige en el dispositivo y guarda el intento en la cola', async () => {
+    const { page, port, store, fixture } = await offlineSetup();
+    await page.choose(page.topics[0]);
+    expect(port.newExercise).not.toHaveBeenCalled();
+    expect(page.exercise?.text).toBe('0 + 2 = ?');
+    page.onAnswerInput('2');
+    await page.submit();
+    expect(page.result?.correct).toBe(true);
+    expect(port.answer).not.toHaveBeenCalled();
+    expect(await store.queue('perfil-1')).toHaveLength(1);
+    // Sin explicación de Numi sin conexión (no hay IA sin el servidor).
+    await page.next();
+    page.onAnswerInput('9');
+    await page.submit();
+    fixture.detectChanges();
+    expect(page.result?.correct).toBe(false);
+    expect(page.canExplain).toBe(false);
+    expect(query(fixture, '[data-testid="result-text"]')?.textContent?.trim()).toBe('Casi.');
+  });
+
+  it('no muestra el resultado hasta que el intento quedó guardado (RNF-06)', async () => {
+    const { page, store } = await offlineSetup();
+    let release!: () => void;
+    const original = store.recordAttempt.bind(store);
+    store.recordAttempt = (b, a) =>
+      new Promise<void>((resolve) => {
+        release = () => void original(b, a).then(resolve);
+      });
+    await page.choose(page.topics[0]);
+    page.onAnswerInput('2');
+    const pending = page.submit();
+    // Espera a que empiece el guardado (el hash con crypto.subtle es asíncrono).
+    for (let i = 0; i < 50 && !release; i++) await new Promise((r) => setTimeout(r, 0));
+    expect(page.result).toBeNull();
+    release();
+    await pending;
+    expect(page.result?.correct).toBe(true);
+    expect(store.attempts).toHaveLength(1);
+  });
+
+  it('si no se pudo guardar, no confirma nada y pide intentar otra vez', async () => {
+    const { page, store } = await offlineSetup();
+    await page.choose(page.topics[0]);
+    store.failWrites = new Error('quota');
+    page.onAnswerInput('2');
+    await page.submit();
+    expect(page.result).toBeNull();
+    expect(page.error).toBe(OFFLINE_MESSAGES.storage);
+    expect(TestBed.inject(MascotService).state()).not.toBe('sad');
+  });
+
+  it('lote agotado: avisa que hace falta conectarse para descargar más', async () => {
+    const { page, fixture } = await offlineSetup(1);
+    await page.choose(page.topics[0]);
+    page.onAnswerInput('2');
+    await page.submit();
+    await page.next();
+    fixture.detectChanges();
+    expect(page.exercise).toBeNull();
+    expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.exhausted);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('conectarse a internet');
+    // Al volver a la lista, la baldosa lo dice.
+    page.changeTopic();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="tile-exhausted"]')).not.toBeNull();
+  });
+
+  it('sin lote descargado: pide conectarse una vez', async () => {
+    const { page } = await offlineSetup(0);
+    expect(page.topics).toEqual([]);
+    expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.noBatch);
+  });
+
+  it('con conexión deja listo el lote para después', async () => {
+    const download = vi.fn(async () => batch(2));
+    TestBed.overrideProvider(OfflineBatchPort, { useValue: { download } });
+    const ctx = setup();
+    await ctx.page.ngOnInit();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(download).toHaveBeenCalledWith('perfil-1');
+    expect(ctx.page.offlineMode).toBe(false);
   });
 });

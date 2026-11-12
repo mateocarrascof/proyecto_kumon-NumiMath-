@@ -4,6 +4,10 @@ import { IonicModule, NavController } from '@ionic/angular/lazy';
 import { MascotComponent } from '../core/mascot/mascot.component';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { MemoryOfflineStore } from '../core/offline/memory-offline-store';
+import { OfflineNoticeComponent } from '../core/offline/offline-notice.component';
+import { OfflineStore } from '../core/offline/offline-store.port';
 import { avatarFor } from '../core/profiles/avatar';
 import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
 import { ProgressPort } from '../core/progress/progress.port';
@@ -17,6 +21,7 @@ const DANI: Profile = { id: 'p-dani', nickname: 'Dani', grade: 1, blocked: false
 function setup(
   list: () => Promise<Profile[]> = async () => [ANA, BETO],
   dailyStreak: (id: string) => Promise<number> = async () => 3,
+  store: MemoryOfflineStore = new MemoryOfflineStore(),
 ) {
   const profiles = { list: vi.fn(list), create: vi.fn(), remove: vi.fn() };
   const progress = {
@@ -33,16 +38,17 @@ function setup(
   const nav = { navigateForward: vi.fn(async () => true) };
   TestBed.configureTestingModule({
     declarations: [ProfilesPage, MascotComponent],
-    imports: [IonicModule.forRoot()],
+    imports: [IonicModule.forRoot(), OfflineNoticeComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: ProfilesPort, useValue: profiles },
       { provide: ProgressPort, useValue: progress },
       { provide: NavController, useValue: nav },
+      { provide: OfflineStore, useValue: store },
     ],
   });
   const fixture = TestBed.createComponent(ProfilesPage);
-  return { page: fixture.componentInstance, fixture, profiles, progress, nav };
+  return { page: fixture.componentInstance, fixture, profiles, progress, nav, store };
 }
 
 /** Deja que Angular llame a ngOnInit (una sola vez) y espera las cargas. */
@@ -180,5 +186,46 @@ describe('ProfilesPage (¿Quién practica?)', () => {
     });
     await render(fixture);
     expect(page.error).toContain('No pude cargar los perfiles');
+  });
+
+  describe('sin conexión (CU-A12)', () => {
+    it('con conexión guarda una copia local con solo apodo, curso y pausa', async () => {
+      const { fixture, store } = setup();
+      await render(fixture);
+      expect(store.cachedProfiles).toEqual([
+        { id: ANA.id, nickname: 'Ana', grade: 2, blocked: false },
+        { id: BETO.id, nickname: 'Beto', grade: 3, blocked: true },
+      ]);
+      expect(el(fixture).querySelector('[data-testid="offline-banner"]')).toBeNull();
+    });
+
+    it('sin red muestra la copia local, el aviso y sin racha ni "Mi progreso"', async () => {
+      const store = new MemoryOfflineStore();
+      await store.saveProfiles([ANA, BETO]);
+      const { fixture, profiles, progress } = setup(undefined, undefined, store);
+      TestBed.inject(ConnectivityService).reportNetworkFailure();
+      await render(fixture);
+      const root = el(fixture);
+      expect(profiles.list).not.toHaveBeenCalled();
+      expect(progress.get).not.toHaveBeenCalled();
+      expect(root.querySelector('[data-testid="offline-banner"]')?.textContent).toContain(
+        'Estás sin internet',
+      );
+      expect(root.querySelector('[data-testid="kid-Ana"]')).not.toBeNull();
+      expect(root.querySelector('[data-testid="practice-btn"]')).not.toBeNull();
+      expect(root.querySelector('.progress-btn')).toBeNull();
+    });
+
+    it('si la base no responde pero hay copia local, se usa la copia', async () => {
+      const store = new MemoryOfflineStore();
+      await store.saveProfiles([ANA]);
+      const { fixture, page } = setup(async () => {
+        throw new Error('profiles_unavailable');
+      }, undefined, store);
+      await render(fixture);
+      expect(page.offlineMode).toBe(true);
+      expect(page.error).toBe('');
+      expect(page.cards.map((c) => c.profile.nickname)).toEqual(['Ana']);
+    });
   });
 });

@@ -136,12 +136,13 @@ async def answer_game(
     body: GameAnswerIn, student: AuthorizedStudentDep, request: Request
 ) -> GameAnswerOut:
     key = signing_key(request)
-    await _game_grade(request, student)
+    # Primero el token (CPU, sin ir a la base): uno inválido no cuesta una lectura del curso.
     try:
         verified = verify_game(key, body.token, student.student_id)
     except InvalidExercise:
         log_event(logger, "game.denied", stage="token", code="invalid_or_expired")
         raise ApiError(422, "exercise_invalid", message=_EXPIRED) from None
+    await _game_grade(request, student)
 
     exercise = verified.exercise
     shown = [o.id for o in exercise.options]

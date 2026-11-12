@@ -5,11 +5,17 @@
 -- `activity = 'practice'`: los juegos no entran ahí (decisión del dueño).
 -- Idempotente: se puede volver a aplicar sin error.
 
--- 1. `activity` admite 'game'.
+-- Si la tabla está ocupada, mejor fallar rápido que dejar en cola a todas las consultas detrás del
+-- ALTER (se reintenta el despliegue).
+set local lock_timeout = '5s';
+
+-- 1. `activity` admite 'game'. Las restricciones se agregan `not valid` (no recorren la tabla bajo
+-- bloqueo exclusivo); se validan en `20261115110000_game_diagnostic_fix`, que no bloquea escrituras.
+-- Es seguro: 'game' amplía los valores anteriores y `game_kind` es una columna nueva, nula.
 alter table public.student_attempts drop constraint if exists student_attempts_activity_check;
 alter table public.student_attempts
   add constraint student_attempts_activity_check
-  check (activity in ('practice', 'diagnostic', 'game'));
+  check (activity in ('practice', 'diagnostic', 'game')) not valid;
 
 -- 2. `game_kind`: obligatorio en los juegos y nulo en lo demás. Id corto en minúsculas (no es texto
 -- libre ni dato del niño).
@@ -21,7 +27,7 @@ alter table public.student_attempts
     -- `is not null` explícito: con nulo, `~` da nulo y un CHECK nulo deja pasar la fila.
     (activity = 'game' and game_kind is not null and game_kind ~ '^[a-z0-9-]{1,40}$')
     or (activity <> 'game' and game_kind is null)
-  );
+  ) not valid;
 
 -- 3. `record_attempt` recibe `p_activity` ('practice' por defecto) y `p_game_kind`. Cambia su
 -- firma: se borra y se vuelve a crear (con `create or replace` quedarían dos versiones y las llamadas

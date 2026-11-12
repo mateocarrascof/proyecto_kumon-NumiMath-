@@ -1003,10 +1003,51 @@ el cambio de firma; solo `service_role`). La siguen usando igual la práctica en
    como juego** (con el nombre del juego según `game_kind`). Hoy las lecturas filtran
    `activity = 'practice'`; coordinar con él cómo incluirlos sin que entren al progreso ni al informe.
 
+### Revisión antes del PR
+Revisores `code-reviewer`, `security-reviewer` y `scalability-reviewer` sobre `main..e98fb18`.
+Corregido en `fix(cu-a21)`:
+- (alta) Jugar ya no impide el diagnóstico inicial: `save_diagnostic` no cuenta los intentos de
+  juego (migración `20261115110000_game_diagnostic_fix`, con pgTAP).
+- (media) La migración toma menos bloqueo: `lock_timeout` de 5 s y CHECK `not valid`, validados en
+  la migración siguiente.
+- (media) Índices parciales `where activity = 'practice'` para las lecturas frecuentes de práctica.
+- (media) La respuesta verifica el token antes de leer el curso (un token inválido no va a la base).
+- (media) Pruebas: invariantes de los 9 juegos con 500 semillas, cada juego en una habilidad del
+  catálogo con su curso y eje, lo sincronizado sin conexión queda `practice`, otro tutor no puede
+  insertar intentos.
+
+### Decisiones pendientes del dueño (de la revisión)
+1. **Volumen de intentos de juego (alta, scalability):** una ronda dura segundos y cada respuesta
+   es una fila en `student_attempts`, sin tope ni plazo propio. Opciones: tope diario de intentos
+   de juego guardados por perfil, o plazo propio (p. ej. 90 días) para `activity = 'game'` en la
+   purga programada (también es minimización de datos). Decidir antes de la parte 2 en producción.
+2. **Leer el curso al responder:** el token ya fija el juego y el curso; quitar esa lectura ahorra
+   una ida a la base en el endpoint más usado, pero el SPEC dice "curso leído de la base".
+3. **Pedir varios ejercicios por petición** (p. ej. 5 tokens) para la parte 2.
+4. **ADR corto** (lo sugiere `scalability-reviewer`): plazo y tope de los intentos de juego, y la
+   regla de estabilidad de generadores e ids de juego.
+
 ### Pendientes
 1. App de los juegos (parte 2) y figuras SVG propias (parte 3, con su crédito en
    `docs/creditos-recursos.md`).
 2. Los juegos no tienen nivel propio: todos usan rangos fijos por curso.
+3. **Estabilidad de generadores:** cambiar un generador (o agregar un emoji a `_OBJECTS`) invalida
+   los tokens en vuelo (422 hasta 10 min); `random` puede cambiar entre versiones de Python. Regla:
+   los ids de juego son permanentes y cambiar un generador obliga a un id o versión nueva. Falta un
+   test con salidas guardadas por semilla.
+4. **Despliegue:** primero la migración y después la API. Sin vuelta atrás una vez que existan
+   filas `game` (la restricción anterior no las admite).
+5. **Bajos de la revisión (no implementados):** validación y corrección de la respuesta en
+   `games.py` (probables sin HTTP); constante para el nivel 1 de los juegos; `GAME_GRADES`, eje y
+   curso derivados del catálogo curricular; tipos `Literal` duplicados entre `games.py` y la ruta;
+   `_sign` con tres banderas excluyentes (mejor pasar el dominio); límites `token ≤ 1000` y
+   `answer ≤ 6` a revisar en la parte 3; el upsert de la racha y `touch_student_activity` escriben
+   en cada respuesta; sin interruptor para apagar juegos ni métrica de volumen; `GET /games` sin
+   `Cache-Control`.
+6. **Para CU-T5 (Adolfo):** en los juegos de opción, `exercise` guarda el enunciado genérico sin las
+   opciones; el nombre del juego vive en Python (si el historial lee por RLS, tendría que duplicar
+   la tabla id → nombre). Si su cierre del esquema recrea `student_attempts_activity_check` sin
+   `'game'`, rompe los juegos (lo detecta `game_attempts.test.sql`).
 
 ### Pruebas
 - Servidor: `api/tests/test_games.py` (catálogo por eje y curso, curso no permitido, perfil en
@@ -1016,4 +1057,5 @@ el cambio de firma; solo `service_role`). La siguen usando igual la práctica en
   falla de la base; el gateway solo agrega los parámetros nuevos en juegos).
 - Base: `supabase/tests/database/game_attempts.test.sql` (restricciones, juego sin `game_kind`,
   `record_attempt` solo practice/game, racha sí y bloque/nivel no, práctica igual, CU-A13 sigue
-  funcionando, permisos, RLS). Concurrencia (`run.sh`) sin cambios, en verde.
+  funcionando y queda `practice`, jugar no impide el diagnóstico, índices parciales, permisos, RLS
+  de lectura y escritura). Concurrencia (`run.sh`) sin cambios, en verde.

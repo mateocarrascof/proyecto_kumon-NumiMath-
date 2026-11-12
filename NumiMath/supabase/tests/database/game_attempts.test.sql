@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(26);
 update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- CU-A21: intentos de juego. Restricciones, permisos, que un juego registre el intento y sume a la
@@ -84,6 +84,31 @@ select is(public.record_offline_attempts('eeeeeeee-0000-0000-0000-000000000001',
     'correct', true, 'level', 1, 'duration_s', 5, 'answered_at', now(), 'local_day', null)))
   -> 0 ->> 'status', 'ok', 'record_offline_attempts sigue usando record_attempt');
 
+select is((select activity || '|' || coalesce(game_kind, 'null') from public.student_attempts
+           where exercise_id = 'aaaaaaaa-0000-0000-0000-000000000300'), 'practice|null',
+  'lo sincronizado sin conexión queda como practice, sin game_kind');
+
+-- ===== 4b. Jugar no impide el diagnóstico inicial (corrección de la revisión) =====
+select is(pg_temp.game(400, true, 'cuantos-1'), 'ok', 'un juego de 1-02');
+update public.student_attempts set topic = '1-02'
+  where exercise_id = 'aaaaaaaa-0000-0000-0000-000000000400';
+select is(public.save_diagnostic('eeeeeeee-0000-0000-0000-000000000001'::uuid,
+  'ffffffff-0000-0000-0000-000000000001'::uuid, '1-02', 1,
+  (select jsonb_agg(jsonb_build_object('exercise_id', gen_random_uuid(), 'exercise', 'x',
+     'correct', true, 'level', 1)) from generate_series(1, 6))),
+  'ok', 'con un juego previo en la habilidad, el diagnóstico igual se guarda');
+select is(public.save_diagnostic('eeeeeeee-0000-0000-0000-000000000001'::uuid,
+  'ffffffff-0000-0000-0000-000000000001'::uuid, '1-03', 1,
+  (select jsonb_agg(jsonb_build_object('exercise_id', gen_random_uuid(), 'exercise', 'x',
+     'correct', true, 'level', 1)) from generate_series(1, 6))),
+  'not_available', 'con práctica previa en la habilidad sigue sin estar disponible');
+
+-- ===== 4c. Índices parciales de práctica (corrección de la revisión) =====
+select has_index('public', 'student_attempts', 'student_attempts_practice_topic_time_idx',
+  'índice parcial de práctica por habilidad');
+select has_index('public', 'student_attempts', 'student_attempts_practice_time_idx',
+  'índice parcial de práctica por perfil');
+
 -- ===== 5. Permisos y RLS =====
 select ok(not has_function_privilege('authenticated',
   'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz, text, text)',
@@ -93,6 +118,11 @@ set local role authenticated;
 select is((select count(*)::int from public.student_attempts
            where student_id = 'ffffffff-0000-0000-0000-000000000001'), 0,
   'otro tutor no ve los intentos de juego');
+select throws_ok($$ insert into public.student_attempts
+    (student_id, tutor_id, exercise_id, topic, exercise, correct, activity, game_kind)
+  values ('ffffffff-0000-0000-0000-000000000001', 'eeeeeeee-0000-0000-0000-000000000002',
+          gen_random_uuid(), '1-03', 'x', true, 'game', 'mayor-1') $$, '42501', null,
+  'otro tutor no puede insertar intentos de juego');
 reset role;
 
 select * from finish();

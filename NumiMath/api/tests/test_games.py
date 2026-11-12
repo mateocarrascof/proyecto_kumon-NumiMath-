@@ -296,3 +296,53 @@ async def test_gateway_practica_no_cambia_su_llamada() -> None:
     await _supabase().record_attempt(TUTOR, PERFIL, uuid.uuid4(), "1-03", "x", True)
     body = json.loads(route.calls.last.request.content)
     assert "p_activity" not in body and "p_game_kind" not in body
+
+
+# ---- Correcciones de la revisión ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("game_id", sorted(GAMES))
+def test_cada_juego_cumple_sus_invariantes_con_muchas_semillas(game_id: str) -> None:
+    """Protege los generadores: si alguien cambia un rango, falla aquí y no al emitir."""
+    game = GAMES[game_id]
+    for _ in range(500):
+        issued = issue_game(KEY, PERFIL, game, 600)
+        exercise = issued.exercise
+        ids = [o.id for o in exercise.options]
+        assert 2 <= len(ids) <= 4 and len(set(ids)) == len(ids)
+        assert all(o.id.split(":")[0] in {"n", "e", "s"} for o in exercise.options)
+        if game.kind == "choice":
+            assert len(exercise.solution) == 1 and exercise.solution[0] in ids
+        else:
+            assert sorted(exercise.solution) == sorted(ids) and tuple(ids) != exercise.solution
+        assert verify_game(KEY, issued.token, PERFIL).exercise == exercise
+
+
+def test_cada_juego_usa_una_habilidad_del_catalogo_con_su_curso() -> None:
+    from app.ai.topics import topics_for_grade
+
+    for game in GAMES.values():
+        skills = {t.id: t for t in topics_for_grade(game.grade) if t.grade == game.grade}
+        assert game.skill in skills, game.id
+        assert skills[game.skill].module == game.module, game.id
+
+
+def test_un_token_invalido_no_llega_a_la_base() -> None:
+    gateway = _gateway()
+    client = _client(gateway)
+    before = len(gateway.calls)
+    assert _answer(client, "a" * 20 + ".bbbb", ["n:1"]).status_code == 422
+    # Solo la autorización del perfil (dependencia); ni el curso ni el registro.
+    assert len(gateway.calls) == before + 1
+    assert gateway.activities == {}
+
+
+def test_un_juego_no_cuenta_como_practica_para_el_diagnostico() -> None:
+    import asyncio
+
+    gateway = _gateway()
+    client = _client(gateway)
+    token = _new(client, CHOICE).json()["token"]  # habilidad 1-03
+    _answer(client, token, _solution(token))
+    result = asyncio.run(gateway.save_diagnostic(TUTOR, PERFIL, "1-03", 1, []))
+    assert result == "ok"

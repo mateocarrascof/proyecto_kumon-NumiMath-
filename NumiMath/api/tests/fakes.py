@@ -238,7 +238,10 @@ class FakeGateway:
         self.activities[key] = (activity, game_kind)
         self.local_days.append(local_day)
         self.levels.append((student_id, topic, level, correct))
-        self.exercises.append((student_id, topic, exercise))
+        # Como la base: los enunciados recientes y la precondición del diagnóstico solo miran
+        # práctica (los juegos no cuentan, CU-A21).
+        if activity == "practice":
+            self.exercises.append((student_id, topic, exercise))
         # Como la base: los juegos no tocan el bloque ni el nivel (CU-A21).
         if activity == "practice" and SKILL_CODE.fullmatch(topic):
             skills = self.progress.setdefault(student_id, {})

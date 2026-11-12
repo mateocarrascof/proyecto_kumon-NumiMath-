@@ -14,10 +14,17 @@ export function startOfflinePurge(
   store: OfflineStore,
   now: () => number = () => Date.now(),
   doc: Document | undefined = typeof document === 'undefined' ? undefined : document,
+  // CU-A13: con red, primero se sincroniza la cola y DESPUÉS se purga (así un intento que aún
+  // puede enviarse no se pierde por la purga). Sin red, la purga sigue la política igual.
+  syncFirst?: () => Promise<unknown>,
+  online: () => boolean = () => typeof navigator === 'undefined' || navigator.onLine,
 ): () => void {
   const purge = () => {
+    const before = syncFirst && online() ? syncFirst().catch(() => undefined) : Promise.resolve();
     // Mejor esfuerzo: si el almacén falla ahora, se reintenta la próxima vez.
-    void store.purgeExpired(Math.floor(now() / 1000)).catch(() => undefined);
+    void before
+      .then(() => store.purgeExpired(Math.floor(now() / 1000)))
+      .catch(() => undefined);
   };
   purge();
   if (!doc) return () => undefined;

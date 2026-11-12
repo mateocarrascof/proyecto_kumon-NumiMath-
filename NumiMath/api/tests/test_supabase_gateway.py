@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import UTC, date, datetime
 
 import httpx
 import pytest
 import respx
 
 from app.config import Settings
-from app.db.gateway import DiagnosticItem, GatewayError
+from app.db.gateway import DiagnosticItem, GatewayError, OfflineAttempt
 from app.db.supabase_gateway import SupabaseGateway
 from app.exercises.levels import SkillProgress
 
@@ -258,3 +259,59 @@ async def test_consume_offline_batch_falla_cerrado_con_respuestas_raras(cuerpo: 
     respx.post(OFFLINE_RPC).mock(return_value=httpx.Response(200, json=cuerpo))
     with pytest.raises(GatewayError):
         await _gateway().consume_offline_batch(TUTOR, PERFIL, 5)
+
+
+# ---- Sincronización sin conexión (CU-A13) ---------------------------------------------------
+
+SYNC_RPC = f"{URL}/rest/v1/rpc/record_offline_attempts"
+_JTI = uuid.UUID("cccccccc-0000-0000-0000-000000000001")
+
+
+def _offline_attempt() -> OfflineAttempt:
+    return OfflineAttempt(
+        exercise_id=_JTI,
+        topic="1-08",
+        exercise="3 + 4 = ?",
+        correct=True,
+        level=1,
+        duration_s=20,
+        answered_at=datetime(2026, 11, 12, 10, 0, tzinfo=UTC),
+        local_day=date(2026, 11, 12),
+    )
+
+
+@respx.mock
+async def test_record_offline_attempts_envia_el_lote_en_una_llamada() -> None:
+    route = respx.post(SYNC_RPC).mock(
+        return_value=httpx.Response(200, json=[{"exercise_id": str(_JTI), "status": "ok"}])
+    )
+    assert await _gateway().record_offline_attempts(TUTOR, PERFIL, [_offline_attempt()]) == {
+        _JTI: "ok"
+    }
+    body = json.loads(route.calls.last.request.content)
+    assert body["p_student_id"] == str(PERFIL)
+    assert body["p_attempts"][0]["exercise_id"] == str(_JTI)
+    assert body["p_attempts"][0]["local_day"] == "2026-11-12"
+    assert route.call_count == 1
+
+
+@respx.mock
+async def test_record_offline_attempts_perfil_ajeno_es_none() -> None:
+    respx.post(SYNC_RPC).mock(return_value=httpx.Response(200, json="student_not_found"))
+    assert await _gateway().record_offline_attempts(TUTOR, PERFIL, [_offline_attempt()]) is None
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "cuerpo",
+    [
+        "ok",
+        None,
+        [{"exercise_id": "x", "status": "ok"}],
+        [{"exercise_id": str(_JTI), "status": "raro"}],
+    ],
+)
+async def test_record_offline_attempts_falla_cerrado_con_respuestas_raras(cuerpo: object) -> None:
+    respx.post(SYNC_RPC).mock(return_value=httpx.Response(200, json=cuerpo))
+    with pytest.raises(GatewayError):
+        await _gateway().record_offline_attempts(TUTOR, PERFIL, [_offline_attempt()])

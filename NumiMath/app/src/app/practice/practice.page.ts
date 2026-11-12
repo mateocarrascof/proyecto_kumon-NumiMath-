@@ -32,6 +32,7 @@ import { FractionValue } from '../core/math/fraction-input.component';
 import { ConnectivityService } from '../core/offline/connectivity.service';
 import { isOffline } from '../core/offline/offline-access';
 import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
+import { OfflineSyncService } from '../core/offline/offline-sync.service';
 import { OfflineError, OfflinePracticeService } from '../core/offline/offline-practice.service';
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
 import { ProgressPort } from '../core/progress/progress.port';
@@ -195,6 +196,7 @@ export class PracticePage implements OnInit {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly connectivity = inject(ConnectivityService);
   private readonly offline = inject(OfflinePracticeService);
+  private readonly sync = inject(OfflineSyncService);
   protected readonly mascot = inject(MascotPort);
 
   studentId = '';
@@ -348,12 +350,17 @@ export class PracticePage implements OnInit {
   }
 
   private async loadOnline(): Promise<void> {
-    const daily = this.loadDaily();
+    // Las tareas del tutor no dependen de la cola sin conexión: se piden de inmediato.
     const tasks = this.loadTasks();
+    // CU-A13: antes de leer nivel, bloque y racha se envían los intentos hechos sin conexión, así
+    // lo que se muestra ya los incluye. No bloquea: si falla, se sigue en línea con un aviso.
+    const synced = await this.sync.sync(this.studentId);
+    const daily = this.loadDaily();
     let online = true;
     try {
       this.setTopics(await this.practice.topics(this.studentId));
       this.connectivity.reportSuccess();
+      this.offlineNotice = synced === 'pending' ? OFFLINE_MESSAGES.syncPending : '';
       // Con conexión se deja listo (o se renueva) el lote para practicar sin internet.
       // Mejor esfuerzo y sin esperar: la práctica en línea no depende de esto.
       void this.offline.refresh(this.studentId);

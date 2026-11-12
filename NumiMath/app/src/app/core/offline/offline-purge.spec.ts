@@ -49,13 +49,16 @@ describe('startOfflinePurge (CU-A12)', () => {
     const store = new MemoryOfflineStore();
     const purge = vi.spyOn(store, 'purgeExpired');
     const stop = startOfflinePurge(store, () => NOW_S * 1000);
+    await settle();
     expect(purge).toHaveBeenCalledTimes(1);
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
     document.dispatchEvent(new Event('visibilitychange'));
+    await settle();
     expect(purge).toHaveBeenCalledTimes(1);
     stop();
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
     document.dispatchEvent(new Event('visibilitychange'));
+    await settle();
     expect(purge).toHaveBeenCalledTimes(1);
     vi.restoreAllMocks();
   });
@@ -66,5 +69,38 @@ describe('startOfflinePurge (CU-A12)', () => {
     startOfflinePurge(store, () => NOW_S * 1000)();
     await settle();
     expect(await store.profiles()).toEqual([]);
+  });
+
+  it('CU-A13: con red, primero sincroniza la cola y DESPUÉS purga', async () => {
+    const store = new MemoryOfflineStore();
+    const order: string[] = [];
+    vi.spyOn(store, 'purgeExpired').mockImplementation(async () => void order.push('purga'));
+    const sync = vi.fn(async () => void order.push('sync'));
+    startOfflinePurge(store, () => NOW_S * 1000, undefined, sync, () => true)();
+    await settle();
+    expect(order).toEqual(['sync', 'purga']);
+    vi.restoreAllMocks();
+  });
+
+  it('CU-A13: sin red no intenta sincronizar y la purga sigue la política', async () => {
+    const store = new MemoryOfflineStore();
+    const purge = vi.spyOn(store, 'purgeExpired');
+    const sync = vi.fn(async () => undefined);
+    startOfflinePurge(store, () => NOW_S * 1000, undefined, sync, () => false)();
+    await settle();
+    expect(sync).not.toHaveBeenCalled();
+    expect(purge).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('CU-A13: si la sincronización falla, igual purga', async () => {
+    const store = new MemoryOfflineStore();
+    const purge = vi.spyOn(store, 'purgeExpired');
+    startOfflinePurge(store, () => NOW_S * 1000, undefined, async () => {
+      throw new Error('red');
+    }, () => true)();
+    await settle();
+    expect(purge).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
   });
 });

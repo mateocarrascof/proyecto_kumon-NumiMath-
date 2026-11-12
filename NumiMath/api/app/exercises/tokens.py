@@ -66,6 +66,8 @@ class VerifiedExercise:
     exercise: Exercise
     issued_at: int
     step: int | None = None  # paso del diagnóstico (0 a 5); None en la práctica
+    # Caducidad firmada (segundos). CU-A13 la usa para acotar la hora y la fecha del intento.
+    expires_at: int = 0
 
 
 def _b64(data: bytes) -> str:
@@ -138,10 +140,15 @@ def verify(
     now: float | None = None,
     diagnostic: bool = False,
     offline: bool = False,
+    grace_s: int = 0,
 ) -> VerifiedExercise:
     """Comprueba un token. Con `diagnostic=True` solo acepta tokens del diagnóstico (y exige el
     paso); con `offline=True`, solo del lote sin conexión; sin ninguno, solo de práctica."""
     if diagnostic and offline:
+        raise InvalidExercise
+    # CU-A13: el margen para sincronizar (14 días) existe SOLO para tokens del lote sin conexión.
+    # Pedirlo con un token de práctica o de diagnóstico es un error: nunca se alarga su caducidad.
+    if grace_s < 0 or (grace_s and not offline):
         raise InvalidExercise
     try:
         payload_b64, signature_b64 = token.split(".")
@@ -167,9 +174,9 @@ def verify(
     wanted = _OFFLINE_VERSION if offline else _VERSION
     if version != wanted or owner != student_id or not MIN_LEVEL <= level <= MAX_LEVEL:
         raise InvalidExercise
-    if (time.time() if now is None else now) >= expires_at:
+    if (time.time() if now is None else now) >= expires_at + grace_s:
         raise InvalidExercise
     exercise = generate(topic, _rng(key, exercise_id), level)
     if exercise is None:
         raise InvalidExercise
-    return VerifiedExercise(exercise_id, topic, level, exercise, issued_at, step)
+    return VerifiedExercise(exercise_id, topic, level, exercise, issued_at, step, expires_at)

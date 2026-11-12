@@ -27,6 +27,7 @@ from app.routes import (
     explanations,
     health,
     offline,
+    offline_sync,
     pin,
     progress,
     report,
@@ -93,6 +94,7 @@ def create_app(
     app.include_router(exercises.router)
     app.include_router(diagnostic.router)
     app.include_router(offline.router)
+    app.include_router(offline_sync.router)
     app.include_router(progress.router)
     app.include_router(account.router)
     app.include_router(consent.router)

@@ -44,6 +44,16 @@ export class MemoryOfflineStore extends OfflineStore {
     return this.attempts.filter((a) => a.studentId === studentId).map(MemoryOfflineStore.copy);
   }
 
+  async removeAttempts(ids: string[]): Promise<void> {
+    if (this.failWrites) throw this.failWrites;
+    const drop = new Set(ids);
+    this.dropAttempts((a) => drop.has(a.id));
+  }
+
+  async queuedStudents(): Promise<string[]> {
+    return [...new Set(this.attempts.map((a) => a.studentId))];
+  }
+
   async profiles(): Promise<CachedProfile[]> {
     return MemoryOfflineStore.copy(this.cachedProfiles);
   }
@@ -63,18 +73,18 @@ export class MemoryOfflineStore extends OfflineStore {
     this.cachedOwner = { tutorId: owner.tutorId, savedAt: owner.savedAt };
     const active = new Set(profiles.filter((p) => !p.blocked).map((p) => p.id));
     for (const id of [...this.batches.keys()]) if (!active.has(id)) this.batches.delete(id);
-    this.removeAttempts((a) => !active.has(a.studentId));
+    this.dropAttempts((a) => !active.has(a.studentId));
   }
 
   async forgetStudent(studentId: string): Promise<void> {
     this.batches.delete(studentId);
     this.cachedProfiles = this.cachedProfiles.filter((p) => p.id !== studentId);
-    this.removeAttempts((a) => a.studentId === studentId);
+    this.dropAttempts((a) => a.studentId === studentId);
   }
 
   async purgeExpired(nowS: number): Promise<void> {
     for (const [id, b] of this.batches) if (b.expiresAt <= nowS) this.batches.delete(id);
-    this.removeAttempts((a) => a.expiresAt + SYNC_GRACE_SECONDS <= nowS);
+    this.dropAttempts((a) => a.expiresAt + SYNC_GRACE_SECONDS <= nowS);
     // Sin dueño (copia de una versión anterior) o con más de 7 días: fuera.
     if (!this.cachedOwner || this.cachedOwner.savedAt + PROFILES_TTL_SECONDS <= nowS) {
       this.cachedProfiles = [];
@@ -89,7 +99,7 @@ export class MemoryOfflineStore extends OfflineStore {
     this.cachedOwner = null;
   }
 
-  private removeAttempts(drop: (a: QueuedAttempt) => boolean): void {
+  private dropAttempts(drop: (a: QueuedAttempt) => boolean): void {
     const keep = this.attempts.filter((a) => !drop(a));
     this.attempts.length = 0;
     this.attempts.push(...keep);

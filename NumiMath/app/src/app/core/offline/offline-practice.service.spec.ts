@@ -6,6 +6,7 @@ import { OfflineBatchError, OfflineBatchPort } from './offline-batch.port';
 import { solutionHash } from './offline-grading';
 import { OfflineError, OfflinePracticeService } from './offline-practice.service';
 import { OfflineStore } from './offline-store.port';
+import { OfflineSyncPort } from './offline-sync.port';
 
 const NOW = Date.UTC(2026, 10, 12, 15, 0, 0);
 const NOW_S = NOW / 1000;
@@ -277,14 +278,40 @@ describe('OfflinePracticeService (CU-A12)', () => {
       const old = await makeBatch(4, DAY);
       await store.saveBatch(old);
       await store.saveProfiles([{ id: ID, nickname: 'Ana', grade: 2, blocked: false }], { tutorId: 't', savedAt: NOW_S });
-      store.attempts.push({
-        id: 'a1', studentId: ID, token: 't', topic: '2-06', level: 1, answer: 1, correct: true,
-        answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: old.expiresAt,
-      });
       await service.refresh(ID);
       expect(await store.batch(ID)).toBeNull();
-      expect(await store.queue(ID)).toEqual([]);
       expect(await store.profiles()).toEqual([]);
+    });
+
+    it('CU-A13: con intentos sin enviar (falló la sincronización) NO renueva el lote', async () => {
+      const store = new MemoryOfflineStore();
+      const { service, port } = setup(undefined, store);
+      await store.saveBatch(await makeBatch(4, DAY)); // vence pronto: normalmente renovaría
+      store.attempts.push({
+        id: 'a1', studentId: ID, token: 't', topic: '2-06', level: 1, answer: 1, correct: true,
+        answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: NOW_S + DAY,
+      });
+      await service.refresh(ID); // el envío falla por red (valor por defecto de las pruebas)
+      expect(port.download).not.toHaveBeenCalled();
+      expect(await store.queue(ID)).toHaveLength(1);
+    });
+
+    it('CU-A13: sincroniza ANTES de renovar y, con la cola vacía, renueva', async () => {
+      const store = new MemoryOfflineStore();
+      const send = vi.fn(async (_s: string, a: QueuedAttempt[]) =>
+        a.map((x) => ({ id: x.id, status: 'accepted' as const })),
+      );
+      TestBed.overrideProvider(OfflineSyncPort, { useValue: { send } });
+      const { service, port } = setup(undefined, store);
+      await store.saveBatch(await makeBatch(4, DAY));
+      store.attempts.push({
+        id: 'a1', studentId: ID, token: 't', topic: '2-06', level: 1, answer: 1, correct: true,
+        answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: NOW_S + DAY,
+      });
+      await service.refresh(ID);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(port.download).toHaveBeenCalledTimes(1);
+      expect(send.mock.invocationCallOrder[0]).toBeLessThan(port.download.mock.invocationCallOrder[0]);
     });
 
     it('otras fallas (sin red, límite diario) conservan lo que había', async () => {

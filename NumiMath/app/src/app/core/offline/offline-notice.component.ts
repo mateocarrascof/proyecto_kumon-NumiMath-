@@ -12,6 +12,8 @@ export const OFFLINE_MESSAGES = {
   exhaustedTile: 'Sin ejercicios guardados',
   storage: 'No pude guardar tu respuesta. Intenta otra vez.',
   profiles: 'Estás sin internet. Puedes practicar con los ejercicios guardados.',
+  // CU-A13: no se pudieron enviar los ejercicios hechos sin internet. Sin culpa y sin bloquear.
+  syncPending: 'Tus ejercicios sin internet se enviarán más tarde. Puedes seguir practicando.',
   // Tareas y "Mi progreso" los calcula el servidor (decisión 4 del ADR 0002).
   needsInternet: 'Esto necesita internet. Cuando vuelva, aquí estará.',
 } as const;

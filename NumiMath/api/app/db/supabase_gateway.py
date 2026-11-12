@@ -23,6 +23,7 @@ from app.db.gateway import (
     ConsentSummary,
     DiagnosticItem,
     GatewayError,
+    OfflineAttempt,
     PinState,
 )
 from app.exercises.levels import BLOCK_SIZE, MAX_LEVEL, MIN_LEVEL, SkillProgress
@@ -121,6 +122,45 @@ class SupabaseGateway:
         if result not in ("ok", "limit", "student_not_found"):
             raise GatewayError("unexpected_result")
         return str(result)
+
+    async def record_offline_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, attempts: list[OfflineAttempt]
+    ) -> dict[uuid.UUID, str] | None:
+        result = await self._rpc(
+            "record_offline_attempts",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_attempts": [
+                    {
+                        "exercise_id": str(a.exercise_id),
+                        "topic": a.topic,
+                        "exercise": a.exercise,
+                        "correct": a.correct,
+                        "level": a.level,
+                        "duration_s": a.duration_s,
+                        "answered_at": a.answered_at.isoformat(),
+                        "local_day": a.local_day.isoformat() if a.local_day else None,
+                    }
+                    for a in attempts
+                ],
+            },
+        )
+        if result == "student_not_found":
+            return None
+        if not isinstance(result, list):
+            raise GatewayError("unexpected_result")
+        statuses: dict[uuid.UUID, str] = {}
+        for row in result:
+            try:
+                key = uuid.UUID(str(row["exercise_id"]))
+                status = str(row["status"])
+            except (KeyError, TypeError, ValueError):
+                raise GatewayError("unexpected_result") from None
+            if status not in ("ok", "duplicate"):
+                raise GatewayError("unexpected_result")
+            statuses[key] = status
+        return statuses
 
     async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
         if not self._key:

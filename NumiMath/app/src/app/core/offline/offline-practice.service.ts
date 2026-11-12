@@ -6,6 +6,7 @@ import { MAX_DURATION_S, OfflineBatch, OfflineExercise, QueuedAttempt } from './
 import { applyAnswer, matches, simplified } from './offline-grading';
 import { OfflineBatchError, OfflineBatchPort } from './offline-batch.port';
 import { OfflineStore } from './offline-store.port';
+import { OfflineSyncService } from './offline-sync.service';
 
 /** Se pide un lote nuevo si al actual le quedan menos de 2 días (ADR 0002, sección 3). */
 const REFRESH_BEFORE_S = 2 * 24 * 3600;
@@ -32,6 +33,7 @@ export class OfflineError extends Error {
 export class OfflinePracticeService {
   private readonly store = inject(OfflineStore);
   private readonly batches = inject(OfflineBatchPort);
+  private readonly sync = inject(OfflineSyncService);
   /** Cuándo se mostró cada ejercicio, para medir el tiempo (solo en memoria). */
   private readonly shownAt = new Map<string, number>();
   /** Descarga en curso por perfil: abrir la práctica dos veces no gasta dos descargas del día. */
@@ -90,7 +92,13 @@ export class OfflinePracticeService {
   }
 
   private async doRefresh(studentId: string): Promise<void> {
+    // CU-A13: con red, primero se envían los intentos en cola y DESPUÉS se purga.
+    if ((await this.sync.sync(studentId)) === 'forbidden') return;
     await this.store.purgeExpired(this.nowS()).catch(() => undefined);
+    // Con intentos aún sin enviar NO se renueva: el lote nuevo traería el nivel del servidor sin
+    // esos intentos y el progreso que ve el niño retrocedería. Se renueva al vaciarse la cola.
+    const pending = await this.store.queue(studentId).catch(() => [] as QueuedAttempt[]);
+    if (pending.length > 0) return;
     const current = await this.store.batch(studentId).catch(() => null);
     if (current && !this.needsRefresh(current)) return;
     try {

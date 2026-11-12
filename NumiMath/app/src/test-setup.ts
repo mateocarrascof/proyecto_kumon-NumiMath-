@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { MemoryOfflineStore } from './app/core/offline/memory-offline-store';
 import { OfflineBatchError, OfflineBatchPort } from './app/core/offline/offline-batch.port';
 import { OfflineStore } from './app/core/offline/offline-store.port';
+import { OfflineSyncError, OfflineSyncPort } from './app/core/offline/offline-sync.port';
 
 // Polyfills for running unit tests under jsdom (the default Vitest environment).
 // Ionic components such as ion-menu and ion-split-pane query `window.matchMedia`,
@@ -34,6 +35,15 @@ function offlineDefaults(): void {
         useValue: {
           download: async () => {
             throw new OfflineBatchError('network');
+          },
+        },
+      },
+      // CU-A13: el envío de la cola también falla por red por defecto.
+      {
+        provide: OfflineSyncPort,
+        useValue: {
+          send: async () => {
+            throw new OfflineSyncError('network');
           },
         },
       },

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 
 import { AuthPort } from '../auth/auth.port';
 import { SUPABASE_CLIENT } from '../auth/supabase.client';
-import { ConsentPort, ConsentResult, LegalBundle, LegalDocument, LegalKind } from './consent.port';
+import { ConsentPort, ConsentResult, ConsentStatus, LegalBundle, LegalDocument, LegalKind } from './consent.port';
 
 /** Archivo servido por la app para cada tipo de documento (fuente: docs/legal-provisional). */
 export const LEGAL_FILES: Record<LegalKind, string> = {
@@ -59,7 +59,7 @@ export class SupabaseConsentService extends ConsentPort {
     return { terms, privacy, adult_declaration: adult };
   }
 
-  async hasActiveConsent(): Promise<boolean> {
+  async consentStatus(): Promise<ConsentStatus> {
     try {
       const [rows, latest] = await Promise.all([
         this.currentVersions(),
@@ -72,17 +72,21 @@ export class SupabaseConsentService extends ConsentPort {
       const last = latest.data?.[0] as
         | { event_type: string; terms_version_id: string; privacy_version_id: string }
         | undefined;
-      if (latest.error || !last) return false;
+      // Error de la consulta: no se sabe (puede ser falta de red). El guard falla cerrado igual.
+      if (latest.error) return 'unknown';
       const terms = rows.find((r) => r.kind === 'terms');
       const privacy = rows.find((r) => r.kind === 'privacy');
-      return (
+      // Sin versiones vigentes la base no respondió lo esperado: no se sabe, y no se borra nada.
+      if (!terms || !privacy) return 'unknown';
+      if (!last) return 'missing';
+      const active =
         last.event_type === 'grant' &&
         last.terms_version_id === terms?.id &&
-        last.privacy_version_id === privacy?.id
-      );
+        last.privacy_version_id === privacy?.id;
+      return active ? 'active' : 'missing';
     } catch {
-      // Falla cerrado: ante la duda, se vuelve a pedir el consentimiento.
-      return false;
+      // No se pudo consultar: el guard no deja pasar (falla cerrado), pero no borra nada.
+      return 'unknown';
     }
   }
 

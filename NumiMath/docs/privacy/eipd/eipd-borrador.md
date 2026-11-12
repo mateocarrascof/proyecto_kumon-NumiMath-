@@ -1,8 +1,8 @@
-# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.2
+# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.5
 
 **Apoyo técnico, no asesoría legal.** Debe revisarlo un abogado o el delegado de protección de datos antes de darlo por válido. Enfoque del art. 15 ter de la Ley 21.719 (verificar contra el texto oficial; el texto de la ley y su fecha de vigencia deben confirmarse: ver sección 8).
 
-**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.3 (borrador) · **Fecha:** 2026-11-12
+**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.5 (borrador) · **Fecha:** 2026-11-13 (0.3: modo sin conexión, CU-A12; 0.4: sincronización, CU-A13; 0.5: unión con los riesgos del docente R27 a R40; los de modo sin conexión pasan a R41 y R42)
 **Responsable del tratamiento:** `<razón social y contacto: pendiente>` · **Contacto de privacidad:** `<correo: pendiente>`
 **Basado en:** `docs/privacy/inventario-datos.md`, `docs/adr/0001-contrato-fastapi-consentimiento.md`, `docs/lote-2-propuesta-consentimiento.md` y las migraciones de `supabase/`.
 
@@ -47,6 +47,7 @@ Detalle completo y vigente en `docs/privacy/inventario-datos.md`. Resumen:
 | Hojas del papel (pendiente de implementar) | Alumno | Por definir | Solo con docente vinculado; ver `hojas-guardadas-justificacion.md`. |
 | Prompt a la IA (curso, tema, ejercicio) | — | FastAPI → proveedor de IA | Sin datos personales si el filtro funciona. |
 | Logs técnicos | — | Infraestructura | Sin contenido ni datos personales (regla de diseño). |
+| **Modo sin conexión (CU-A12):** copia de apodo y curso, lote de ejercicios, cola de intentos con las respuestas del niño, id del tutor dueño | Alumno / Tutor | **Dispositivo del tutor (IndexedDB), sin cifrar** | Primera vez que hay datos del niño fuera de la base. Al volver la red, la cola se envía dispositivo → FastAPI → Supabase (CU-A13; nunca a la IA) y queda en `student_attempts`. Plazos: copia 7 días, lote 7, cola hasta ~21; vencidos dejan de usarse y se borran la próxima vez que se abre la app o vuelve a primer plano (riesgos R41 y R42; ADR 0002). |
 
 **No se recolectan:** apellidos, fotos, ubicación, fecha de nacimiento, voz, contactos, identificadores publicitarios, correo o teléfono del alumno. No hay SDK de publicidad ni de analítica de terceros.
 
@@ -152,6 +153,8 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R39 | **Lo que el docente ya vio persiste tras quitar el vínculo** (notas, capturas de pantalla, memoria). No hay remedio técnico. | Alta | Media | El texto de autorización (v4) lo dice expresamente. | Términos del docente con compromiso de confidencialidad y de no conservar copias; qué hacer si un docente abusa. | Medio |
 | R40 | **El docente usa los datos fuera de la finalidad pedagógica** (calificar, clasificar o comparar al niño). | Baja | Alta | El texto limita la finalidad; el docente solo ve lo mínimo (día, nivel, enunciado generado por la app). | Términos del docente aceptados y versionados, y que `teacher_can_view` exija haberlos aceptado; procedimiento ante abuso. | Medio |
 | R30 | **Hojas guardadas con datos personales** (el niño puede escribir algo identificable en el papel). | Media | Media | Solo se guardan con vínculo activo y si el niño pulsa "Guardar el papel"; el tutor las ve y las borra; las hojas pertenecen al niño: quitar el vínculo o eliminar al docente no las borra (solo dejan de verse para ese docente); se eliminan cuando el tutor las borra, al revocar o al borrar el perfil. Justificación en `hojas-guardadas-justificacion.md`. | **Aún no implementado**: **plazo máximo de conservación con purga programada (pendiente)**, aviso al niño en lenguaje simple, tope de tamaño y sin metadatos. | Medio hasta implementarlo |
+| R41 | **Datos del niño sin cifrar en el dispositivo** (modo sin conexión): apodo, curso y respuestas quedan en IndexedDB; en un equipo compartido, quien lo use sin cerrar sesión puede verlos. | Media | Media | Decisión 6 del ADR 0002 (sin cifrado: datos mínimos y vida corta). Solo apodo, curso y respuestas numéricas; nada va a la IA. Plazos: copia de perfiles 7 días, lote 7, cola hasta ~21; vencidos dejan de usarse y se borran la próxima vez que se abre la app o vuelve a primer plano (no se puede borrar si la app no se abre). Se borra al cerrar sesión, al revocar, si la sesión termina sin cerrar sesión (`SIGNED_OUT`), si entra otro tutor, al borrar o pausar un perfil y ante un 403. "Cerrar sesión" no se ofrece sin red para no perder intentos. `storage.persist()` solo en la web y desde el panel del tutor. | Política `privacidad-prov-2` (cambio aparte). Evaluar cifrado si Legal lo pide (pendientes-legales, 29). | Medio |
+| R42 | **Excepción a la revocación sin red**: si el tutor revoca o pausa desde otro equipo, un dispositivo **sin conexión** sigue permitiendo practicar con su lote hasta conectarse (máx. 7 días). | Media | Media | Decisión 8 del ADR 0002, aceptada **para esta etapa** y **pendiente de revisión por Adolfo y `privacy-cl-auditor`**. Al conectarse, el dispositivo lo detecta (consentimiento `missing` o 403) y borra todo; la copia deja de usarse a los 7 días aunque nunca se conecte y se borra la próxima vez que se abre la app. La pantalla de revocación lo avisa ("en un equipo sin internet, el borrado ocurre al conectarse"). Lo que se practicó no cuenta hasta que el servidor lo acepte: CU-A13 (implementado, con pruebas) responde 403 a perfiles bloqueados o sin consentimiento y el dispositivo borra lo suyo. | Validar con Legal (pendientes-legales, 29). Política `privacidad-prov-2` (cambio aparte). | Medio |
 
 ---
 
@@ -174,6 +177,18 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 - Trabajos programados (purgas y avisos), runbook de borrado de cuenta y de incidentes, restauración de backups probada.
 - Capacitación y responsables: `<pendiente>`.
 - Revisión de proveedores y DPA.
+
+**Modo sin conexión (CU-A12, implementadas con pruebas):** copia local ligada al tutor y con
+vencimiento de 7 días; borrado ante `SIGNED_OUT`, cambio de tutor, revocación detectada con red y
+403; perfil en pausa no se abre sin red ni por dirección directa; el service worker no guarda
+respuestas de la API (sin `dataGroups`) y solo se registra en la web.
+
+**Sincronización (CU-A13, implementadas con pruebas):** el servidor vuelve a corregir con el token
+(ignora lo que diga el dispositivo sobre si acertó, el nivel o el tema); el token va ligado al
+perfil; margen de 14 días tras su caducidad; la respuesta escrita no se guarda; hora y duración del
+dispositivo acotadas a la vida del token (tope 600 s); un endpoint por perfil con consentimiento
+vigente; reenviar no duplica nada. **Riesgo bajo de exactitud:** hora y duración de esos intentos
+vienen de un reloj que se puede manipular (acotadas; pregunta en pendientes-legales, 29).
 
 ## 6. Derechos del titular (ejercidos por el tutor)
 

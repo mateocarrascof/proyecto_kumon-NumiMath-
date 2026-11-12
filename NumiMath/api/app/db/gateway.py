@@ -36,6 +36,22 @@ class ConsentSummary:
 
 
 @dataclass(frozen=True)
+class OfflineAttempt:
+    """Un intento sin conexión YA verificado y corregido por el servidor (CU-A13). Nada de esto
+    viene del cliente sin pasar por FastAPI: tema y nivel salen del token, `correct` se recalcula,
+    la hora y la fecha local vienen acotadas a la vida del token."""
+
+    exercise_id: uuid.UUID
+    topic: str
+    exercise: str
+    correct: bool
+    level: int
+    duration_s: int | None
+    answered_at: datetime
+    local_day: date | None
+
+
+@dataclass(frozen=True)
 class AttemptRow:
     """Un intento de práctica: solo tema, resultado y hora (nunca la respuesta del niño)."""
 
@@ -208,6 +224,21 @@ class Gateway(Protocol):
 
         Si se superaría un límite, NO se registra nada.
         """
+        ...
+
+    async def consume_offline_batch(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, daily_limit: int
+    ) -> str:
+        """Cuenta una descarga del lote sin conexión (CU-A12). Devuelve `ok`, `limit` (ya hubo
+        `daily_limit` descargas hoy; no se registra nada) o `student_not_found`."""
+        ...
+
+    async def record_offline_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, attempts: list[OfflineAttempt]
+    ) -> dict[uuid.UUID, str] | None:
+        """Registra en UNA llamada los intentos sin conexión, en orden cronológico (CU-A13).
+        Devuelve el estado por `exercise_id` (`ok` o `duplicate`) o `None` si el perfil no es del
+        tutor (no se registra nada)."""
         ...
 
     async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:

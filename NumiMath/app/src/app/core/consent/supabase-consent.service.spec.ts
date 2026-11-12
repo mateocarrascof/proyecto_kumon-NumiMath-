@@ -24,6 +24,10 @@ interface Setup {
 async function setup(opts: {
   tamper?: boolean;
   lastConsent?: object | null;
+  /** Error de la consulta del último consentimiento (p. ej. sin red). */
+  consentError?: { message: string } | null;
+  /** La tabla de versiones vigentes responde vacía (sin error). */
+  noVersions?: boolean;
   insertError?: { message: string } | null;
 }): Promise<Setup> {
   const rows = [
@@ -42,14 +46,16 @@ async function setup(opts: {
   const client = {
     from: (table: string) => {
       if (table === 'legal_document_versions') {
-        return { select: () => ({ eq: async () => ({ data: rows, error: null }) }) };
+        return {
+          select: () => ({ eq: async () => ({ data: opts.noVersions ? [] : rows, error: null }) }),
+        };
       }
       return {
         select: () => ({
           order: () => ({
             limit: async () => ({
-              data: opts.lastConsent ? [opts.lastConsent] : [],
-              error: null,
+              data: opts.consentError ? null : opts.lastConsent ? [opts.lastConsent] : [],
+              error: opts.consentError ?? null,
             }),
           }),
         }),
@@ -121,29 +127,42 @@ describe('SupabaseConsentService', () => {
     expect(await service.accept(await service.loadCurrent())).toEqual({ ok: true });
   });
 
-  it('hasActiveConsent: sin eventos es false', async () => {
+  it('consentStatus: sin eventos es missing', async () => {
     const { service } = await setup({ lastConsent: null });
-    expect(await service.hasActiveConsent()).toBe(false);
+    expect(await service.consentStatus()).toBe('missing');
   });
 
-  it('hasActiveConsent: grant de las versiones vigentes es true', async () => {
+  it('consentStatus: grant de las versiones vigentes es active', async () => {
     const { service } = await setup({
       lastConsent: { event_type: 'grant', terms_version_id: 't1', privacy_version_id: 'p1' },
     });
-    expect(await service.hasActiveConsent()).toBe(true);
+    expect(await service.consentStatus()).toBe('active');
   });
 
-  it('hasActiveConsent: un grant de una versión antigua es false (hay que re-aceptar)', async () => {
+  it('consentStatus: un grant de una versión antigua es missing (hay que re-aceptar)', async () => {
     const { service } = await setup({
       lastConsent: { event_type: 'grant', terms_version_id: 'viejo', privacy_version_id: 'p1' },
     });
-    expect(await service.hasActiveConsent()).toBe(false);
+    expect(await service.consentStatus()).toBe('missing');
   });
 
-  it('hasActiveConsent: una revocación es false', async () => {
+  it('consentStatus: una revocación es missing', async () => {
     const { service } = await setup({
       lastConsent: { event_type: 'revoke', terms_version_id: 't1', privacy_version_id: 'p1' },
     });
-    expect(await service.hasActiveConsent()).toBe(false);
+    expect(await service.consentStatus()).toBe('missing');
+  });
+
+  it('consentStatus: si faltan las versiones legales vigentes es unknown (no borra nada)', async () => {
+    const { service } = await setup({
+      noVersions: true,
+      lastConsent: { event_type: 'grant', terms_version_id: 't1', privacy_version_id: 'p1' },
+    });
+    expect(await service.consentStatus()).toBe('unknown');
+  });
+
+  it('consentStatus: si la consulta falla (sin red) es unknown, no missing', async () => {
+    const { service } = await setup({ consentError: { message: 'Failed to fetch' } });
+    expect(await service.consentStatus()).toBe('unknown');
   });
 });

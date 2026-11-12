@@ -737,3 +737,232 @@ En "Mi progreso", el niño ve un gráfico de barras de las **últimas 8 semanas*
 - `api/tests/test_integration_progress_evolution.py`: cuenta real con diagnóstico y 2 prácticas; la evolución cuenta solo las 2.
 - `progress.page.spec.ts`: barras, tabla y ánimo; mensaje con 2 ejercicios; umbral de 5; sin comparaciones.
 - `http-progress.service.spec.ts`.
+
+## Usar la aplicación sin conexión (CU-A12)
+
+Ficha CU-A12 de los Anexos ("Usar aplicación sin conexión", RF-18, RNF-06; la extiende CU-A13).
+Diseño y decisiones: **ADR 0002** (opción A). Decidido e implementado el 2026-11-12. Migración:
+`supabase/migrations/20261112120000_offline_batch_limit.sql`. CU-A13 (sincronizar) es otro encargo:
+aquí los intentos solo quedan en una cola local.
+
+### Qué es
+Con conexión, al abrir la práctica de un perfil, la app descarga sola un **lote de ejercicios
+firmados**. Sin internet, el niño practica con ese lote: la app corrige con la solución guardada y
+**guarda cada intento en el dispositivo antes de mostrar el resultado**.
+
+### Reglas
+| Situación | Resultado |
+|---|---|
+| Lote | Habilidades del **curso** del perfil (sin repaso); por habilidad, 10 ejercicios en el nivel actual y 10 en cada nivel vecino. Unos 240 a 300 ejercicios y 100 a 125 kB |
+| Vigencia | 7 días para responder; 14 días más de margen para sincronizar (CU-A13) |
+| Descarga | Sola, al abrir la práctica con conexión, si no hay lote, quedan menos de la mitad, vence en menos de 2 días o alguna habilidad se agotó en su nivel. Máximo 5 por perfil y día (429), contadas solo si se entrega el lote. Dos aperturas seguidas comparten una descarga. El lote nuevo reemplaza al anterior |
+| Sin conexión | Si el navegador cree que hay red, siempre se intenta en línea; el lote se usa solo si la petición falla por red (`navigator.onLine` no es la única señal). Aviso: "Estás sin internet. Puedes practicar con los ejercicios guardados." (no se muestra junto al aviso de "sin lote") |
+| Disponible sin conexión | Inicio, "¿Quién practica?" (copia local de apodo y curso) y la práctica de las habilidades del lote. Sin diagnóstico, repaso, racha ni explicación de Numi. "Tareas de tu tutor" y "Mi progreso" se ven, pero al tocarlos dicen "Esto necesita internet. Cuando vuelva, aquí estará." |
+| Corrección | Provisional, con la solución en hash. Correcto: "¡Correcto!" (y la forma simple de una fracción). Incorrecto: **solo "Casi."**, porque el dispositivo no conoce la solución |
+| Nivel y bloque | Se calculan en el dispositivo con la misma regla de bloques de 10, solo para mostrar estrellas y "¡Subiste de nivel!". El nivel real lo recalcula el servidor al sincronizar (CU-A13) |
+| Lote agotado (excepción de la ficha) | La baldosa dice "Sin ejercicios guardados" (1 rem) y al tocarla: "Ya hiciste todos los ejercicios guardados de este tema. Puedes elegir otro tema." |
+| Cerrar sesión | Se oculta sin conexión: borraría los intentos sin enviar y dejaría al niño fuera de la app |
+| Sin lote | "Para practicar sin internet, primero hay que conectarse una vez. Pide ayuda a un adulto." |
+| No se pudo guardar el intento | No se muestra resultado: "No pude guardar tu respuesta. Intenta otra vez." |
+| Vuelve la red | Al volver a la lista de temas, si el navegador cree que hay red, se intenta en línea; si responde, sale del modo sin conexión |
+
+### Seguridad
+- Token del lote con **dominio propio** (`offline-token|`, versión 5): no sirve para responder en
+  línea ni en el diagnóstico, y los de práctica no sirven como lote. Va ligado al perfil y no lleva
+  la respuesta.
+- La solución viaja como `SHA-256(sal | forma canónica)`: no se lee a simple vista, pero **no es
+  una barrera** (las respuestas son números chicos). Lo que cuenta lo corrige el servidor desde el
+  token al sincronizar; el "acertó" del dispositivo se ignora. Riesgo aceptado (ADR 0002).
+- `POST /v1/students/{id}/offline-batch`: mismas comprobaciones que la práctica
+  (`AuthorizedStudentDep`). No usa IA. Si no puede leer el progreso, no entrega lote (503).
+- Guards sin red: solo las rutas con `data: { offline: true }` y solo si hay copia local de
+  perfiles de un tutor conocido, de menos de 7 días; en `/practica/:id`, el perfil debe estar en la
+  copia y no estar en pausa. El servidor sigue sin caché (ADR 0001) y vuelve a comprobar todo al
+  sincronizar.
+- `consentGuard` distingue "sin consentimiento" (borra lo guardado y va a /terminos) de "no se
+  pudo consultar" (no borra nada; solo rutas de práctica con la copia local).
+- El service worker guarda solo los archivos de la app (sin `dataGroups`): nunca respuestas de la
+  API ni de Supabase.
+
+### Datos en el dispositivo
+IndexedDB `numimath-offline`, sin cifrar: `profiles` (apodo, curso, en pausa), `batches` (lote) y
+`queue` (intentos con la respuesta escrita del niño). Escritura con `durability: 'strict'`; el
+resultado se muestra recién cuando la transacción terminó. Se borra todo al cerrar sesión o revocar
+el consentimiento (también si se revocó en otro equipo y el dispositivo lo detecta con red), si
+Supabase avisa que la sesión terminó (`SIGNED_OUT`) o si entra otro tutor; lo de un perfil, al
+borrarlo, si el servidor responde 403 o si al recargar la lista ya no está o está en pausa. La
+copia de perfiles vence a los 7 días. Lo vencido se purga al iniciar la app y cada vez que vuelve a
+primer plano (`visibilitychange`), sin depender de la red: deja de usarse a los 7 días y se borra la
+próxima vez que se abre la app. `navigator.storage.persist()` se pide solo en la web y desde
+el panel del tutor. Ver `docs/privacy/inventario-datos.md`.
+
+### Decisiones confirmadas (2026-11-12)
+- Incorrecto sin conexión: **solo "Casi."**; la solución no se guarda de forma reversible.
+- Racha sin conexión: **oculta**.
+- Tareas y "Mi progreso" sin conexión: **"Esto necesita internet"** al tocarlos.
+- Límite de descargas: **solo por perfil**.
+- Lote viejo sin sincronizar: **aceptado hasta CU-A13** (ver pendiente 7).
+
+### Pendientes (no implementados; revisar)
+1. **Revocación sin red (decisión 8 del ADR):** un dispositivo sin red sigue practicando con su lote
+   hasta conectarse (máx. 7 días). **Revisión pendiente de Adolfo y `privacy-cl-auditor`.**
+2. *(Resuelto: solo "Casi.")*
+3. *(Resuelto: racha oculta.)*
+4. *(Resuelto: "Esto necesita internet".)*
+5. **Manifiesto PWA:** no se agrega por ahora; se necesitan íconos de 192 y 512 px (recurso gráfico
+   nuevo, con su crédito en `docs/creditos-recursos.md`). Sin él no se puede "instalar" la app y
+   Safari/iOS puede borrar los datos de un sitio tras 7 días sin uso.
+6. **Tope por tutor:** la duda queda comentada en la migración para Adolfo.
+7. **Antes de CU-A13 (aceptado):** renovar el lote con intentos en cola muestra el nivel del servidor
+   (sin esos intentos). Cerrar sesión con intentos sin enviar los pierde (el aviso es parte de CU-A13).
+7b. **Escritura por respuesta:** cada respuesta reescribe el lote completo (~190 kB) para marcar un
+    ejercicio usado; escribir solo el intento queda pendiente (`scalability-reviewer`). Tampoco hay
+    gzip en la API ni regla de bloques compartida (tres lenguajes).
+7d. **Solo para que lo sepa el dueño:** al subir a `privacidad-prov-2`, el primer acceso con red pide
+    de nuevo el consentimiento (`missing`) y **borra lote y cola en todos los equipos**, incluidos
+    intentos sin enviar (CU-A13 aún no existe). La purga y el borrado por dueño o pausa se prueban
+    solo con `MemoryOfflineStore`: probar IndexedDB real requeriría una dependencia de desarrollo
+    nueva (p. ej. `fake-indexeddb`), que no se agregó.
+7c. **Política de privacidad:** el párrafo sobre el guardado local va en un cambio aparte, que sube
+    la versión de la política y obliga a pedir de nuevo el consentimiento.
+8. **Copia de perfiles cuando la base no responde:** si `list()` falla por cualquier motivo (no solo
+   red) y hay copia local, se muestra la copia con el aviso de sin conexión.
+9. **Presupuestos de estilos:** `practice.page.scss` (7,95 de 8 kB) y `profiles.page.scss` siguen
+   sobre el aviso de 4 kB (ya lo estaban). Los estilos nuevos van en `app-offline-notice` y en las
+   baldosas.
+10. **Revisores antes del PR:** se corrieron los cinco el 2026-11-12; sus hallazgos se corrigieron
+    (ADR 0002, "Revisión antes del PR"). Lo que quedó abierto está en los puntos 1, 5, 6 y 7b.
+
+### Requisitos para CU-A13 (de la revisión de seguridad; implementados, ver sección CU-A13)
+- El margen de 14 días para sincronizar debe ser un parámetro de `verify` que exista **solo** con
+  `offline=True`: nunca alargar la caducidad de los tokens de práctica ni de diagnóstico.
+- El servidor toma el perfil de la ruta (`AuthorizedStudentDep`), el nivel y el tema **solo del
+  token**, e ignora `correct`, `level` y `topic` que mande el cliente. Se mantiene la regla de
+  `record_attempt`: un intento con nivel distinto al del progreso no cuenta para el bloque.
+- `answered_at` y `local_date` se acotan a `[emisión, min(caducidad, ahora)]`.
+- Cada intento va por su propio perfil (sin endpoints de lote que mezclen perfiles).
+- Al renovar el lote con intentos en cola, el progreso que se ve no debe retroceder.
+- Al entrar CU-A13, actualizar las declaraciones de Data safety (Google) y Privacy Nutrition Label
+  (Apple) por la sincronización de la cola.
+
+### Pruebas
+- Servidor: `api/tests/test_offline_batch.py` (contenido, 10 por nivel, vigencia, hash = solución
+  regenerada, filtro RNF-10 en los 4 cursos, dominio propio, manipulación del token, acceso, límite
+  diario, logs sin datos) y `test_supabase_gateway.py` (`consume_offline_batch`).
+- Base: `supabase/tests/database/offline_batch_limit.test.sql` (permisos, límite, perfil ajeno, RLS).
+- App: `offline-grading.spec.ts` (hash igual al de Python, fracciones, regla de bloques con los casos
+  de `test_levels.py`), `offline-practice.service.spec.ts` (lote agotado, guardado antes de mostrar,
+  fallo al guardar, manipulación del lote local, renovación, 403, purga), `http-offline-batch.service.spec.ts`,
+  `practice.page.spec.ts` y `profiles.page.spec.ts` (modo sin conexión simulado; tareas y "Mi progreso"
+  avisan "Esto necesita internet"), y guards.
+- Manual (2026-11-12, Chromium con Playwright, compilación con service worker): sin red la app abre,
+  muestra el aviso y las habilidades del lote; tras responder y **cerrar la pestaña a la fuerza**, el
+  intento sigue en la cola de IndexedDB (RNF-06).
+
+## Sincronizar progreso al recuperar la conexión (CU-A13)
+
+RF-19, RF-25. Envía al servidor los intentos que CU-A12 dejó en la cola del dispositivo. El
+servidor es la fuente de verdad: vuelve a corregir y recalcula nivel, bloque y racha.
+
+### Reglas
+| Tema | Regla |
+|---|---|
+| Endpoint | `POST /v1/students/{id}/offline-sync`, **uno por perfil** (no se mezclan perfiles). `AuthorizedStudentDep`: JWT del tutor, perfil suyo, no bloqueado y con consentimiento. Un perfil bloqueado o borrado responde 403 y los demás se sincronizan igual |
+| Tamaño del lote | **15 intentos por petición** (422 si vienen más). Motivo: el cuerpo de toda petición tiene un tope de 8 KB (`max_body_bytes`, no se tocó) y un intento pesa hasta ~410 bytes. La base tiene un tope de defensa de 100 |
+| Qué se usa del cliente | Solo `id` (del dispositivo, para informar el estado), `token`, `answer`, `answer_den`, `answered_at`, `local_date` y `duration_s`. `correct`, `level` y `topic` se ignoran: tema y nivel salen del token y la respuesta se corrige otra vez |
+| Tokens | Solo del lote (dominio `offline-token|`, v5), ligados a ese perfil. Margen de **14 días** tras la caducidad, que existe solo con `offline=True` (un token de práctica o de diagnóstico nunca lo recibe) |
+| Hora y fecha | `answered_at` se acota a `[emisión, min(caducidad, ahora)]`; la fecha local, a la vida del token ±1 día, y debe calzar con la hora del intento. Tiempo sobre 600 s: sin tiempo |
+| Orden | El servidor aplica los intentos **en orden cronológico** sobre el progreso actual (una sola llamada a la base, `record_offline_attempts`, que pasa cada intento por `record_attempt`: la misma regla del bloque de 10) |
+| Duplicados | El `jti` del token es único por perfil (`student_attempts_once`). Reenviar el mismo lote, o enviarlo dos veces a la vez, no cambia nada (`duplicate`). Un token ya respondido en línea no entra como sin conexión (otro dominio de firma) |
+| Racha | Por día local; solo días posteriores al último registrado (no se rellenan días hacia atrás, igual que en línea) |
+| Resultado por intento | `accepted`, `duplicate` o `rejected` (token inválido, vencido tras el margen o de otro perfil). Los tres son definitivos: la app los quita de la cola. Cada rechazo deja un evento `offline_sync.rejected` con solo un código (contador sin datos del niño) |
+
+**Nivel que ya no coincide.** Si otro equipo practicó en línea mientras tanto y el nivel de la
+habilidad cambió, un intento sin conexión cuyo nivel (firmado en el token) ya no coincide con el del
+servidor **se guarda pero no cuenta para el bloque** (regla actual de `record_attempt`). Duda inline
+en la migración para Adolfo: ¿se acepta así o se quiere rehacer el historial completo?
+
+### App
+- **Cuándo sincroniza:** al volver la red (evento `online`), al abrir la app, al volver a primer
+  plano y antes de renovar el lote. En la práctica con red, **antes de leer** nivel y racha, así lo
+  que se ve ya incluye lo hecho sin conexión.
+- **Lotes secuenciales:** por perfil, del intento más antiguo al más nuevo, de a 15, **uno tras
+  otro** (nunca en paralelo), esperando la respuesta de cada uno y con una pausa corta (300 ms)
+  entre lotes. Candado de una sola sincronización por perfil.
+- **Fallas:** sin red, 5xx, 429, sesión o respuesta rara → se detiene ese perfil sin saltarse lotes;
+  lo no confirmado queda en la cola y se reintenta **desde el lote que falló** con espera creciente
+  (2 s, 4 s, 8 s… hasta 5 min) mientras la app esté abierta. 403/404 (perfil bloqueado o borrado)
+  → definitivo: se borra lo de ese perfil del dispositivo.
+- **Aviso:** si con red no se pudo enviar, "Tus ejercicios sin internet se enviarán más tarde.
+  Puedes seguir practicando." El niño sigue practicando en línea.
+- **El progreso visible no retrocede:** con intentos sin enviar **no se renueva el lote** (el nuevo
+  traería el nivel del servidor sin esos intentos). Se renueva cuando la cola queda vacía.
+- **Con red, sincronizar antes de purgar:** al iniciar la app y al volver a primer plano, si hay red
+  primero se envía la cola y después se purga lo vencido. Sin red, la purga sigue la política
+  (`privacidad-prov-2`) sin cambios.
+
+### Revisión antes del PR (2026-11-13)
+Revisores: `code-reviewer`, `security-reviewer`, `scalability-reviewer` y `privacy-cl-auditor`
+sobre `13834dd..604b2f2`. Corregido (decisiones del dueño en **negrita**):
+- **Un intento fuera de rango ya no hace fallar el lote (422):** el endpoint acepta los mismos
+  topes que el teclado de la app (respuesta de 7 dígitos, denominador de 4) y decide por intento
+  (denominador 0 → `rejected` solo ese). La app sigue tratando todo 4xx como temporal.
+- **La práctica espera la sincronización como máximo 3 s:** si no alcanza, muestra los temas con el
+  aviso "se enviarán más tarde" y el envío sigue en segundo plano (`syncWithin`).
+- Tiempo máximo de 15 s por petición de sincronización (vence = sin red, se reintenta).
+- La purga espera la sincronización previa como máximo 20 s: con la red colgada, lo vencido se
+  borra igual (lo que dice la política).
+- Reintentos repartidos al azar entre la mitad y el total de la espera (sigue 2 s…5 min) y 0–2 s
+  al azar al volver la red, para que muchos equipos no lleguen juntos.
+- `record_attempt` recibe la hora del intento (una sola escritura, sin UPDATE posterior) y la
+  sincronización bloquea primero la racha y luego la habilidad, como en línea (sin deadlock).
+- Inventario (tiempos y hora del dispositivo, historial) y EIPD 0.4.
+
+### Pendientes (no implementados; revisar)
+1. **(5) Aviso al cerrar sesión con intentos sin enviar:** hoy "Cerrar sesión" con red borra la cola
+   sin avisar (sin red ni se ofrece). La ficha no lo pide.
+2. **(6) Límite de frecuencia del endpoint:** fuera del tamaño del lote (15) y el JWT, no hay tope
+   diario de sincronizaciones por perfil o tutor.
+3. **Nivel que ya no coincide:** decidir con Adolfo si basta la regla actual (ver arriba).
+4. **Cambio de versión de la política:** al volver a pedir el consentimiento (`missing`) se borra la
+   cola, incluidos intentos sin enviar. Podría sincronizarse antes de borrar, pero sin
+   consentimiento vigente el servidor los rechaza (403). Decidir con Legal (pendientes-legales, 29.4).
+5. **Mismo `jti` dos veces en una petición:** ambos se informan como `duplicate` aunque uno se haya
+   registrado (ambos salen de la cola; sin efecto en el progreso).
+6. **Data safety y Privacy Nutrition Label:** actualizar las declaraciones de las tiendas, ahora que
+   la cola se envía al servidor.
+7. **Reintentos solo con la app abierta:** sin plugin de tareas en segundo plano (no se agregaron
+   dependencias); se retoma al abrir la app o al volver a primer plano.
+8. **Hallazgos bajos de la revisión (no implementados):**
+   - Un log por intento rechazado (hasta 15 por petición): podría pasar a un solo evento por
+     petición con un contador (hoy `ALLOWED_FIELDS` no tiene un campo numérico).
+   - `touch_student_activity` es una llamada más a la base por petición; podría ir dentro de
+     `record_offline_attempts`.
+   - `queuedStudents()` (IndexedDB) lee los intentos completos para sacar los perfiles; podría
+     recorrer solo el índice (`openKeyCursor`). La variable se llama `keys` aunque son filas.
+   - Los reintentos no respetan `Retry-After` (importará con el pendiente 2).
+   - La función de la base no vuelve a comprobar bloqueo y consentimiento en la misma
+     transacción (lo hace FastAPI justo antes, igual que la práctica en línea).
+   - **Requiere decisión del dueño / Legal:** si el tutor pausa un perfil y lo reactiva antes de
+     que un equipo sin red se conecte, los intentos hechos durante la pausa se guardan al
+     sincronizar (pendientes-legales, 29). Lo mismo si algún día se permite reactivar tras revocar.
+   - La política `privacidad-prov-2` no dice qué guarda el servidor al recibir la cola (tema, si
+     acertó, hora y tiempo; la respuesta no): agregarlo en la próxima versión, sin versión solo por
+     esto.
+   - Mismo token dos veces en una petición (punto 5) y la duda para Adolfo solo en la migración
+     (punto 3 la repite aquí).
+
+### Pruebas
+- Servidor: `api/tests/test_offline_sync.py` (corrección en el servidor, valores manipulados, hora y
+  fecha acotadas, orden cronológico, racha, duplicados, envíos simultáneos, token de práctica,
+  lote parcial, margen de 14 días, perfil ajeno, bloqueado y borrado, tamaño, falla de la base, una
+  llamada por lote, logs) y `test_supabase_gateway.py` (`record_offline_attempts`).
+- Base: `supabase/tests/database/offline_sync.test.sql` (permisos, orden, hora, duplicados, token ya
+  respondido, racha, perfil ajeno, tamaño, RLS) y `supabase/tests/concurrency/run.sh`, escenario D
+  (dos conexiones reales con el mismo lote: cada intento una vez, el bloque cuenta 5 y no 10).
+- App: `offline-sync.service.spec.ts` (éxito, cola vacía, definitivos, más de 15 intentos en varios
+  lotes en orden y con pausa, nunca dos lotes a la vez, falla a mitad y reanuda desde ahí, sin red,
+  espera creciente, tope de 5 min, 403, candado, todos los perfiles, evento `online`),
+  `http-offline-sync.service.spec.ts`, `offline-purge.spec.ts` (sincronizar antes de purgar),
+  `offline-practice.service.spec.ts` (no renueva con cola) y `practice.page.spec.ts` (envía antes de
+  leer el progreso; aviso sin culpa).

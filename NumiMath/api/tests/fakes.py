@@ -14,6 +14,7 @@ from app.db.gateway import (
     ConsentSummary,
     DiagnosticItem,
     GatewayError,
+    OfflineAttempt,
     PinState,
 )
 from app.exercises.levels import SkillProgress, apply_answer
@@ -89,6 +90,67 @@ class FakeGateway:
     student_used: dict[uuid.UUID, int] = field(default_factory=dict)
     tutor_used: dict[uuid.UUID, int] = field(default_factory=dict)
     usage_calls: list[tuple[uuid.UUID, uuid.UUID, int, int, int]] = field(default_factory=list)
+
+    # descargas del lote sin conexión por perfil (imita la columna offline_batches del día)
+    offline_batches: dict[uuid.UUID, int] = field(default_factory=dict)
+    offline_batch_error: Exception | None = None
+
+    async def consume_offline_batch(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, daily_limit: int
+    ) -> str:
+        if self.offline_batch_error is not None:
+            raise self.offline_batch_error
+        if (tutor_id, student_id) not in self.grades:
+            return "student_not_found"
+        used = self.offline_batches.get(student_id, 0)
+        if used >= daily_limit:
+            return "limit"
+        self.offline_batches[student_id] = used + 1
+        return "ok"
+
+    # CU-A13: intentos sincronizados (imita record_offline_attempts)
+    offline_sync_error: Exception | None = None
+    offline_sync_calls: list[list[OfflineAttempt]] = field(default_factory=list)
+    answered_at: dict[tuple[uuid.UUID, uuid.UUID], datetime] = field(default_factory=dict)
+
+    async def record_offline_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, attempts: list[OfflineAttempt]
+    ) -> dict[uuid.UUID, str] | None:
+        if self.offline_sync_error is not None:
+            raise self.offline_sync_error
+        if (tutor_id, student_id) not in self.grades:
+            return None
+        self.offline_sync_calls.append(list(attempts))
+        statuses: dict[uuid.UUID, str] = {}
+        # Como la base: en orden cronológico (orden estable a igual hora) y por record_attempt,
+        # sin la racha de "hoy ±1" (se aplica abajo, coherente con la hora del intento).
+        for a in sorted(attempts, key=lambda x: x.answered_at):
+            status = await self.record_attempt(
+                tutor_id,
+                student_id,
+                a.exercise_id,
+                a.topic,
+                a.exercise,
+                a.correct,
+                None,
+                a.level,
+                a.duration_s,
+            )
+            statuses[a.exercise_id] = status
+            if status != "ok":
+                continue
+            self.answered_at[(student_id, a.exercise_id)] = a.answered_at
+            day = a.local_day
+            at_day = a.answered_at.date()
+            if day is None or not at_day - timedelta(days=1) <= day <= at_day + timedelta(days=1):
+                continue
+            row = self.streaks.get(student_id)
+            if row is None:
+                self.streaks[student_id] = DailyStreakRow(1, day)
+            elif day > row.last_day:
+                length = row.current_len + 1 if day == row.last_day + timedelta(days=1) else 1
+                self.streaks[student_id] = DailyStreakRow(length, day)
+        return statuses
 
     async def authorize_student_use(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> str:
         self.calls.append((tutor_id, student_id))

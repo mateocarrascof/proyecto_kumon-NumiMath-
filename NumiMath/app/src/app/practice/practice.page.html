@@ -21,6 +21,16 @@
       <app-mascot [state]="mascot.state()" [message]="message" data-testid="mascot-top"></app-mascot>
     }
 
+    @if (offlineMode && offlineNotice !== offlineMessages.noBatch) {
+      <!-- CU-A12: aviso claro sin conexión y qué se puede hacer mientras tanto. Sin lote no se
+           muestra: diría "puedes practicar" junto a "primero hay que conectarse". -->
+      <app-offline-notice [text]="offlineMessages.banner" testId="offline-banner"></app-offline-notice>
+    }
+
+    <!-- Región de aviso SIEMPRE presente (vacía si no hay aviso), en la lista y en el ejercicio:
+         el lector de pantalla solo anuncia cambios de una región que ya existía. -->
+    <app-offline-notice [text]="offlineNotice"></app-offline-notice>
+
     @if (loading) {
       <ion-spinner name="dots"></ion-spinner>
     }
@@ -33,6 +43,7 @@
           @if (dailyHint) { <span class="daily-hint">{{ dailyHint }}</span> }
         </p>
       }
+      <!-- Sin conexión la tarjeta sigue visible, pero al tocarla avisa "Esto necesita internet". -->
       <button type="button" class="topic-card tasks-card" data-tone="yellow" (click)="openTasks()" data-testid="tasks-card">
         <span class="topic-icon" aria-hidden="true">📌</span>
         <span class="topic-label">Tareas de tu tutor</span>
@@ -192,7 +203,10 @@
               <span class="result-icon" aria-hidden="true">💪</span>
               <!-- Sin culpa: nunca "mal", "incorrecto" ni "fallaste". Con la explicación abierta, el
                    ánimo lo da Numi y aquí queda solo el dato. -->
-              @if (explainState === 'idle' || explainState === 'error') {
+              @if (result.correctAnswer === undefined) {
+                <!-- Sin conexión la solución está guardada en hash: se sabe si acertó, no cuál era. -->
+                <strong data-testid="result-text">Casi.</strong>
+              } @else if (explainState === 'idle' || explainState === 'error') {
                 <strong data-testid="result-text">Casi. La respuesta era <app-math-text [text]="correctText(result)"></app-math-text>.</strong>
                 @if (canExplain && explainState === 'idle') {
                   <span data-testid="explain-hint">¿Quieres ver cómo se&nbsp;hace?&nbsp;<span aria-hidden="true">👇</span></span>
@@ -256,6 +270,7 @@
           <app-scratchpad [resetKey]="exercise.token"></app-scratchpad>
         }
       }
+
 
       @if (tasksDone) {
         <div class="medal" role="status" data-testid="tasks-done">

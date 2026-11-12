@@ -1,3 +1,10 @@
+import { TestBed } from '@angular/core/testing';
+
+import { MemoryOfflineStore } from './app/core/offline/memory-offline-store';
+import { OfflineBatchError, OfflineBatchPort } from './app/core/offline/offline-batch.port';
+import { OfflineStore } from './app/core/offline/offline-store.port';
+import { OfflineSyncError, OfflineSyncPort } from './app/core/offline/offline-sync.port';
+
 // Polyfills for running unit tests under jsdom (the default Vitest environment).
 // Ionic components such as ion-menu and ion-split-pane query `window.matchMedia`,
 // which jsdom does not implement.
@@ -14,3 +21,41 @@ if (!window.matchMedia) {
       dispatchEvent: () => false,
     }) as MediaQueryList;
 }
+
+// CU-A12: jsdom no trae IndexedDB. Por defecto, cada prueba usa un almacén en memoria y una
+// descarga del lote que falla por red (como sin internet). Una prueba que necesite otra cosa
+// los reemplaza en su propio `configureTestingModule` (el último proveedor gana). Se vuelven a
+// registrar tras cada `resetTestingModule`, porque algunas pruebas reinician el módulo a mitad.
+function offlineDefaults(): void {
+  TestBed.configureTestingModule({
+    providers: [
+      { provide: OfflineStore, useFactory: () => new MemoryOfflineStore() },
+      {
+        provide: OfflineBatchPort,
+        useValue: {
+          download: async () => {
+            throw new OfflineBatchError('network');
+          },
+        },
+      },
+      // CU-A13: el envío de la cola también falla por red por defecto.
+      {
+        provide: OfflineSyncPort,
+        useValue: {
+          send: async () => {
+            throw new OfflineSyncError('network');
+          },
+        },
+      },
+    ],
+  });
+}
+
+const reset = TestBed.resetTestingModule.bind(TestBed);
+TestBed.resetTestingModule = () => {
+  const result = reset();
+  offlineDefaults();
+  return result;
+};
+
+beforeEach(() => offlineDefaults());

@@ -18,6 +18,8 @@ export interface Topic {
   mastered?: boolean;
   /** CU-A2: la habilidad aún no tiene intentos y se puede ofrecer la prueba corta inicial. */
   diagnosticAvailable?: boolean;
+  /** CU-A12: sin conexión, ya no quedan ejercicios guardados de esta habilidad. */
+  exhausted?: boolean;
 }
 
 export type AnswerKind = 'integer' | 'fraction';
@@ -34,15 +36,23 @@ export interface Exercise {
   blockDone?: number;
   blockSize?: number;
   mastered?: boolean;
+  /** CU-A12: ejercicio del lote sin conexión (se corrige en el dispositivo y queda en cola). */
+  offline?: boolean;
 }
 
 export interface AnswerResult {
   correct: boolean;
-  correctAnswer: number;
+  /**
+   * Respuesta correcta. Falta sin conexión: el lote guarda la solución en hash (ADR 0002), así
+   * que el dispositivo sabe si acertó pero no puede mostrar cuál era.
+   */
+  correctAnswer?: number;
   /** Denominador de la respuesta correcta (solo fracciones). */
   correctAnswerDen?: number;
   /** Fracción correcta pero sin simplificar: su forma simple, para mostrarla (no es un error). */
   simplified?: { num: number; den: number };
+  /** CU-A12: corrección provisional del dispositivo; el intento quedó en la cola local. */
+  offline?: boolean;
 }
 
 /** Respuesta de un ejercicio del diagnóstico: se guarda en memoria y se envía al final. */

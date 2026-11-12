@@ -29,8 +29,16 @@ import {
   Topic,
 } from '../core/practice/practice.port';
 import { FractionValue } from '../core/math/fraction-input.component';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { isOffline } from '../core/offline/offline-access';
+import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
+import { OfflineSyncService } from '../core/offline/offline-sync.service';
+import { OfflineError, OfflinePracticeService } from '../core/offline/offline-practice.service';
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
 import { ProgressPort } from '../core/progress/progress.port';
+
+/** Espera máxima a la sincronización antes de mostrar los temas (CU-A13). */
+export const SYNC_WAIT_MS = 3000;
 
 const ERRORS: Record<string, string> = {
   ...KID_ERRORS,
@@ -140,7 +148,9 @@ export function groupByGrade(topics: Topic[]): TopicGroup[] {
 export function tileLabel(topic: Topic): string {
   const parts = [topic.label];
   if (topic.review && topic.grade) parts.push(`repaso de ${topic.grade}° básico`);
-  if (topic.mastered) {
+  if (topic.exhausted) {
+    parts.push('ya hiciste los ejercicios guardados');
+  } else if (topic.mastered) {
     parts.push('dominada');
   } else {
     parts.push(`nivel ${topic.level ?? 1} de 3`);
@@ -187,6 +197,9 @@ export class PracticePage implements OnInit {
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly explainer = inject(ExplanationPort);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly connectivity = inject(ConnectivityService);
+  private readonly offline = inject(OfflinePracticeService);
+  private readonly sync = inject(OfflineSyncService);
   protected readonly mascot = inject(MascotPort);
 
   studentId = '';
@@ -259,6 +272,13 @@ export class PracticePage implements OnInit {
   protected readonly diagSteps = DIAGNOSTIC_STEPS;
   protected readonly diagMessages = DIAGNOSTIC_MESSAGES;
 
+  // Sin conexión (CU-A12): se practica con el lote guardado y cada intento queda en la cola
+  // local. Sin tareas, diagnóstico, repaso, racha ni explicación de Numi (necesitan internet).
+  offlineMode = false;
+  /** Aviso del modo sin conexión: sin lote o lote agotado. */
+  offlineNotice = '';
+  protected readonly offlineMessages = OFFLINE_MESSAGES;
+
   constructor() {
     this.destroyRef.onDestroy(() => this.cancelExplanation());
   }
@@ -270,6 +290,8 @@ export class PracticePage implements OnInit {
       !!this.result &&
       !this.result.correct &&
       !this.taskMode &&
+      // Sin conexión no hay IA (la app nunca la llama directo; todo pasa por FastAPI).
+      !this.exercise.offline &&
       this.exercise.topic !== TASKS_TOPIC.id
     );
   }
@@ -315,23 +337,89 @@ export class PracticePage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.studentId = this.route.snapshot.paramMap.get('id') ?? '';
-    const daily = this.loadDaily();
-    const tasks = this.loadTasks();
-    try {
-      this.setTopics(await this.practice.topics(this.studentId));
-    } catch (error) {
-      this.fail(error);
-    } finally {
-      await Promise.all([daily, tasks]);
-      this.loading = false;
-      this.cdr.markForCheck();
+    // Si el navegador cree que hay red se intenta en línea, aunque antes haya fallado una
+    // petición: solo una falla por red lleva al lote (no basta `navigator.onLine`).
+    if (this.connectivity.browserOnline()) {
+      await this.loadOnline();
+    } else {
+      await this.loadOffline();
     }
     // Desde "Tareas de tu tutor": arranca en modo tareas. Se escucha la dirección (no la foto
     // inicial) porque, si la práctica ya estaba abierta más atrás, Ionic vuelve a ESA pantalla
-    // sin volver a llamar a ngOnInit: solo cambian los parámetros.
+    // sin volver a llamar a ngOnInit: solo cambian los parámetros. Sin conexión no hay tareas.
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((query) => {
-      if (query.get('tareas') === '1') void this.startTasks(query.get('desde'));
+      if (query.get('tareas') === '1' && !this.offlineMode) void this.startTasks(query.get('desde'));
     });
+  }
+
+  private async loadOnline(): Promise<void> {
+    // Las tareas del tutor no dependen de la cola sin conexión: se piden de inmediato.
+    const tasks = this.loadTasks();
+    // CU-A13: antes de leer nivel, bloque y racha se envían los intentos hechos sin conexión, así
+    // lo que se muestra ya los incluye. Se espera como máximo 3 s (decisión del dueño): con una
+    // cola larga o red lenta se sigue en línea con un aviso y el envío continúa en segundo plano.
+    const synced = await this.sync.syncWithin(this.studentId, SYNC_WAIT_MS);
+    const daily = this.loadDaily();
+    let online = true;
+    try {
+      this.setTopics(await this.practice.topics(this.studentId));
+      this.connectivity.reportSuccess();
+      this.offlineNotice = synced === 'pending' ? OFFLINE_MESSAGES.syncPending : '';
+      // Con conexión se deja listo (o se renueva) el lote para practicar sin internet.
+      // Mejor esfuerzo y sin esperar: la práctica en línea no depende de esto.
+      void this.offline.refresh(this.studentId);
+    } catch (error) {
+      online = !this.isNetwork(error);
+      if (online) this.fail(error);
+      // El servidor dice que este perfil ya no se puede usar (borrado, en pausa o sin permiso):
+      // se borra lo guardado para que no siga practicando al quedarse sin red.
+      if (error instanceof PracticeError && error.code === 'forbidden') {
+        await this.offline.forget(this.studentId);
+      }
+    } finally {
+      await Promise.all([daily, tasks]);
+      if (online) {
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    }
+    if (!online) await this.goOffline();
+  }
+
+  /** Paso 1 de la ficha: no hay conexión. Se muestran las habilidades del lote guardado. */
+  private async loadOffline(): Promise<void> {
+    this.offlineMode = true;
+    this.dailyLoaded = false;
+    this.tasks = [];
+    this.error = '';
+    try {
+      this.setTopics(await this.offline.topics(this.studentId));
+      this.offlineNotice = '';
+    } catch {
+      // Sin lote (o vencido): hace falta conectarse una vez para descargarlo.
+      this.setTopics([]);
+      this.offlineNotice = OFFLINE_MESSAGES.noBatch;
+    }
+    // Sin tristeza: no es culpa del niño.
+    this.mascot.set('idle');
+    this.loading = false;
+    this.cdr.markForCheck();
+  }
+
+  /** Una petición falló por red: se pasa a practicar con el lote, desde la lista de temas. */
+  private async goOffline(): Promise<void> {
+    this.connectivity.reportNetworkFailure();
+    this.cancelExplanation();
+    this.resetDiagnostic();
+    this.topic = null;
+    this.exercise = null;
+    this.result = null;
+    this.message = pickPhrase('greet');
+    await this.loadOffline();
+  }
+
+  private isNetwork(error: unknown): boolean {
+    return error instanceof PracticeError && error.code === 'network';
   }
 
   /** Recarga las tareas pendientes y empieza por la elegida (`desde`), si viene. */
@@ -343,8 +431,19 @@ export class PracticePage implements OnInit {
   }
 
   /** Pantalla con las tareas del tutor (pendientes y hechas). */
-  openTasks(): Promise<boolean> {
-    return this.nav.navigateForward(['/tareas', this.studentId]);
+  async openTasks(): Promise<boolean> {
+    // Las tareas las corrige el servidor. Sin red se avisa sin intentar; si el navegador cree que
+    // hay red se intenta, y si el guard no deja pasar por falta de conexión, también se avisa.
+    if (this.offlineMode && !this.connectivity.browserOnline()) {
+      this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+      return false;
+    }
+    const opened = await this.nav.navigateForward(['/tareas', this.studentId]);
+    if (!opened && isOffline(this.connectivity)) {
+      this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+      this.cdr.markForCheck();
+    }
+    return opened;
   }
 
   async choose(topic: Topic): Promise<void> {
@@ -356,9 +455,11 @@ export class PracticePage implements OnInit {
     this.lastLevel = null;
     this.lastMastered = null;
     this.tasksDone = false;
+    this.offlineNotice = '';
     this.resetDiagnostic();
-    // Primera vez en esta habilidad: se ofrece la prueba corta (opcional). Nunca en las tareas.
-    if (topic.diagnosticAvailable && topic.id !== TASKS_TOPIC.id) {
+    // Primera vez en esta habilidad: se ofrece la prueba corta (opcional). Nunca en las tareas
+    // ni sin conexión (el diagnóstico se guarda en el servidor).
+    if (topic.diagnosticAvailable && topic.id !== TASKS_TOPIC.id && !this.offlineMode) {
       this.exercise = null;
       this.result = null;
       this.diag = 'offer';
@@ -527,7 +628,9 @@ export class PracticePage implements OnInit {
     this.say('thinking');
     this.mascot.set('thinking');
     try {
-      this.exercise = await this.practice.newExercise(this.studentId, this.topic.id);
+      this.exercise = this.offlineMode
+        ? await this.offline.next(this.studentId, this.topic.id)
+        : await this.practice.newExercise(this.studentId, this.topic.id);
       this.message = '';
       this.mascot.set('idle');
       this.levelUpNow = this.lastLevel !== null && this.exercise.level > this.lastLevel;
@@ -543,7 +646,18 @@ export class PracticePage implements OnInit {
       }
     } catch (error) {
       this.exercise = null;
-      this.fail(error);
+      if (error instanceof OfflineError) {
+        // Excepción de la ficha: se acabó el lote de este tema (o no hay lote).
+        this.offlineNotice =
+          error.code === 'no_batch' ? OFFLINE_MESSAGES.noBatch : OFFLINE_MESSAGES.exhausted;
+        this.message = '';
+        this.mascot.set('idle');
+      } else if (!this.offlineMode && this.isNetwork(error)) {
+        this.busy = false;
+        await this.goOffline();
+      } else {
+        this.fail(error);
+      }
     } finally {
       this.busy = false;
       this.cdr.markForCheck();
@@ -579,6 +693,17 @@ export class PracticePage implements OnInit {
           this.taskTicket,
         );
         this.tasks = this.tasks.filter((t) => t.id !== this.exercise?.token);
+      } else if (this.exercise.offline) {
+        // Sin conexión: corrige con la solución guardada y la promesa se cumple recién cuando
+        // el intento quedó guardado en el dispositivo (RNF-06). Antes no se muestra nada.
+        this.result = this.fractionMode
+          ? await this.offline.answer(
+              this.studentId,
+              this.exercise.token,
+              Number(this.fraction.num),
+              Number(this.fraction.den),
+            )
+          : await this.offline.answer(this.studentId, this.exercise.token, Number(this.answer));
       } else {
         this.result = this.fractionMode
           ? await this.practice.answer(
@@ -600,8 +725,26 @@ export class PracticePage implements OnInit {
       // Tras un error Numi piensa contigo (no se pone triste: sin culpa). 'sad' queda solo para
       // fallas técnicas.
       this.mascot.set(this.result.correct ? 'happy' : 'thinking');
-      if (!this.practicedToday) void this.celebrateDay();
+      // La racha de días la calcula el servidor: sin conexión no se relee.
+      if (!this.practicedToday && !this.offlineMode) void this.celebrateDay();
     } catch (error) {
+      if (error instanceof OfflineError) {
+        if (error.code === 'storage') {
+          // No quedó guardado: no se confirma nada y el niño puede volver a responder.
+          this.error = OFFLINE_MESSAGES.storage;
+          this.mascot.set('idle');
+          return;
+        }
+        // El ejercicio ya no está disponible (usado o vencido): pasa al siguiente del lote.
+        this.busy = false;
+        await this.next();
+        return;
+      }
+      if (!this.offlineMode && !this.taskMode && this.isNetwork(error)) {
+        this.busy = false;
+        await this.goOffline();
+        return;
+      }
       this.fail(error);
       if (
         error instanceof TutorError &&
@@ -732,9 +875,33 @@ export class PracticePage implements OnInit {
     this.topic = null;
     this.exercise = null;
     this.result = null;
+    this.offlineNotice = '';
     this.say('greet');
     this.mascot.set('idle');
-    void this.reloadTopics();
+    void (this.offlineMode ? this.reloadAfterOffline() : this.reloadTopics());
+  }
+
+  /**
+   * Al volver a la lista sin conexión: si el navegador cree que volvió la red, se intenta en
+   * línea; si funciona, se sale del modo sin conexión. Si no, se releen las habilidades del lote.
+   */
+  private async reloadAfterOffline(): Promise<void> {
+    if (this.connectivity.browserOnline()) {
+      try {
+        const topics = await this.practice.topics(this.studentId);
+        this.offlineMode = false;
+        this.offlineNotice = '';
+        this.connectivity.reportSuccess();
+        this.setTopics(topics);
+        void this.offline.refresh(this.studentId);
+        await Promise.all([this.loadDaily(), this.loadTasks()]);
+        this.cdr.markForCheck();
+        return;
+      } catch {
+        // Sigue sin conexión.
+      }
+    }
+    await this.loadOffline();
   }
 
   toggleReview(): void {
@@ -743,6 +910,7 @@ export class PracticePage implements OnInit {
 
   /** Texto de la respuesta correcta ("12" o "3/5"). */
   protected correctText(result: AnswerResult): string {
+    if (result.correctAnswer === undefined) return '';
     return result.correctAnswerDen === undefined
       ? String(result.correctAnswer)
       : `${result.correctAnswer}/${result.correctAnswerDen}`;

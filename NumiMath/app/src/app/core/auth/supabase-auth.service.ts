@@ -10,6 +10,7 @@ import {
   RecoveryStart,
   UserRole,
 } from './auth.port';
+import { OfflineStore } from '../offline/offline-store.port';
 import { passwordProblem } from './password-rules';
 import { SUPABASE_CLIENT } from './supabase.client';
 
@@ -70,6 +71,7 @@ function recoveryFlag(value?: boolean): boolean {
 @Injectable({ providedIn: 'root' })
 export class SupabaseAuthService extends AuthPort {
   private readonly client = inject(SUPABASE_CLIENT);
+  private readonly offlineStore = inject(OfflineStore);
   private readonly current = signal<AuthUser | null>(null);
   private readonly initialized: Promise<void>;
   /** Mientras es true, la sesión de recuperación NO se expone como usuario autenticado. */
@@ -107,10 +109,32 @@ export class SupabaseAuthService extends AuthPort {
         this.current.set(null);
       },
     );
-    this.client.auth.onAuthStateChange((_event, session) => {
+    this.client.auth.onAuthStateChange((event, session) => {
       if (this.recovering) return;
-      this.current.set(toUser(session));
+      const user = toUser(session);
+      this.current.set(user);
+      void this.guardOfflineData(event, user);
     });
+  }
+
+  /**
+   * CU-A12: lo guardado para practicar sin conexión pertenece a UN tutor. Se borra si la sesión
+   * terminó sin pasar por "Cerrar sesión" (sesión revocada, cambio de contraseña en otro equipo:
+   * Supabase avisa `SIGNED_OUT`) o si entra otro tutor en el mismo equipo. Una falla de red NO
+   * dispara `SIGNED_OUT` (Supabase reintenta), así que no se pierde nada por estar sin internet.
+   */
+  private async guardOfflineData(event: string, user: AuthUser | null): Promise<void> {
+    try {
+      if (event === 'SIGNED_OUT') {
+        await this.offlineStore.clear();
+        return;
+      }
+      if (!user) return;
+      const owner = await this.offlineStore.owner();
+      if (owner && owner.tutorId !== user.id) await this.offlineStore.clear();
+    } catch {
+      // Mejor esfuerzo: si el almacén falla, igual vence a los 7 días.
+    }
   }
 
   ready(): Promise<void> {
@@ -210,6 +234,8 @@ export class SupabaseAuthService extends AuthPort {
     try {
       await this.client.auth.signOut();
     } finally {
+      // CU-A12: al cerrar sesión se borra todo lo guardado para practicar sin conexión.
+      await this.offlineStore.clear().catch(() => undefined);
       this.current.set(null);
     }
   }

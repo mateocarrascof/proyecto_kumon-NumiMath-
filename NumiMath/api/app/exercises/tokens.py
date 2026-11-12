@@ -15,6 +15,11 @@ Diagnóstico inicial (CU-A2): con `step` (0 a 5) el token lleva además el paso 
 firma con OTRO dominio. Así un token de práctica no sirve para el diagnóstico ni al revés: el
 niño no puede llevar al diagnóstico un ejercicio fácil de práctica (ni responder en práctica, con
 racha y bloque, un ejercicio del diagnóstico).
+
+Modo sin conexión (CU-A12, ADR 0002): con `offline=True` el token se firma con un tercer dominio
+(`offline-token|`) y lleva la versión 5. Vive días (no minutos) porque el niño lo responde sin
+internet; por eso NO puede servir en la práctica en línea ni al revés: un token de 10 minutos no
+se puede "estirar" a 7 días y uno del lote no entra por la ruta de responder en línea.
 """
 
 from __future__ import annotations
@@ -35,6 +40,8 @@ from app.exercises.levels import MAX_LEVEL, MIN_LEVEL
 # fracción. v3 agregó la hora de emisión ("i"). Versiones anteriores se rechazan (vivían pocos
 # minutos).
 _VERSION = 4
+# Versión propia de los tokens del lote sin conexión (dominio `offline-token|`).
+_OFFLINE_VERSION = 5
 
 
 class InvalidExercise(Exception):
@@ -59,6 +66,8 @@ class VerifiedExercise:
     exercise: Exercise
     issued_at: int
     step: int | None = None  # paso del diagnóstico (0 a 5); None en la práctica
+    # Caducidad firmada (segundos). CU-A13 la usa para acotar la hora y la fecha del intento.
+    expires_at: int = 0
 
 
 def _b64(data: bytes) -> str:
@@ -69,8 +78,13 @@ def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def _sign(key: bytes, payload: bytes, diagnostic: bool = False) -> bytes:
-    domain = b"diagnostic-token|" if diagnostic else b"exercise-token|"
+def _sign(key: bytes, payload: bytes, diagnostic: bool = False, offline: bool = False) -> bytes:
+    if offline:
+        domain = b"offline-token|"
+    elif diagnostic:
+        domain = b"diagnostic-token|"
+    else:
+        domain = b"exercise-token|"
     return hmac.new(key, domain + payload, hashlib.sha256).digest()
 
 
@@ -88,11 +102,13 @@ def issue(
     now: float | None = None,
     level: int = MIN_LEVEL,
     step: int | None = None,
+    offline: bool = False,
 ) -> IssuedExercise | None:
     """Crea un ejercicio nuevo. `None` si el tema no tiene generador o el nivel no existe.
 
-    Con `step` es un ejercicio del diagnóstico (firma de otro dominio)."""
-    if not MIN_LEVEL <= level <= MAX_LEVEL:
+    Con `step` es un ejercicio del diagnóstico (firma de otro dominio). Con `offline` es un
+    ejercicio del lote sin conexión (otro dominio y versión). No se pueden combinar."""
+    if not MIN_LEVEL <= level <= MAX_LEVEL or (offline and step is not None):
         return None
     exercise_id = uuid.uuid4()
     exercise = generate(topic, _rng(key, exercise_id), level)
@@ -101,7 +117,7 @@ def issue(
     issued_at = int(time.time() if now is None else now)
     expires_at = issued_at + ttl_seconds
     data: dict[str, object] = {
-        "v": _VERSION,
+        "v": _OFFLINE_VERSION if offline else _VERSION,
         "j": str(exercise_id),
         "s": str(student_id),
         "t": topic,
@@ -112,7 +128,8 @@ def issue(
     if step is not None:
         data["d"] = step
     payload = json.dumps(data, separators=(",", ":"), sort_keys=True).encode()
-    token = f"{_b64(payload)}.{_b64(_sign(key, payload, diagnostic=step is not None))}"
+    signature = _sign(key, payload, diagnostic=step is not None, offline=offline)
+    token = f"{_b64(payload)}.{_b64(signature)}"
     return IssuedExercise(token, exercise_id, topic, level, exercise, expires_at)
 
 
@@ -122,16 +139,25 @@ def verify(
     student_id: uuid.UUID,
     now: float | None = None,
     diagnostic: bool = False,
+    offline: bool = False,
+    grace_s: int = 0,
 ) -> VerifiedExercise:
     """Comprueba un token. Con `diagnostic=True` solo acepta tokens del diagnóstico (y exige el
-    paso); sin él, solo de práctica."""
+    paso); con `offline=True`, solo del lote sin conexión; sin ninguno, solo de práctica."""
+    if diagnostic and offline:
+        raise InvalidExercise
+    # CU-A13: el margen para sincronizar (14 días) existe SOLO para tokens del lote sin conexión.
+    # Pedirlo con un token de práctica o de diagnóstico es un error: nunca se alarga su caducidad.
+    if grace_s < 0 or (grace_s and not offline):
+        raise InvalidExercise
     try:
         payload_b64, signature_b64 = token.split(".")
         payload = _unb64(payload_b64)
         signature = _unb64(signature_b64)
     except (ValueError, TypeError):
         raise InvalidExercise from None
-    if not hmac.compare_digest(signature, _sign(key, payload, diagnostic=diagnostic)):
+    expected = _sign(key, payload, diagnostic=diagnostic, offline=offline)
+    if not hmac.compare_digest(signature, expected):
         raise InvalidExercise
     try:
         data = json.loads(payload)
@@ -145,11 +171,12 @@ def verify(
         step = int(data["d"]) if diagnostic else None
     except (ValueError, KeyError, TypeError):
         raise InvalidExercise from None
-    if version != _VERSION or owner != student_id or not MIN_LEVEL <= level <= MAX_LEVEL:
+    wanted = _OFFLINE_VERSION if offline else _VERSION
+    if version != wanted or owner != student_id or not MIN_LEVEL <= level <= MAX_LEVEL:
         raise InvalidExercise
-    if (time.time() if now is None else now) >= expires_at:
+    if (time.time() if now is None else now) >= expires_at + grace_s:
         raise InvalidExercise
     exercise = generate(topic, _rng(key, exercise_id), level)
     if exercise is None:
         raise InvalidExercise
-    return VerifiedExercise(exercise_id, topic, level, exercise, issued_at, step)
+    return VerifiedExercise(exercise_id, topic, level, exercise, issued_at, step, expires_at)

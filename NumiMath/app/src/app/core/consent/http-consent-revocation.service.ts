@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
+import { OfflineStore } from '../offline/offline-store.port';
 import { ParentalSession } from '../parental/parental-session';
 import { ConsentRevocationPort, RevokeConsentResult } from './consent-revocation.port';
 
@@ -20,6 +21,7 @@ export class HttpConsentRevocationService extends ConsentRevocationPort {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthPort);
   private readonly parental = inject(ParentalSession);
+  private readonly offlineStore = inject(OfflineStore);
 
   async revoke(): Promise<RevokeConsentResult> {
     const token = await this.auth.accessToken();
@@ -32,6 +34,9 @@ export class HttpConsentRevocationService extends ConsentRevocationPort {
           { headers: { Authorization: `Bearer ${token}`, ...this.parental.header() } },
         ),
       );
+      // CU-A12: tras revocar no se usan datos del niño; se borran lotes, cola y copia de perfiles
+      // de este dispositivo. Mejor esfuerzo: la revocación ya se hizo en el servidor.
+      await this.offlineStore.clear().catch(() => undefined);
       return {
         ok: true,
         receipt: {

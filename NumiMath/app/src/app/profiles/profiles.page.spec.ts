@@ -1,9 +1,15 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
+import { AuthPort } from '../core/auth/auth.port';
 import { MascotComponent } from '../core/mascot/mascot.component';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { MemoryOfflineStore } from '../core/offline/memory-offline-store';
+import { OFFLINE_MESSAGES, OfflineNoticeComponent } from '../core/offline/offline-notice.component';
+import { OfflineStore } from '../core/offline/offline-store.port';
 import { avatarFor } from '../core/profiles/avatar';
 import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
 import { ProgressPort } from '../core/progress/progress.port';
@@ -13,10 +19,12 @@ const ANA: Profile = { id: 'p-ana', nickname: 'Ana', grade: 2, blocked: false };
 const BETO: Profile = { id: 'p-beto', nickname: 'Beto', grade: 3, blocked: true };
 const CATA: Profile = { id: 'p-cata', nickname: 'Cata', grade: 4, blocked: false };
 const DANI: Profile = { id: 'p-dani', nickname: 'Dani', grade: 1, blocked: false };
+const OWNER = { tutorId: 'tutor-1', savedAt: Math.floor(Date.now() / 1000) };
 
 function setup(
   list: () => Promise<Profile[]> = async () => [ANA, BETO],
   dailyStreak: (id: string) => Promise<number> = async () => 3,
+  store: MemoryOfflineStore = new MemoryOfflineStore(),
 ) {
   const profiles = { list: vi.fn(list), create: vi.fn(), remove: vi.fn() };
   const progress = {
@@ -33,16 +41,18 @@ function setup(
   const nav = { navigateForward: vi.fn(async () => true) };
   TestBed.configureTestingModule({
     declarations: [ProfilesPage, MascotComponent],
-    imports: [IonicModule.forRoot()],
+    imports: [IonicModule.forRoot(), OfflineNoticeComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: ProfilesPort, useValue: profiles },
       { provide: ProgressPort, useValue: progress },
       { provide: NavController, useValue: nav },
+      { provide: OfflineStore, useValue: store },
+      { provide: AuthPort, useValue: { user: signal({ id: 'tutor-1', email: 'a@b.test' }) } },
     ],
   });
   const fixture = TestBed.createComponent(ProfilesPage);
-  return { page: fixture.componentInstance, fixture, profiles, progress, nav };
+  return { page: fixture.componentInstance, fixture, profiles, progress, nav, store };
 }
 
 /** Deja que Angular llame a ngOnInit (una sola vez) y espera las cargas. */
@@ -180,5 +190,71 @@ describe('ProfilesPage (¿Quién practica?)', () => {
     });
     await render(fixture);
     expect(page.error).toContain('No pude cargar los perfiles');
+  });
+
+  describe('sin conexión (CU-A12)', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('si "Mi progreso" no abre por falta de conexión (falla de red), avisa junto a la tarjeta', async () => {
+      const { fixture, page, nav } = setup();
+      await render(fixture);
+      nav.navigateForward.mockResolvedValue(false);
+      TestBed.inject(ConnectivityService).reportNetworkFailure();
+      await page.progress(page.cards[0]);
+      fixture.detectChanges();
+      expect(el(fixture).querySelector('[data-testid="offline-needs-internet"]')?.textContent).toContain(
+        OFFLINE_MESSAGES.needsInternet,
+      );
+    });
+
+    it('con conexión guarda una copia local con solo apodo, curso y pausa', async () => {
+      const { fixture, store } = setup();
+      await render(fixture);
+      expect(store.cachedProfiles).toEqual([
+        { id: ANA.id, nickname: 'Ana', grade: 2, blocked: false },
+        { id: BETO.id, nickname: 'Beto', grade: 3, blocked: true },
+      ]);
+      // La copia queda ligada al tutor de la sesión (para borrarla si entra otro).
+      expect(store.cachedOwner?.tutorId).toBe('tutor-1');
+      expect(el(fixture).querySelector('[data-testid="offline-banner"]')).toBeNull();
+    });
+
+    it('sin red muestra la copia local y el aviso, sin racha; "Mi progreso" avisa que necesita internet', async () => {
+      const store = new MemoryOfflineStore();
+      await store.saveProfiles([ANA, BETO], OWNER);
+      const { fixture, profiles, progress } = setup(undefined, undefined, store);
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+      TestBed.inject(ConnectivityService).reportNetworkFailure();
+      await render(fixture);
+      const root = el(fixture);
+      expect(profiles.list).not.toHaveBeenCalled();
+      expect(progress.get).not.toHaveBeenCalled();
+      expect(root.querySelector('[data-testid="offline-banner"]')?.textContent).toContain(
+        'Estás sin internet',
+      );
+      expect(root.querySelector('[data-testid="kid-Ana"]')).not.toBeNull();
+      expect(root.querySelector('[data-testid="practice-btn"]')).not.toBeNull();
+      // El botón sigue visible, pero no navega: avisa en lenguaje simple.
+      const progressBtn = root.querySelector('[data-testid="progress-btn"]') as HTMLElement;
+      expect(progressBtn).not.toBeNull();
+      progressBtn.click();
+      fixture.detectChanges();
+      expect(TestBed.inject(NavController).navigateForward).not.toHaveBeenCalled();
+      expect(root.querySelector('[data-testid="offline-needs-internet"]')?.textContent).toContain(
+        OFFLINE_MESSAGES.needsInternet,
+      );
+    });
+
+    it('si la base no responde pero hay copia local, se usa la copia', async () => {
+      const store = new MemoryOfflineStore();
+      await store.saveProfiles([ANA], OWNER);
+      const { fixture, page } = setup(async () => {
+        throw new Error('profiles_unavailable');
+      }, undefined, store);
+      await render(fixture);
+      expect(page.offlineMode).toBe(true);
+      expect(page.error).toBe('');
+      expect(page.cards.map((c) => c.profile.nickname)).toEqual(['Ana']);
+    });
   });
 });

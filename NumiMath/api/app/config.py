@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # Descargas del lote por perfil y día (hora de Chile): evita acumular lotes y cargar al
     # servidor, que genera cientos de ejercicios por descarga.
     offline_batch_daily_limit: int = Field(5, ge=1, le=20)
+    # CU-A13: margen para sincronizar un intento sin conexión tras la caducidad del token (14 días,
+    # decisión 3 del ADR 0002). Solo se aplica a tokens del lote.
+    offline_sync_grace_seconds: int = Field(14 * 24 * 3600, ge=0, le=14 * 24 * 3600)
 
     hmac_keys: SecretStr = SecretStr("")
     hmac_active_version: int = Field(1, ge=1)

@@ -38,6 +38,9 @@ import { IndexedDbOfflineStore } from './core/offline/indexeddb-offline-store';
 import { OfflineBatchPort } from './core/offline/offline-batch.port';
 import { OfflineStore } from './core/offline/offline-store.port';
 import { startOfflinePurge } from './core/offline/offline-purge';
+import { HttpOfflineSyncService } from './core/offline/http-offline-sync.service';
+import { OfflineSyncPort } from './core/offline/offline-sync.port';
+import { OfflineSyncService } from './core/offline/offline-sync.service';
 
 @NgModule({
   declarations: [AppComponent],
@@ -45,9 +48,14 @@ import { startOfflinePurge } from './core/offline/offline-purge';
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
     // CU-A12: purga de lo guardado sin conexión al iniciar y al volver a primer plano.
+    // CU-A13: sincronización al volver la red; al iniciar y al volver a primer plano, con red se
+    // sincroniza y luego se purga.
     provideAppInitializer(() => {
-      startOfflinePurge(inject(OfflineStore));
+      const sync = inject(OfflineSyncService);
+      sync.listenForReconnect();
+      startOfflinePurge(inject(OfflineStore), undefined, undefined, () => sync.syncAll());
     }),
+    { provide: OfflineSyncPort, useExisting: HttpOfflineSyncService },
     // Cambiar la mascota o el proveedor de sesión = cambiar estos proveedores.
     { provide: MascotPort, useExisting: MascotService },
     { provide: AuthPort, useExisting: SupabaseAuthService },

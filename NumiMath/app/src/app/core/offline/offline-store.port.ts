@@ -12,6 +12,10 @@ export abstract class OfflineStore {
    */
   abstract recordAttempt(batch: OfflineBatch, attempt: QueuedAttempt): Promise<void>;
   abstract queue(studentId: string): Promise<QueuedAttempt[]>;
+  /** Quita de la cola los intentos que el servidor ya confirmó (CU-A13). */
+  abstract removeAttempts(ids: string[]): Promise<void>;
+  /** Perfiles con intentos en cola (para sincronizar todos al volver la red). */
+  abstract queuedStudents(): Promise<string[]>;
   abstract profiles(): Promise<CachedProfile[]>;
   /** Tutor dueño de la copia local y cuándo se guardó (null si no hay copia). */
   abstract owner(): Promise<OfflineOwner | null>;

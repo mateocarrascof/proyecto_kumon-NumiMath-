@@ -105,6 +105,22 @@ export class IndexedDbOfflineStore extends OfflineStore {
     ) as Promise<QueuedAttempt[]>;
   }
 
+  removeAttempts(ids: string[]): Promise<void> {
+    return this.tx([QUEUE], 'readwrite', (tx) => {
+      const queue = tx.objectStore(QUEUE);
+      for (const id of ids) queue.delete(id);
+    });
+  }
+
+  queuedStudents(): Promise<string[]> {
+    return this.tx([QUEUE], 'readonly', async (tx) => {
+      const keys = await IndexedDbOfflineStore.read(
+        tx.objectStore(QUEUE).index('studentId').getAll(),
+      );
+      return [...new Set((keys as QueuedAttempt[]).map((a) => a.studentId))];
+    });
+  }
+
   profiles(): Promise<CachedProfile[]> {
     return this.tx([PROFILES], 'readonly', (tx) =>
       IndexedDbOfflineStore.read(tx.objectStore(PROFILES).getAll()),

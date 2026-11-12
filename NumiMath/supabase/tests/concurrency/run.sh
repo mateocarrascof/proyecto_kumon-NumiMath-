@@ -12,6 +12,8 @@
 #   B2 revocación y alta simultáneas (revoc. 1º)-> la alta recibe consent_required, sin alumno
 #   C  REPEATABLE READ                          -> la base RECHAZA la alta (isolation_level_not_allowed);
 #                                                  antes el tope podía superarse (ADR 0001, 2.3)
+#   D  el mismo lote sin conexión enviado dos     -> cada intento se registra UNA vez y el bloque cuenta
+#      veces a la vez (CU-A13)                       5, no 10 (restricción única student_attempts_once)
 #
 # Requisitos: Docker y `supabase start` en marcha. Usa el contenedor de la base local.
 # Es una prueba de DESARROLLO: crea y luego elimina sus propios datos (usuarios dddddddd-...).
@@ -157,6 +159,36 @@ ERRS="$(grep -c 'isolation_level_not_allowed' "$OUT/c2")"
 N="$(sql -c "select count(*) from public.students where tutor_id = '$T4'")"
 check "la alta bajo REPEATABLE READ recibe isolation_level_not_allowed" "1" "$ERRS"
 check "el tutor termina con 5 alumnos (no 6)" "5" "$N"
+
+# ---------------------------------------------------------------------------
+echo "== D. El mismo lote sin conexión enviado dos veces a la vez (CU-A13) =="
+SD="$(sql -c "select id from public.students where tutor_id = '$T1' order by nickname limit 1")"
+ITEMS="$(sql -c "select jsonb_agg(jsonb_build_object(
+  'exercise_id', ('eeeeeeee-0000-0000-0000-' || lpad(g::text, 12, '0'))::uuid,
+  'topic', '1-08', 'exercise', g || ' + 1 = ?', 'correct', true, 'level', 1, 'duration_s', 10,
+  'answered_at', now() - make_interval(mins => 10 - g), 'local_day', null))
+  from generate_series(1, 5) g")"
+# Sesión del servidor (service_role, como FastAPI): sincroniza y retiene la transacción $1 s.
+sync_session() {
+  cat <<SQL | session
+begin;
+set local role service_role;
+select public.record_offline_attempts('$T1', '$SD', '$ITEMS'::jsonb);
+select 'READY';
+select pg_sleep($1);
+commit;
+SQL
+}
+sync_session 3 > "$OUT/d1" &
+wait_ready "$OUT/d1" 10
+sync_session 0 > "$OUT/d2" &
+wait
+N="$(sql -c "select count(*) from public.student_attempts where student_id = '$SD'")"
+BLOCK="$(sql -c "select block_total from public.student_skill_progress where student_id = '$SD' and skill_code = '1-08'")"
+DUP="$(grep -o '"status": "duplicate"' "$OUT/d2" | wc -l | tr -d ' ')"
+check "cada intento se registra una sola vez" "5" "$N"
+check "el bloque cuenta 5 (no 10)" "5" "$BLOCK"
+check "la segunda petición recibe los 5 como duplicate" "5" "$DUP"
 
 # ---------------------------------------------------------------------------
 echo

@@ -27,6 +27,7 @@ import { OfflineBatchPort } from '../core/offline/offline-batch.port';
 import { solutionHash } from '../core/offline/offline-grading';
 import { OFFLINE_MESSAGES, OfflineNoticeComponent } from '../core/offline/offline-notice.component';
 import { OfflineStore } from '../core/offline/offline-store.port';
+import { OfflineSyncError, OfflineSyncPort } from '../core/offline/offline-sync.port';
 import { EXPLAIN_MESSAGES, PracticePage, topicIcon } from './practice.page';
 import { SkillTilesComponent } from './skill-tiles.component';
 
@@ -238,6 +239,46 @@ describe('PracticePage', () => {
     });
     await page.ngOnInit();
     expect(await store.batch('perfil-1')).not.toBeNull();
+  });
+
+  it('CU-A13: si con red no se pudo enviar la cola, avisa sin culpa y sigue en línea', async () => {
+    const store = new MemoryOfflineStore();
+    store.attempts.push({
+      id: 'a1', studentId: 'perfil-1', token: 't', topic: '2-06', level: 1, answer: 1,
+      correct: true, answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: 0,
+    });
+    TestBed.overrideProvider(OfflineStore, { useValue: store });
+    TestBed.overrideProvider(OfflineSyncPort, {
+      useValue: {
+        send: async () => {
+          throw new OfflineSyncError('retry'); // 5xx
+        },
+      },
+    });
+    const { page, port } = setup();
+    await page.ngOnInit();
+    expect(page.offlineMode).toBe(false);
+    expect(port.topics).toHaveBeenCalled();
+    expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.syncPending);
+    expect(await store.queue('perfil-1')).toHaveLength(1);
+  });
+
+  it('CU-A13: con red, envía la cola ANTES de leer el progreso', async () => {
+    const store = new MemoryOfflineStore();
+    store.attempts.push({
+      id: 'a1', studentId: 'perfil-1', token: 't', topic: '2-06', level: 1, answer: 1,
+      correct: true, answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: 0,
+    });
+    const send = vi.fn(async () => [{ id: 'a1', status: 'accepted' as const }]);
+    TestBed.overrideProvider(OfflineStore, { useValue: store });
+    TestBed.overrideProvider(OfflineSyncPort, { useValue: { send } });
+    const { page, port } = setup();
+    await page.ngOnInit();
+    expect(send.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(port.topics).mock.invocationCallOrder[0],
+    );
+    expect(await store.queue('perfil-1')).toEqual([]);
+    expect(page.offlineNotice).toBe('');
   });
 
   it('si el guard no abre las tareas por falta de conexión, avisa "Esto necesita internet"', async () => {

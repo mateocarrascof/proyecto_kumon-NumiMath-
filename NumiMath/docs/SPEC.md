@@ -169,6 +169,33 @@ Reemplaza la "pregunta de adulto" provisional. Tabla `tutor_pins` (migración `a
 - Protegen con PIN: `GET /report`, `GET /assignments/all`, `POST /assignments`,
   `DELETE /assignments/{id}`. La vista del niño (`GET /assignments`, responder) no lo pide.
 
+#### Salir de la zona del tutor (fix 2026-11-12)
+El botón "Inicio" del panel volvía a `/home` sin borrar el token: al entrar de nuevo no se pedía
+el PIN mientras siguiera vigente. Ahora `core/parental/parental-zone.ts` cierra la zona por
+cualquier camino, desde un solo lugar:
+- **Zona del tutor:** `/panel` y `/pin` (`/pin` es zona porque "Cambiar PIN" usa el token). Las
+  pestañas de perfil dentro del panel no son salidas.
+- **Navegación:** el token se borra al INICIAR una navegación hacia fuera de la zona, aunque
+  después se cancele (en el peor caso se pide el PIN una vez más). Cubre "Inicio", volver
+  (navegador o botón atrás de Android), cambiar de perfil (ir desde `/home` a la pantalla de un
+  niño), cerrar sesión y cualquier enlace futuro.
+- **Sesión:** también se borra si se cierra la sesión o cambia el tutor, aunque no haya navegación.
+- **Segundo plano:** con `visibilitychange` (el mismo evento de la purga y la sincronización, sin
+  `@capacitor/app`). Al ocultarse la app se borra el token; al volver, si estaba en `/panel`, se
+  lleva a `/pin` para no dejar los datos del niño a la vista sin PIN.
+- Las acciones sensibles (borrar, exportar, revocar, cambiar el PIN) siguen exigiendo el token en
+  el servidor. El vencimiento de 10 minutos no cambia.
+
+Pendientes:
+1. **Verificar en un equipo real (Android e iOS)** el paso a segundo plano: la prueba en
+   navegador solo simula `visibilitychange`. Revisar también si la miniatura del selector de apps
+   muestra el panel (se toma al ocultarse, antes de volver a `/pin`).
+2. **Revocar el token en el servidor:** hoy es una firma sin estado; una copia seguiría siendo
+   válida hasta 10 minutos. Vive solo en memoria de la app, así que se deja para después (haría
+   falta una tabla y una migración).
+3. Si la app pasa a segundo plano durante "Cambiar PIN" (`/pin?cambiar=1`), al volver el cambio
+   ya no tiene token: el servidor lo rechaza y hay que salir y escribir el PIN otra vez.
+
 ## Explicación con IA en práctica
 
 Decidido el 2026-10-28. Conecta la pantalla de práctica (`/practica/:id`) con

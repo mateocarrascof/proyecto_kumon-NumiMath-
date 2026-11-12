@@ -192,6 +192,8 @@
                 <ion-button size="small" fill="clear" color="danger" (click)="askDelete(p)">Eliminar</ion-button>
               }
             </div>
+            <!-- CU-A9: recordatorio de racha, solo aquí (zona del tutor con PIN). -->
+            <app-streak-reminder-toggle [profile]="p"></app-streak-reminder-toggle>
 
             @if (deleting?.id === p.id) {
               <div class="confirm" role="group" aria-label="Confirmar eliminación">

@@ -298,6 +298,35 @@ usarse a los 7 días y se borran la próxima vez que se abre la app.
 **Estado actual.** Decisión 8 del ADR 0002 aceptada para esta etapa, pendiente de revisión.
 **Respuesta:** _pendiente_
 
+## 30. Recordatorio de racha local (CU-A9) y próxima versión de la política
+**Contexto.** CU-A9 agrega un recordatorio local opcional (ADR 0003): apagado por defecto, lo activa
+solo el tutor con PIN, un aviso al día a las 18:00 en el equipo, con texto genérico ("Numi tiene
+ejercicios listos para practicar un ratito."), sin apodo y sin enviar datos del niño. En el servidor
+se guarda solo un sí o no por perfil. Se revisó `privacidad-prov-2` y la EIPD: **no hay
+contradicción** (no dicen "no enviamos notificaciones" ni "no se contacta al niño"), solo omisiones.
+**Decisión del dueño (2026-11-12).** No subir la versión ahora. `privacidad-prov-3` debe incluir, en
+una sola versión:
+1. Un párrafo del recordatorio local de racha: opcional, activado por el tutor por equipo, sin envío
+   de datos del niño, texto genérico, y que la preferencia "sí/no" se guarda en el servidor por
+   perfil.
+2. Lo que el servidor guarda al recibir la cola de CU-A13: tema, si acertó, hora y tiempo (acotados),
+   como en la práctica con internet; la respuesta escrita no se guarda.
+**Preguntas.**
+1. ¿El recordatorio es un **cambio sustancial** que exige pedir de nuevo el consentimiento a todos
+   los tutores (por el cambio de versión), o basta con informarlo en la política y en el panel al
+   activarlo?
+2. ¿Basta el consentimiento general del tutor como base de la preferencia, o activarla con PIN es un
+   consentimiento específico que conviene registrar con fecha y versión?
+3. Según la Ley 21.430, ¿un aviso diario orientado a practicar, que de hecho ve un niño de 6 a 10
+   años, es aceptable con estas mitigaciones? ¿Hay que limitar horario o días, o evitar la palabra
+   "racha"?
+4. Tras revocar y volver a consentir, ¿las preferencias deben volver a sus valores por defecto?
+5. ¿Es aceptable que, si el tutor apaga el recordatorio, revoca, pausa o borra un perfil desde otro
+   equipo, un dispositivo sin red siga mostrando como máximo un aviso al día hasta 7 días (mismo
+   criterio que R42)?
+**Estado actual.** Implementado sin cambiar la política; pendiente de respuesta.
+**Respuesta:** _pendiente_
+
 ## 19. Información al niño (Ley 21.430)
 **Pregunta.** ¿Corresponde informar al niño, en lenguaje adecuado a su autonomía progresiva, de que su perfil fue bloqueado o suprimido?
 **Estado actual.** Solo se notifica al tutor (a futuro).

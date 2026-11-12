@@ -13,6 +13,7 @@ import { AccountPort } from '../core/account/account.port';
 import { AuthPort } from '../core/auth/auth.port';
 import { RevokeConsentComponent } from './revoke-consent.component';
 import { DeleteAccountComponent } from '../core/account/delete-account.component';
+import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { TeacherLinksPort } from '../core/teacher-links/teacher-links.port';
 import { TeacherLinksComponent } from './teacher-links.component';
@@ -87,7 +88,7 @@ function setup(
       StudentHistoryComponent,
       StudentSheetsComponent,
     ],
-    imports: [IonicModule.forRoot()],
+    imports: [IonicModule.forRoot(), StreakReminderToggleComponent],
     providers: [
       { provide: AssignmentsPort, useValue: assignments },
       { provide: ReportPort, useValue: reports },

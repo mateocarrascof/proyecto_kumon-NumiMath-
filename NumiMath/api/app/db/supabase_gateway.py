@@ -140,6 +140,17 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def set_streak_reminder(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, enabled: bool
+    ) -> str:
+        result = await self._rpc(
+            "set_streak_reminder",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id), "p_enabled": enabled},
+        )
+        if result not in ("ok", "student_not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def record_offline_attempts(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, attempts: list[OfflineAttempt]
     ) -> dict[uuid.UUID, str] | None:
@@ -230,21 +241,25 @@ class SupabaseGateway:
         local_day: date | None = None,
         level: int = 1,
         duration_s: int | None = None,
+        activity: str = "practice",
+        game_kind: str | None = None,
     ) -> str:
-        result = await self._rpc(
-            "record_attempt",
-            {
-                "p_tutor_id": str(tutor_id),
-                "p_student_id": str(student_id),
-                "p_exercise_id": str(exercise_id),
-                "p_topic": topic,
-                "p_exercise": exercise,
-                "p_correct": correct,
-                "p_local_day": local_day.isoformat() if local_day else None,
-                "p_level": level,
-                "p_duration_s": duration_s,
-            },
-        )
+        params: dict[str, object] = {
+            "p_tutor_id": str(tutor_id),
+            "p_student_id": str(student_id),
+            "p_exercise_id": str(exercise_id),
+            "p_topic": topic,
+            "p_exercise": exercise,
+            "p_correct": correct,
+            "p_local_day": local_day.isoformat() if local_day else None,
+            "p_level": level,
+            "p_duration_s": duration_s,
+        }
+        # Solo los juegos mandan los parámetros nuevos: la práctica sigue llamando igual que antes.
+        if activity != "practice":
+            params["p_activity"] = activity
+            params["p_game_kind"] = game_kind
+        result = await self._rpc("record_attempt", params)
         if result not in ("ok", "duplicate", "student_not_found"):
             raise GatewayError("unexpected_result")
         return str(result)

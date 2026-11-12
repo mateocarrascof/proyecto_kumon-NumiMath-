@@ -25,11 +25,13 @@ from app.routes import (
     diagnostic,
     exercises,
     explanations,
+    games,
     health,
     offline,
     offline_sync,
     pin,
     progress,
+    reminders,
     report,
     sheets,
     students,
@@ -102,9 +104,11 @@ def create_app(
     app.include_router(explanations.router)
     app.include_router(exercises.router)
     app.include_router(diagnostic.router)
+    app.include_router(games.router)
     app.include_router(offline.router)
     app.include_router(offline_sync.router)
     app.include_router(progress.router)
+    app.include_router(reminders.router)
     app.include_router(account.router)
     app.include_router(admin_routes.router)
     app.include_router(teacher.router)

@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { NgModule, inject, isDevMode, provideAppInitializer } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { RouteReuseStrategy } from '@angular/router';
+import { RouteReuseStrategy, Router } from '@angular/router';
 import { provideServiceWorker } from '@angular/service-worker';
 import { Capacitor } from '@capacitor/core';
 
@@ -53,6 +53,9 @@ import { startOfflinePurge } from './core/offline/offline-purge';
 import { HttpOfflineSyncService } from './core/offline/http-offline-sync.service';
 import { OfflineSyncPort } from './core/offline/offline-sync.port';
 import { OfflineSyncService } from './core/offline/offline-sync.service';
+import { CapacitorReminderNotifier } from './core/reminders/capacitor-reminder-notifier';
+import { ReminderNotifier } from './core/reminders/reminder-notifier.port';
+import { StreakReminderService } from './core/reminders/streak-reminder.service';
 
 @NgModule({
   declarations: [AppComponent],
@@ -66,7 +69,11 @@ import { OfflineSyncService } from './core/offline/offline-sync.service';
       const sync = inject(OfflineSyncService);
       sync.listenForReconnect();
       startOfflinePurge(inject(OfflineStore), undefined, undefined, () => sync.syncAll());
+      // CU-A9: recordatorio de racha local. Al tocar el aviso se abre "¿Quién practica?".
+      const router = inject(Router);
+      inject(StreakReminderService).start(() => void router.navigateByUrl('/perfiles'));
     }),
+    { provide: ReminderNotifier, useExisting: CapacitorReminderNotifier },
     { provide: OfflineSyncPort, useExisting: HttpOfflineSyncService },
     // Cambiar la mascota o el proveedor de sesión = cambiar estos proveedores.
     { provide: MascotPort, useExisting: MascotService },

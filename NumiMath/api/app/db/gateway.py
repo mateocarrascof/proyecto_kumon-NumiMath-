@@ -294,6 +294,13 @@ class Gateway(Protocol):
         `daily_limit` descargas hoy; no se registra nada) o `student_not_found`."""
         ...
 
+    async def set_streak_reminder(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, enabled: bool
+    ) -> str:
+        """Guarda la preferencia de recordatorio de racha del perfil (CU-A9). Devuelve `ok` o
+        `student_not_found` (perfil ajeno o inexistente; no cambia nada)."""
+        ...
+
     async def record_offline_attempts(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, attempts: list[OfflineAttempt]
     ) -> dict[uuid.UUID, str] | None:
@@ -324,6 +331,8 @@ class Gateway(Protocol):
         local_day: date | None = None,
         level: int = 1,
         duration_s: int | None = None,
+        activity: str = "practice",
+        game_kind: str | None = None,
     ) -> str:
         """Registra el intento de un ejercicio. Devuelve `ok`, `duplicate` o `student_not_found`.
 
@@ -332,6 +341,9 @@ class Gateway(Protocol):
         Cada ejercicio se registra UNA sola vez por perfil (restricción única en la base).
         Si el intento es nuevo y `local_day` es válida, la base actualiza la racha diaria en la
         misma transacción.
+
+        `activity = "game"` (CU-A21, con `game_kind` = id del juego): solo registra el intento y
+        suma a la racha; NO toca el bloque de 10 ni el nivel de la habilidad.
         """
         ...
 

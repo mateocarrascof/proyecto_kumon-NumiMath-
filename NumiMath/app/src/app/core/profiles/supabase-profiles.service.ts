@@ -23,6 +23,7 @@ interface Row {
   nickname: string;
   grade: number;
   blocked_at: string | null;
+  streak_reminder?: boolean | null;
 }
 
 function toProfile(row: Row): Profile {
@@ -31,6 +32,7 @@ function toProfile(row: Row): Profile {
     nickname: row.nickname,
     grade: row.grade as Grade,
     blocked: row.blocked_at !== null,
+    streakReminder: row.streak_reminder === true,
   };
 }
 
@@ -52,7 +54,7 @@ export class SupabaseProfilesService extends ProfilesPort {
   async list(): Promise<Profile[]> {
     const { data, error } = await this.client
       .from('students')
-      .select('id, nickname, grade, blocked_at')
+      .select('id, nickname, grade, blocked_at, streak_reminder')
       .order('nickname');
     if (error || !data) throw new Error('profiles_unavailable');
     return (data as Row[]).map(toProfile);
@@ -72,7 +74,7 @@ export class SupabaseProfilesService extends ProfilesPort {
           grade,
           adult_declaration_accepted: true,
         })
-        .select('id, nickname, grade, blocked_at')
+        .select('id, nickname, grade, blocked_at, streak_reminder')
         .single();
       if (error || !data) return { ok: false, reason: failureOf(error?.message ?? '') };
       return { ok: true, profile: toProfile(data as Row) };

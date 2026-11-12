@@ -6,6 +6,8 @@ export interface Profile {
   nickname: string;
   grade: Grade;
   blocked: boolean;
+  /** CU-A9: el tutor activó el recordatorio de racha (apagado por defecto). */
+  streakReminder?: boolean;
 }
 
 export type CreateFailure = 'limit' | 'consent' | 'nickname' | 'network' | 'unknown';

@@ -12,6 +12,7 @@ import { NavController } from '@ionic/angular/lazy';
 import { AuthPort } from '../core/auth/auth.port';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { isOffline } from '../core/offline/offline-access';
+import { StreakReminderService } from '../core/reminders/streak-reminder.service';
 import { ConnectivityService } from '../core/offline/connectivity.service';
 import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 import { OfflineStore } from '../core/offline/offline-store.port';
@@ -48,6 +49,7 @@ export class ProfilesPage implements OnInit {
   private readonly offlineStore = inject(OfflineStore);
   private readonly connectivity = inject(ConnectivityService);
   private readonly auth = inject(AuthPort);
+  private readonly reminders = inject(StreakReminderService);
 
   cards: KidCard[] = [];
   /** CU-A12: sin conexión se muestra la copia local de los perfiles (solo apodo y curso). */
@@ -232,17 +234,22 @@ export class ProfilesPage implements OnInit {
 
   /** Racha de cada perfil. Mejor esfuerzo: si falla, la tarjeta se ve igual sin la racha. */
   private async loadStreaks(): Promise<void> {
+    const practicedToday = new Set<string>();
     await Promise.all(
       this.cards
         .filter((c) => !c.profile.blocked)
         .map(async (card) => {
           try {
-            card.days = (await this.progressPort.get(card.profile.id)).dailyStreak;
+            const progress = await this.progressPort.get(card.profile.id);
+            card.days = progress.dailyStreak;
+            if (progress.practicedToday) practicedToday.add(card.profile.id);
           } catch {
             card.days = null;
           }
         }),
     );
+    // CU-A9: si todos los perfiles con recordatorio ya practicaron hoy, el aviso pasa a mañana.
+    void this.reminders.reschedule(practicedToday);
     this.cdr.markForCheck();
   }
 }

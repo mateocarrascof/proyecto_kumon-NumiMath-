@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
 import { ChoiceOptionsComponent } from '../core/games/choice-options.component';
@@ -43,7 +43,7 @@ const ORDER: GameExercise = {
   ],
 };
 
-function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}) {
+function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}, query: Record<string, string> = {}) {
   const port = {
     list: vi.fn(async () => GROUPS),
     exercise: vi.fn(async (_s: string, id: string) => (id === 'ordena-1' ? ORDER : CHOICE)),
@@ -62,7 +62,10 @@ function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}) {
       { provide: MascotPort, useExisting: MascotService },
       { provide: GamesPort, useValue: port },
       { provide: NavController, useValue: nav },
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'p1' } } } },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { paramMap: { get: () => 'p1' }, queryParamMap: convertToParamMap(query) } },
+      },
     ],
   });
   const fixture = TestBed.createComponent(GamesPage);
@@ -85,6 +88,42 @@ describe('GamesPage (CU-A21)', () => {
     await render();
     expect(q('game-mayor-1')?.textContent).toContain('¿Cuál es mayor?');
     expect(q('game-ordena-1')).not.toBeNull();
+  });
+
+  describe('atajos desde "Aprender jugando"', () => {
+    const SKILLED = [
+      {
+        module: 'Números y operaciones',
+        games: [
+          { id: 'mayor-1', name: '¿Cuál es mayor?', kind: 'choice' as const, skill: '1-03' },
+          { id: 'ordena-1', name: 'Ordena los números', kind: 'order' as const, skill: '1-03' },
+          { id: 'cuantos-1', name: '¿Cuántos hay?', kind: 'choice' as const, skill: '1-02' },
+        ],
+      },
+    ];
+
+    it('?juego= abre directo la introducción de ese juego', async () => {
+      const { page, el, render } = setup({ list: vi.fn(async () => SKILLED) }, { juego: 'ordena-1' });
+      await render(); // la creación ya llamó a ngOnInit
+      expect(page.step).toBe('intro');
+      expect(page.game?.id).toBe('ordena-1');
+      expect(el().textContent).toContain('Pon los números de menor a mayor.');
+    });
+
+    it('?tema= muestra solo los juegos de ese tema, sin elegir eje', async () => {
+      const { page, q, render } = setup({ list: vi.fn(async () => SKILLED) }, { tema: '1-03' });
+      await render();
+      expect(page.step).toBe('games');
+      expect(q('game-mayor-1')).not.toBeNull();
+      expect(q('game-ordena-1')).not.toBeNull();
+      expect(q('game-cuantos-1')).toBeNull();
+    });
+
+    it('un juego o tema desconocido deja la elección de eje, como siempre', async () => {
+      const { page, render } = setup({ list: vi.fn(async () => SKILLED) }, { juego: 'no-existe', tema: '9-99' });
+      await render();
+      expect(page.step).toBe('axes');
+    });
   });
 
   it('Numi da la instrucción corta antes de empezar (sin voz)', async () => {

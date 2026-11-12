@@ -17,6 +17,7 @@ import { SheetsPort, SheetStroke } from '../core/sheets/sheets.port';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { Exercise, PracticeError, PracticePort, Topic } from '../core/practice/practice.port';
+import { GameGroup, GamesPort } from '../core/games/games.port';
 import { Progress, ProgressPort } from '../core/progress/progress.port';
 import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
 import { FractionInputComponent } from '../core/math/fraction-input.component';
@@ -34,6 +35,11 @@ import { EXPLAIN_MESSAGES, PracticePage, topicIcon } from './practice.page';
 import { SkillTilesComponent } from './skill-tiles.component';
 
 const TOPIC = { id: 'sumas_hasta_20', label: 'Sumas hasta 20' };
+/** Juegos que devuelve el GamesPort falso ("Aprender jugando"); vacío salvo que la prueba diga. */
+let gameGroups: GameGroup[] = [];
+beforeEach(() => {
+  gameGroups = [];
+});
 const EXERCISE: Exercise = {
   token: 'tok',
   topic: TOPIC.id,
@@ -55,6 +61,7 @@ function setup(
   explain: ExplanationPort['explain'] = async () => undefined,
 ) {
   const nav = { navigateForward: vi.fn(async () => true) };
+  const games = { list: vi.fn(async () => gameGroups) };
   const explainer = { explain: vi.fn(explain) };
   const queryParams = new BehaviorSubject(convertToParamMap(query));
   const progress = { get: vi.fn(progressGet) };
@@ -97,6 +104,7 @@ function setup(
       { provide: SheetsPort, useValue: sheets },
       { provide: AssignmentsPort, useValue: assignments },
       { provide: NavController, useValue: nav },
+      { provide: GamesPort, useValue: games },
       { provide: ExplanationPort, useValue: explainer },
       {
         provide: ActivatedRoute,
@@ -109,6 +117,7 @@ function setup(
   });
   const fixture = TestBed.createComponent(PracticePage);
   return {
+    games,
     page: fixture.componentInstance,
     fixture,
     port,
@@ -1748,6 +1757,66 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
   it('si no se puede deducir el curso, no aparece', async () => {
     const { fixture } = await withTopics([{ ...TOPIC }]);
     expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+  });
+
+  describe('"Aprender jugando" dentro de cada tema', () => {
+    const game = (id: string, skill: string) => ({ id, name: id, kind: 'choice' as const, skill });
+    const CATALOG = [
+      {
+        module: 'Números y operaciones',
+        games: [game('mayor-1', '1-03'), game('ordena-1', '1-03'), game('cuantos-1', '1-02')],
+      },
+      { module: 'Patrones y álgebra', games: [game('que-sigue-1', '1-13')] },
+    ];
+    async function inTopic(id: string, grade: number) {
+      gameGroups = CATALOG;
+      const topic = { ...TOPIC, id, grade, review: false };
+      const ctx = await withTopics([topic]);
+      await ctx.page.choose(topic as never);
+      await new Promise((r) => setTimeout(r, 0));
+      ctx.fixture.detectChanges();
+      return { ...ctx, button: query(ctx.fixture, '[data-testid="learn-playing"]') as HTMLElement | null };
+    }
+
+    it('un juego en el tema: abre directo su introducción', async () => {
+      const { button, nav } = await inTopic('1-13', 1);
+      expect(button?.textContent).toContain('Aprender jugando');
+      button!.click();
+      expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+        queryParams: { juego: 'que-sigue-1' },
+      });
+    });
+
+    it('varios juegos en el tema: abre la lista filtrada por el tema', async () => {
+      const { button, nav } = await inTopic('1-03', 1);
+      button!.click();
+      expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+        queryParams: { tema: '1-03' },
+      });
+    });
+
+    it('un tema sin juego no lo muestra', async () => {
+      const { button } = await inTopic('1-06', 1);
+      expect(button).toBeNull();
+    });
+
+    it('en 3° no se muestra ni se pide la lista de juegos', async () => {
+      const { button, games } = await inTopic('1-13', 3);
+      expect(button).toBeNull();
+      expect(games.list).not.toHaveBeenCalled();
+    });
+
+    it('si la lista de juegos falla, no se muestra (la práctica sigue)', async () => {
+      gameGroups = CATALOG;
+      const topic = { ...TOPIC, id: '1-13', grade: 1, review: false };
+      const ctx = await withTopics([topic]);
+      ctx.games.list.mockRejectedValueOnce(new Error('red'));
+      await ctx.page.choose(topic as never);
+      await new Promise((r) => setTimeout(r, 0));
+      ctx.fixture.detectChanges();
+      expect(query(ctx.fixture, '[data-testid="learn-playing"]')).toBeNull();
+      expect(ctx.page.exercise).not.toBeNull();
+    });
   });
 
   it('sin conexión no aparece (los juegos necesitan internet)', async () => {

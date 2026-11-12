@@ -1401,3 +1401,30 @@ tiendas. Corregidos en `fix(cu-a21)`:
 - **Medio:** un patrón de 7 figuras dejaba el "?" solo en otra línea. Ahora las figuras miden
   36 px y caben en una línea.
 - Prueba nueva: completar rechaza una tarjeta fija puesta también en un hueco.
+
+## Test inicial rechazado y "Aprender jugando" (2026-11-12)
+
+### Test inicial: rechazarlo es definitivo
+- "No, empezar a practicar" abre una confirmación: la prueba no aparecerá otra vez en ese tema y
+  no se podrá hacer después. El botón de confirmar espera 3 segundos, sin cuenta atrás visible;
+  una región viva anuncia "Ya puedes elegir.". "Volver" regresa a la oferta.
+- Confirmado, se guarda en el servidor (`diagnostic_declines`, función `decline_diagnostic` solo
+  para `service_role`, `POST /v1/students/{id}/diagnostic/{tema}/decline`, idempotente). El tema
+  ya no ofrece el test ni entrega sus ejercicios. No hay forma de volver a habilitarlo (nada en el
+  panel del tutor); se borra solo con el perfil o la cuenta.
+- Si no se pudo guardar: "No pudimos guardarlo. Prueba de nuevo.", con reintentar o empezar a
+  practicar igual; en ese caso el test se ofrecerá más tarde, como antes. El test solo se ofrece
+  con conexión, y si el servidor no puede leer los rechazos no lo ofrece (falla cerrado).
+
+### "Aprender jugando" dentro de cada tema
+- Debajo de "Papel para calcular", solo en 1° y 2°, con conexión y si el tema tiene al menos un
+  juego (el servidor informa la habilidad de cada juego, `skill`). La lista de juegos se pide una
+  vez, al entrar al primer tema; si falla, el botón no aparece.
+- Un juego: abre directo su introducción (`/juegos/:id?juego=`). Varios (1-03 tiene tres): la
+  lista con solo los juegos de ese tema (`?tema=`), sin elegir eje.
+- La tarjeta general "Jugar" se conserva como entrada a todos los juegos.
+
+### Pendientes
+1. **Pregunta legal:** ¿el rechazo entra en la exportación de datos (ARCOP)? Ver
+   `docs/privacy/pendientes-legales.md`, pregunta 23. No implementado.
+

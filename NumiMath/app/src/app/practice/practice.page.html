@@ -52,6 +52,14 @@
         }
         <span class="topic-go" aria-hidden="true">›</span>
       </button>
+      <!-- CU-A21: juegos de refuerzo, solo 1° y 2° y con conexión. -->
+      @if (canPlay) {
+        <button type="button" class="topic-card tasks-card" data-tone="lilac" (click)="openGames()" data-testid="games-card">
+          <span class="topic-icon" aria-hidden="true">🧩</span>
+          <span class="topic-label">Jugar</span>
+          <span class="topic-go" aria-hidden="true">›</span>
+        </button>
+      }
       <!-- Baldosas por eje: cada eje con su color e ícono fijos. Ninguna habilidad tiene candado. -->
       <app-skill-tiles [groups]="ownGroups" (pick)="choose($event)"></app-skill-tiles>
       @if (reviewTopics.length) {

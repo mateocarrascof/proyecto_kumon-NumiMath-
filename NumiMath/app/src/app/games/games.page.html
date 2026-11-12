@@ -1,0 +1,137 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="'/practica/' + studentId" text="Practicar"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Juegos</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="games" [class.in-round]="step === 'round'">
+    <!-- La instrucción va en la burbuja solo al empezar; en las rondas Numi se achica y el enunciado
+         ya dice qué hacer (la burbuja no cabría a 360 px). -->
+    <app-mascot [state]="mascot.state()" [message]="step === 'intro' ? instruction : ''"></app-mascot>
+
+    <!-- Aviso amable siempre presente (vacío si no hay aviso): el lector de pantalla lo anuncia. -->
+    <div class="notice" role="status" aria-live="polite" data-testid="game-notice">
+      @if (notice) {
+        <p>{{ notice }}</p>
+        @if (canRetry) {
+          <button type="button" class="big" (click)="retry()" data-testid="game-retry">{{ text.retry }}</button>
+        }
+      }
+    </div>
+
+    @switch (step) {
+      @case ('loading') {
+        @if (!notice) {
+          <ion-spinner name="dots"></ion-spinner>
+        }
+      }
+
+      @case ('axes') {
+        <h1>{{ text.chooseAxis }}</h1>
+        <ul class="choices">
+          @for (g of groups; track g.module) {
+            <li>
+              <button type="button" class="big" (click)="chooseAxis(g)" [attr.data-testid]="'axis-' + $index">
+                {{ g.module }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      @case ('games') {
+        <h1>{{ text.chooseGame }}</h1>
+        <p class="axis">{{ axis?.module }}</p>
+        <ul class="choices">
+          @for (g of axis?.games ?? []; track g.id) {
+            <li>
+              <button type="button" class="big" (click)="chooseGame(g)" [attr.data-testid]="'game-' + g.id">
+                <span aria-hidden="true">{{ g.kind === 'order' ? '🔢' : '👆' }}</span> {{ g.name }}
+              </button>
+            </li>
+          }
+        </ul>
+        <button type="button" class="link" (click)="otherGame()">‹ {{ text.chooseAxis }}</button>
+      }
+
+      @case ('intro') {
+        <h1>{{ game?.name }}</h1>
+        <button type="button" class="big primary" (click)="start()" data-testid="game-start">{{ text.start }}</button>
+      }
+
+      @case ('round') {
+        <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
+        @if (exercise) {
+          <h1 class="prompt" data-testid="game-prompt">
+            {{ prompt.before }}
+            @if (prompt.glyphs) {
+              <span class="glyphs" aria-hidden="true">{{ prompt.glyphs }}</span>
+              <span class="sr-only">{{ prompt.spoken }}</span>
+            }
+          </h1>
+
+          @if (exercise.kind === 'choice') {
+            <app-choice-options
+              [options]="exercise.options"
+              [label]="prompt.before + prompt.spoken"
+              [disabled]="busy || !!result"
+              [chosen]="chosen"
+              [correct]="result?.correctAnswer ?? null"
+              (pick)="pick($event)"
+            ></app-choice-options>
+          } @else {
+            <app-order-cards
+              [cards]="exercise.options"
+              [disabled]="busy || !!result"
+              [correct]="result?.correctAnswer ?? null"
+              (ready)="onOrderReady($event)"
+            ></app-order-cards>
+          }
+
+          <!-- Región viva SIEMPRE presente (vacía antes de responder): el lector de pantalla anuncia
+               el resultado y la medalla al cambiar su texto. -->
+          <div class="result-area" role="status" aria-live="polite">
+            @if (result) {
+              <p class="result" data-testid="game-result">
+                <span aria-hidden="true">{{ result.correct ? '⭐' : '💭' }}</span> {{ result.message }}
+              </p>
+              @if (medalNow) {
+                <p class="medal" data-testid="game-medal">
+                  <span aria-hidden="true">🏅</span> {{ text.medalNow }}
+                </p>
+              }
+            }
+          </div>
+          @if (result) {
+            <button type="button" class="big primary" (click)="nextRound()" data-testid="game-next" id="game-next">
+              {{ round >= rounds ? text.seeEnd : text.next }}
+            </button>
+          }
+        } @else if (busy) {
+          <ion-spinner name="dots"></ion-spinner>
+        }
+      }
+
+      @case ('summary') {
+        <h1 data-testid="game-summary" id="game-summary" tabindex="-1">{{ text.end(correctCount, rounds) }}</h1>
+        @if (medals > 0) {
+          <p class="medal"><span aria-hidden="true">🏅</span> {{ text.medals(medals) }}</p>
+        }
+        <div class="actions">
+          <!-- Los tres con el mismo peso (decisión del dueño): no se empuja a seguir jugando. -->
+          <button type="button" class="big" (click)="start()" data-testid="game-again">{{ text.playAgain }}</button>
+          <button type="button" class="big" (click)="otherGame()" data-testid="game-other">{{ text.otherGame }}</button>
+          <button type="button" class="big" (click)="backToPractice()" data-testid="game-back">{{ text.backToPractice }}</button>
+        </div>
+      }
+
+      @case ('blocked') {
+        <button type="button" class="big" (click)="backToPractice()" data-testid="game-back">{{ text.backToPractice }}</button>
+      }
+    }
+  </main>
+</ion-content>

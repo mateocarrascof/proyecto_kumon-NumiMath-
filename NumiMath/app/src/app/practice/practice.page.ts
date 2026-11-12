@@ -34,6 +34,7 @@ import { ConnectivityService } from '../core/offline/connectivity.service';
 import { isOffline } from '../core/offline/offline-access';
 import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 import { OfflineSyncService } from '../core/offline/offline-sync.service';
+import { MEDAL_EVERY } from '../core/practice/medals';
 import { StreakReminderService } from '../core/reminders/streak-reminder.service';
 import { OfflineError, OfflinePracticeService } from '../core/offline/offline-practice.service';
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
@@ -179,8 +180,8 @@ export const DIAGNOSTIC_MESSAGES = {
 
 export type DiagnosticState = 'offer' | 'running' | 'saving' | 'done' | null;
 
-/** Aciertos seguidos que dan una medalla. */
-export const MEDAL_EVERY = 5;
+// Aciertos seguidos que dan una medalla: compartido con los juegos (CU-A21).
+export { MEDAL_EVERY };
 
 /** "Tema" de las tareas del tutor en la pantalla (no es un tema del servidor). */
 export const TASKS_TOPIC: Topic = { id: 'tarea_tutor', label: 'Tareas de tu tutor' };
@@ -442,6 +443,22 @@ export class PracticePage implements OnInit {
   }
 
   /** Pantalla con las tareas del tutor (pendientes y hechas). */
+  /**
+   * CU-A21: "Jugar" solo para 1° y 2° básico, con conexión. El curso se deduce de las habilidades
+   * propias del perfil (sin otra llamada); si no se puede deducir, no se muestra.
+   */
+  get canPlay(): boolean {
+    if (this.offlineMode) return false;
+    const grades = new Set(this.topics.filter((t) => !t.review).map((t) => t.grade));
+    if (grades.size !== 1) return false;
+    const [grade] = grades;
+    return grade === 1 || grade === 2;
+  }
+
+  openGames(): Promise<boolean> {
+    return this.nav.navigateForward(['/juegos', this.studentId]);
+  }
+
   async openTasks(): Promise<boolean> {
     // Las tareas las corrige el servidor. Sin red se avisa sin intentar; si el navegador cree que
     // hay red se intenta, y si el guard no deja pasar por falta de conexión, también se avisa.

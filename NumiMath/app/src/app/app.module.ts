@@ -54,6 +54,8 @@ import { OfflineStore } from './core/offline/offline-store.port';
 import { startOfflinePurge } from './core/offline/offline-purge';
 import { HttpOfflineSyncService } from './core/offline/http-offline-sync.service';
 import { OfflineSyncPort } from './core/offline/offline-sync.port';
+import { GamesPort } from './core/games/games.port';
+import { HttpGamesService } from './core/games/http-games.service';
 import { OfflineSyncService } from './core/offline/offline-sync.service';
 import { CapacitorReminderNotifier } from './core/reminders/capacitor-reminder-notifier';
 import { ReminderNotifier } from './core/reminders/reminder-notifier.port';
@@ -77,6 +79,7 @@ import { StreakReminderService } from './core/reminders/streak-reminder.service'
     }),
     { provide: ReminderNotifier, useExisting: CapacitorReminderNotifier },
     { provide: OfflineSyncPort, useExisting: HttpOfflineSyncService },
+    { provide: GamesPort, useExisting: HttpGamesService },
     // Cambiar la mascota o el proveedor de sesión = cambiar estos proveedores.
     { provide: MascotPort, useExisting: MascotService },
     { provide: AuthPort, useExisting: SupabaseAuthService },

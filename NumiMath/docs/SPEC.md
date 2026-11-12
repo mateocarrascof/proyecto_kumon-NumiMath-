@@ -1171,3 +1171,83 @@ Corregido en `fix(cu-a21)`:
   `record_attempt` solo practice/game, racha sí y bloque/nivel no, práctica igual, CU-A13 sigue
   funcionando y queda `practice`, jugar no impide el diagnóstico, índices parciales, permisos, RLS
   de lectura y escritura). Concurrencia (`run.sh`) sin cambios, en verde.
+
+## Jugar un juego de refuerzo (CU-A21), parte 2: componentes de la app
+
+Pantalla `juegos/:id` y dos componentes reutilizables, para 1° y 2° básico, pensados para 360 px.
+Usa los endpoints de la parte 1 sin cambiar el servidor.
+
+### Flujo
+1. En la práctica, la tarjeta **"Jugar"** aparece solo si el curso del perfil (deducido de sus
+   habilidades propias, sin otra llamada) es 1° o 2° y hay conexión. Si no se puede deducir, no
+   aparece. Si el servidor igual responde 403 de curso: "Estos juegos son para 1° y 2° básico.
+   ¡Puedes seguir practicando!".
+2. Elegir eje → elegir juego → instrucción corta de Numi (sin voz; CU-A20 no está construido).
+3. **5 rondas**: opciones (un toque responde) u orden (tarjetas + "Listo"). Corrige el servidor; el
+   mensaje es el suyo (sin culpa) y la respuesta correcta se muestra solo después.
+4. Resumen: "Jugar de nuevo", "Otro juego" o "Volver a practicar".
+
+### Reglas
+- Sin nivel ni progreso. Suman a la racha (en el servidor; la pantalla no la muestra) y a las
+  medallas (en la app: 5 aciertos seguidos, `core/practice/medals.ts`, como la práctica).
+- Sin internet no funcionan y no entran al modo sin conexión (ruta sin `offline: true`): "Para jugar
+  hace falta internet. Pide ayuda a un adulto." con "Intentar otra vez" (reenvía la misma respuesta
+  si se perdió la red al responder). Si el niño sale a medias, lo respondido ya quedó registrado.
+- Sin cronómetros. Textos en `core/games/games.messages.ts`.
+- **Opciones táctiles** (`app-choice-options`): botones de 88 px de alto en 2 columnas, con
+  `aria-pressed` y etiqueta resumida ("3 manzanas", "mayor que"); tras corregir, cada estado lleva
+  ícono y texto ("✓ Esta era", "• Tu elección"), no solo color.
+- **Ordenar con tarjetas** (`app-order-cards`): tocar pone la tarjeta en el primer lugar libre y
+  tocarla otra vez la saca (forma principal); **arrastre propio con Pointer Events** como
+  alternativa (dedo y mouse, sin librerías); teclado: Enter/Espacio pone o saca, flechas la mueven
+  de lugar; aviso cortés para el lector de pantalla ("Pusiste 7 en el lugar 2"). Admite lugares ya
+  ocupados y fijos (para completar).
+- Emoji repetidos del enunciado: `aria-hidden` y un resumen accesible ("7 manzanas").
+- Animaciones suaves que respetan "reducir movimiento".
+
+### Revisión antes del PR
+`code-reviewer` y `child-safety-ai-reviewer` sobre `main..e195711`. Sin altos ni bloqueantes de
+tiendas. Medios corregidos en `fix(cu-a21)`:
+- Tras un arrastre sin "click" del navegador, el próximo toque ya no se pierde.
+- Una respuesta con forma rara del servidor ya no se muestra como "sin internet".
+- El aviso de "ya respondido" no queda pegado en el resumen.
+- El grupo de opciones se nombra con el enunciado resumido (sin leer cada emoji).
+- Resultado y medalla en una región viva siempre presente.
+- El foco va a "Siguiente" tras responder y al título en el resumen; en las tarjetas, el foco sigue
+  a la tarjeta al ponerla o sacarla (`afterNextRender`).
+- El resumen no dice "0 de 5" ("¡Terminaste! Jugando se aprende.").
+- Durante las rondas Numi se achica y sin burbuja: a 360 px "Siguiente" queda a la vista (y se
+  desplaza hasta él con el ajuste de "reducir movimiento").
+
+### Pendientes
+1. **Completar** una secuencia con hueco: el componente ya lo admite, pero necesita un juego nuevo
+   en el servidor. El tema 1 de 1° ("completa el camino") lo necesitará en la parte 3.
+2. Figuras SVG propias (parte 3).
+3. Voz de Numi (CU-A20, no construido).
+4. **Decisiones del dueño (child-safety, 2026-11-12):** en el resumen, "Jugar de nuevo", "Otro
+   juego" y "Volver a practicar" tienen el mismo peso visual; el ícono de "Jugar" es 🧩 (🎲 evocaba
+   el azar). **Pendiente a decidir con Adolfo:** sugerir una pausa tras N partidas o un límite
+   diario de juego (hoy las medallas se acumulan sin límite).
+5. **Bajos de la revisión (no implementados):** tras perder la red al responder se puede tocar otra
+   opción con el mismo token; `session`, `forbidden` y `not_found` ofrecen un reintento que no
+   sirve (mejor "pide ayuda a un adulto" sin reintento); un ejercicio vencido se reemplaza sin
+   aviso; `aria-pressed` en opciones que no son de alternancia; la etiqueta de una tarjeta ya
+   corregida sigue diciendo "toca para sacarla" y no dice si quedó bien; la flecha "‹" se lee en voz
+   alta; textos del componente de tarjetas y "Jugar" de la práctica fuera de `games.messages.ts`; un
+   número de 3 cifras (100) podría no caber en un lugar con 4 lugares; respaldo genérico para un
+   emoji nuevo del servidor; `touch-action: none` en las tarjetas impide desplazar la página si el
+   dedo empieza sobre ellas; comentario huérfano en `practice.page.ts`; el re-export de
+   `MEDAL_EVERY` en la práctica.
+
+### Pruebas
+- `core/games/http-games.service.spec.ts` (endpoints, errores, textos accesibles),
+  `core/games/game-components.spec.ts` (selección, orden con toque, teclado y arrastre, estados,
+  accesibilidad, completar), `games/games.page.spec.ts` (ejes, instrucción, ronda de opciones y de
+  orden, 5 rondas con resumen y medalla, sin nivel, sin red y reintento, curso no permitido,
+  ejercicio vencido, emoji resumidos) y `practice.page.spec.ts` ("Jugar" solo en 1° y 2°, con red).
+- Manual (2026-11-12, Chromium a **360 px**, API de la rama): ronda de opciones y ronda de orden de
+  punta a punta (una tarjeta arrastrada al lugar 3, el resto tocando); sin desplazamiento
+  horizontal; en la base quedaron como `game` con `mayor-1` y `ordena-1`, la racha en 1 y sin
+  progreso de la habilidad. La prueba encontró que el arrastre no detectaba el lugar (la tarjeta
+  arrastrada tapaba el punto); corregido con `elementsFromPoint`.
+

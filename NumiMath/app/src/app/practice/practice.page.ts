@@ -176,7 +176,24 @@ export const DIAGNOSTIC_MESSAGES = {
   offerDetail: 'Son 6 ejercicios para empezar en tu nivel. No importa si te equivocas.',
   done: '¡Listo!',
   fallback: 'Esta vez la prueba no se pudo guardar. Empiezas en el nivel 1.',
+  // Rechazar es definitivo (decisión del dueño): antes se confirma, con calma.
+  declineTitle: '¿Seguro que no quieres la prueba?',
+  declineDetail:
+    'Si dices que no, esta prueba no aparecerá otra vez en este tema y no podrás hacerla después. ' +
+    'Igual puedes practicar todo lo que quieras.',
+  declineConfirm: 'Sí, no quiero la prueba',
+  declineBack: 'Volver',
+  declineReady: 'Ya puedes elegir.',
+  declineError: 'No pudimos guardarlo. Prueba de nuevo.',
+  declineRetry: 'Reintentar',
+  declinePracticeAnyway: 'Empezar a practicar igual',
 } as const;
+
+/**
+ * Espera antes de poder confirmar el rechazo del test: para leerlo con calma. Sin cuenta atrás
+ * visible (no presiona); el lector de pantalla anuncia cuando el botón ya se puede usar.
+ */
+export const DECLINE_WAIT_MS = 3000;
 
 export type DiagnosticState = 'offer' | 'running' | 'saving' | 'done' | null;
 
@@ -298,6 +315,13 @@ export class PracticePage implements OnInit {
   diagStep = 0;
   diagLevel: Level = 1;
   diagNotice = '';
+  /** Rechazo del test: confirmación (botón desactivado unos segundos) o error al guardarlo. */
+  declineStep: 'confirm' | 'error' | null = null;
+  declineReady = false;
+  declineBusy = false;
+  /** Para pruebas. */
+  declineWaitMs = DECLINE_WAIT_MS;
+  private declineTimer: ReturnType<typeof setTimeout> | null = null;
   private diagAnswers: DiagnosticAnswer[] = [];
   protected readonly diagSteps = DIAGNOSTIC_STEPS;
   protected readonly diagMessages = DIAGNOSTIC_MESSAGES;
@@ -517,10 +541,63 @@ export class PracticePage implements OnInit {
     await this.next();
   }
 
-  /** "No, empezar a practicar": parte en el nivel 1, como siempre. */
-  async declineDiagnostic(): Promise<void> {
+  /** "No, empezar a practicar": rechazar es definitivo, así que primero se confirma. */
+  askDecline(): void {
+    if (this.diag !== 'offer') return;
+    this.clearDeclineTimer();
+    this.declineStep = 'confirm';
+    this.declineReady = false;
+    this.declineTimer = setTimeout(() => {
+      this.declineTimer = null;
+      this.declineReady = true; // la región viva anuncia "Ya puedes elegir."
+      this.cdr.markForCheck();
+    }, this.declineWaitMs);
+    this.focusDiagnosticTitle();
+  }
+
+  /** "Volver": de nuevo a la oferta, sin rechazar. */
+  cancelDecline(): void {
+    this.clearDeclineTimer();
+    this.declineStep = null;
+    this.declineReady = false;
+    this.focusDiagnosticTitle();
+  }
+
+  /** Confirmado: se guarda en el servidor. Solo si quedó guardado se da por hecho. */
+  async confirmDecline(): Promise<void> {
+    if (!this.topic || this.declineBusy) return;
+    if (this.declineStep === 'confirm' && !this.declineReady) return;
+    this.declineBusy = true;
+    let saved = false;
+    try {
+      await this.practice.declineDiagnostic(this.studentId, this.topic.id);
+      saved = true;
+    } catch {
+      // Sin culpa y sin darlo por hecho: reintentar o practicar igual (se ofrecerá más tarde).
+      this.declineStep = 'error';
+    } finally {
+      this.declineBusy = false;
+      this.cdr.markForCheck();
+    }
+    if (saved) await this.startPracticeAnyway();
+  }
+
+  /** Empieza a practicar en el nivel 1, como siempre (si el rechazo no se guardó, el test se
+   * vuelve a ofrecer más tarde). */
+  async startPracticeAnyway(): Promise<void> {
     this.resetDiagnostic();
     await this.next();
+  }
+
+  /** Texto de la región viva de la confirmación. */
+  get declineStatus(): string {
+    if (this.declineStep === 'error') return DIAGNOSTIC_MESSAGES.declineError;
+    return this.declineStep === 'confirm' && this.declineReady ? DIAGNOSTIC_MESSAGES.declineReady : '';
+  }
+
+  private clearDeclineTimer(): void {
+    if (this.declineTimer !== null) clearTimeout(this.declineTimer);
+    this.declineTimer = null;
   }
 
   /** "Sí, probar": 6 ejercicios seguidos, sin decir si cada uno estaba bien. */
@@ -637,6 +714,9 @@ export class PracticePage implements OnInit {
 
   /** Olvida la prueba en curso (al salir, cambiar de tema o terminar). Nada se envía. */
   private resetDiagnostic(): void {
+    this.clearDeclineTimer();
+    this.declineStep = null;
+    this.declineReady = false;
     this.diag = null;
     this.diagStep = 0;
     this.diagAnswers = [];

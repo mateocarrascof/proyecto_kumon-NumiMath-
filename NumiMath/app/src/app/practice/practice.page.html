@@ -79,11 +79,29 @@
     @if (topic && diag === 'offer') {
       <!-- Diagnóstico inicial (CU-A2): opcional. Decir que no parte en el nivel 1, como siempre. -->
       <section class="diag-card" data-testid="diag-offer">
-        <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.offer }}</h2>
-        <p class="diag-detail">{{ diagMessages.offerDetail }}</p>
-        <ion-button expand="block" class="diag-btn" (click)="startDiagnostic()" data-testid="diag-start">Sí, probar</ion-button>
-        <ion-button expand="block" class="diag-btn" fill="outline" (click)="declineDiagnostic()"
-          data-testid="diag-skip">No, empezar a practicar</ion-button>
+        @if (declineStep === null) {
+          <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.offer }}</h2>
+          <p class="diag-detail">{{ diagMessages.offerDetail }}</p>
+          <ion-button expand="block" class="diag-btn" (click)="startDiagnostic()" data-testid="diag-start">Sí, probar</ion-button>
+          <ion-button expand="block" class="diag-btn" fill="outline" (click)="askDecline()"
+            data-testid="diag-skip">No, empezar a practicar</ion-button>
+        } @else if (declineStep === 'confirm') {
+          <!-- Rechazar es definitivo: se confirma. El botón espera unos segundos, sin cuenta atrás. -->
+          <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.declineTitle }}</h2>
+          <p class="diag-detail" data-testid="diag-decline-detail">{{ diagMessages.declineDetail }}</p>
+          <ion-button expand="block" class="diag-btn" fill="outline" [disabled]="!declineReady || declineBusy"
+            (click)="confirmDecline()" data-testid="diag-decline-confirm">{{ diagMessages.declineConfirm }}</ion-button>
+          <ion-button expand="block" class="diag-btn" (click)="cancelDecline()"
+            data-testid="diag-decline-back">{{ diagMessages.declineBack }}</ion-button>
+        } @else {
+          <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.declineError }}</h2>
+          <ion-button expand="block" class="diag-btn" [disabled]="declineBusy" (click)="confirmDecline()"
+            data-testid="diag-decline-retry">{{ diagMessages.declineRetry }}</ion-button>
+          <ion-button expand="block" class="diag-btn" fill="outline" (click)="startPracticeAnyway()"
+            data-testid="diag-practice-anyway">{{ diagMessages.declinePracticeAnyway }}</ion-button>
+        }
+        <!-- Región viva siempre presente: anuncia cuando ya se puede confirmar (o el error). -->
+        <p class="sr-only" role="status" aria-live="polite" data-testid="diag-decline-status">{{ declineStatus }}</p>
       </section>
     }
 

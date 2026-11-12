@@ -1337,6 +1337,7 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
       topics: vi.fn(async () => [NEW_SKILL]),
       diagnosticExercise: vi.fn(async (_s: string, _t: string, step: number) => diagExercise(step)),
       submitDiagnostic: vi.fn(async () => 2 as const),
+      declineDiagnostic: vi.fn(async () => undefined),
       ...overrides,
     });
   }
@@ -1368,14 +1369,79 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     expect(port.newExercise).toHaveBeenCalled();
   });
 
-  it('"No, empezar a practicar" sigue con la práctica normal', async () => {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('"No, empezar a practicar" pide confirmar; confirmado se guarda y sigue la práctica', async () => {
     const { page, port } = diagSetup();
     await page.ngOnInit();
     await page.choose(NEW_SKILL);
-    await page.declineDiagnostic();
+    page.declineWaitMs = 5;
+    page.askDecline();
+    expect(page.declineStep).toBe('confirm');
+    expect(page.declineReady).toBe(false);
+    await page.confirmDecline(); // todavía no: el botón espera
+    expect(port.declineDiagnostic).not.toHaveBeenCalled();
+    await wait(10);
+    expect(page.declineReady).toBe(true);
+    await page.confirmDecline();
+    expect(port.declineDiagnostic).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
     expect(page.diag).toBeNull();
     expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
     expect(port.diagnosticExercise).not.toHaveBeenCalled();
+  });
+
+  it('la confirmación dice que no se podrá hacer después; botón desactivado 3 s y anuncio sin cuenta atrás', async () => {
+    const { page, fixture } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    expect(page.declineWaitMs).toBe(3000);
+    page.declineWaitMs = 5;
+    page.askDecline();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const q = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement;
+    expect(q('diag-decline-detail').textContent).toContain('no podrás hacerla después');
+    const confirm = () => (q('diag-decline-confirm') as unknown as { disabled: boolean }).disabled;
+    expect(confirm()).toBe(true);
+    expect(q('diag-decline-status').getAttribute('aria-live')).toBe('polite');
+    expect(q('diag-decline-status').textContent?.trim()).toBe('');
+    await wait(10);
+    fixture.detectChanges();
+    expect(confirm()).toBe(false);
+    expect(q('diag-decline-status').textContent?.trim()).toBe('Ya puedes elegir.');
+    expect(el.querySelector('[data-testid="diag-offer"]')!.textContent).not.toMatch(/\d/); // sin cuenta atrás
+  });
+
+  it('"Volver" regresa a la oferta sin rechazar', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.askDecline();
+    page.cancelDecline();
+    expect(page.declineStep).toBeNull();
+    expect(page.diag).toBe('offer');
+    expect(port.declineDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('si el rechazo no se guarda: mensaje sin culpa, reintentar o practicar igual (sin darlo por hecho)', async () => {
+    const declineDiagnostic = vi.fn(async () => {
+      throw new Error('red');
+    });
+    const { page, port } = diagSetup({ declineDiagnostic });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.declineWaitMs = 0;
+    page.askDecline();
+    await wait(5);
+    await page.confirmDecline();
+    expect(page.declineStep).toBe('error');
+    expect(page.declineStatus).toBe('No pudimos guardarlo. Prueba de nuevo.');
+    expect(page.diag).toBe('offer');
+    await page.confirmDecline(); // reintentar
+    expect(declineDiagnostic).toHaveBeenCalledTimes(2);
+    await page.startPracticeAnyway();
+    expect(page.diag).toBeNull();
+    expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
   });
 
   it('hace 6 ejercicios en orden, sin decir si estaban bien, y envía todo al final', async () => {

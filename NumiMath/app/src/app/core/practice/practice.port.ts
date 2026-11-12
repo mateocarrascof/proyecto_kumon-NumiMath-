@@ -96,4 +96,6 @@ export abstract class PracticePort {
     topic: string,
     answers: DiagnosticAnswer[],
   ): Promise<Level>;
+  /** Rechaza el test inicial de un tema: no se vuelve a ofrecer nunca para este perfil. */
+  abstract declineDiagnostic(studentId: string, topic: string): Promise<void>;
 }

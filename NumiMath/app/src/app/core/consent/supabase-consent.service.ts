@@ -34,7 +34,9 @@ export class SupabaseConsentService extends ConsentPort {
       .select('id, kind, version, content_sha256')
       .eq('is_current', true);
     if (error || !data) throw new Error('versions_unavailable');
-    return data as VersionRow[];
+    // Solo los textos del consentimiento: otros textos vigentes (como la autorización del docente)
+    // tienen su propia pantalla y no forman parte de lo que se acepta al crear la cuenta.
+    return (data as VersionRow[]).filter((row) => Object.prototype.hasOwnProperty.call(LEGAL_FILES, row.kind));
   }
 
   async loadCurrent(): Promise<LegalBundle> {

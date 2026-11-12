@@ -81,7 +81,7 @@ describe('SupabaseAuthService: la sesión de recuperación no es un inicio de se
     await service.beginRecovery(LINK);
     expect(await service.completePasswordReset('Clave-nueva-456')).toEqual({ ok: true });
     emit('SIGNED_IN', SESSION);
-    expect(service.user()).toEqual({ id: 'u1', email: 'ana@example.test' });
+    expect(service.user()).toEqual({ id: 'u1', email: 'ana@example.test', role: 'tutor' });
     expect(window.sessionStorage.getItem('numi-recovery-pending')).toBeNull();
   });
 
@@ -112,7 +112,7 @@ describe('SupabaseAuthService: la sesión de recuperación no es un inicio de se
   it('sin marca de recuperación, una sesión guardada normal se conserva', async () => {
     const { service } = setup({ storedSession: SESSION });
     await service.ready();
-    expect(service.user()).toEqual({ id: 'u1', email: 'ana@example.test' });
+    expect(service.user()).toEqual({ id: 'u1', email: 'ana@example.test', role: 'tutor' });
   });
 
   it('un enlace inválido no deja la recuperación activa', async () => {
@@ -137,7 +137,7 @@ describe('SupabaseAuthService: la sesión de recuperación no es un inicio de se
     });
     await service.ready();
     await service.completePasswordReset('Clave-nueva-456');
-    expect(service.user()).toEqual({ id: 'u1', email: 'ana@example.test' });
+    expect(service.user()).toEqual({ id: 'u1', email: 'ana@example.test', role: 'tutor' });
   });
 });
 

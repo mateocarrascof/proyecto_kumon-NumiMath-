@@ -1,0 +1,105 @@
+<section aria-labelledby="h-sheets" class="history" data-testid="student-sheets">
+  <h2 id="h-sheets">Hojas guardadas de {{ nickname }}</h2>
+  <p class="hint">
+    Son los papeles de cálculo que {{ nickname }} guardó mientras había un docente vinculado. Puedes
+    borrarlas cuando quieras: al borrar, el docente deja de verlas.
+  </p>
+
+  @if (notice) {
+    <p role="status" data-testid="sheets-notice">{{ notice }}</p>
+  }
+
+  @if (loading) {
+    <p role="status">Cargando…</p>
+  } @else if (error && items.length === 0) {
+    <p class="error" role="alert" data-testid="sheets-error">{{ error }}</p>
+  } @else if (opened) {
+    <ion-button fill="clear" (click)="close()" data-testid="sheet-back">← Volver a la lista</ion-button>
+    <h3>{{ opened.label }} · {{ formatWhen(opened.savedAt) }}</h3>
+    <p data-testid="sheet-statement">{{ opened.statement }}</p>
+    <p data-testid="sheet-answers">
+      Respondió <strong>{{ opened.childAnswer }}</strong>
+      ({{ opened.correct ? 'correcta' : 'incorrecta' }}). La respuesta correcta es
+      <strong>{{ opened.correctAnswer }}</strong>.
+    </p>
+    <app-sheet-view [strokes]="opened.strokes"></app-sheet-view>
+    @if (confirming?.kind !== 'one') {
+      <ion-button color="danger" fill="outline" (click)="askRemove(opened)" data-testid="remove-opened">
+        Borrar esta hoja
+      </ion-button>
+    }
+  } @else if (items.length === 0) {
+    <p class="hint" data-testid="sheets-empty">Todavía no hay hojas guardadas.</p>
+  } @else {
+    @if (openError) {
+      <p class="error" role="alert" data-testid="sheet-open-error">{{ openError }}</p>
+    }
+    <ul class="admin-list" data-testid="sheets-list">
+      @for (item of items; track item.id) {
+        <li class="card" data-testid="sheet-row">
+          <div class="admin-row">
+            <span class="admin-name">
+              <strong>{{ item.statement }}</strong>
+              <br />
+              <small>{{ item.label }} · {{ formatWhen(item.savedAt) }}</small>
+            </span>
+            <span [class]="item.correct ? 'badge correct' : 'badge wrong'" data-testid="result">
+              {{ item.correct ? '✔ Correcta' : '✗ Incorrecta' }}
+            </span>
+          </div>
+          <div class="confirm-actions">
+            <ion-button size="small" fill="outline" (click)="open(item)" data-testid="open-sheet">Ver</ion-button>
+            <ion-button size="small" fill="clear" color="danger" (click)="askRemove(item)" data-testid="remove-sheet">Borrar</ion-button>
+          </div>
+        </li>
+      }
+    </ul>
+    @if (nextOffset !== null) {
+      <ion-button expand="block" fill="outline" [disabled]="loadingMore" (click)="more()" data-testid="sheets-more">
+        {{ loadingMore ? 'Cargando…' : 'Cargar más' }}
+      </ion-button>
+    }
+  }
+
+  @if (!loading && total > 0 && confirming?.kind !== 'all') {
+    <ion-button color="danger" fill="outline" (click)="askRemoveAll()" data-testid="remove-all">
+      Borrar todas las hojas
+    </ion-button>
+  }
+
+  @if (confirming) {
+    <div class="confirm" role="group" aria-label="Confirmar que se borra" data-testid="sheets-confirm">
+      @if (confirming.kind === 'all') {
+        <p data-testid="confirm-text">
+          Se borrarán las <strong>{{ total }}</strong> {{ total === 1 ? 'hoja guardada' : 'hojas guardadas' }} de
+          {{ nickname }}. <strong>No se puede deshacer</strong> y el docente dejará de verlas. Escribe tu
+          PIN para confirmar.
+        </p>
+      } @else {
+        <p data-testid="confirm-text">
+          Se borrará esta hoja ({{ confirming.item.statement }}). <strong>No se puede deshacer</strong> y el
+          docente dejará de verla. Escribe tu PIN para confirmar.
+        </p>
+      }
+      <ion-input
+        type="password"
+        inputmode="numeric"
+        label="PIN"
+        labelPlacement="stacked"
+        [maxlength]="4"
+        [value]="pin"
+        (ionInput)="onPin($any($event.target).value)"
+        data-testid="sheets-pin"
+      ></ion-input>
+      @if (confirmError) {
+        <p class="error" role="alert" data-testid="sheets-confirm-error">{{ confirmError }}</p>
+      }
+      <div class="confirm-actions">
+        <ion-button color="danger" [disabled]="pin.length !== 4 || busy" (click)="confirmRemove()" data-testid="confirm-delete">
+          {{ busy ? 'Borrando…' : confirming.kind === 'all' ? 'Borrar todas' : 'Borrar hoja' }}
+        </ion-button>
+        <ion-button fill="outline" (click)="cancelConfirm()" data-testid="cancel-delete">Cancelar</ion-button>
+      </div>
+    </div>
+  }
+</section>

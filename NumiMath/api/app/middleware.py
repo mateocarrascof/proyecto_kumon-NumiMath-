@@ -72,9 +72,11 @@ class BodySizeLimitMiddleware:
     bytes que los declarados, así que no hace falta contarlos mientras llegan.
     """
 
-    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+    def __init__(self, app: ASGIApp, max_bytes: int, sheet_max_bytes: int | None = None) -> None:
         self.app = app
         self.max_bytes = max_bytes
+        # Las hojas del papel (CU-A22) pesan más que cualquier otro cuerpo: solo esas rutas.
+        self.sheet_max_bytes = sheet_max_bytes or max_bytes
 
     async def _reject(self, scope: Scope, send: Send, status: int, code: str) -> None:
         request_id = scope.get("state", {}).get("request_id", "")
@@ -114,7 +116,8 @@ class BodySizeLimitMiddleware:
         if length is None or length < 0:
             await self._reject(scope, send, 411, "length_required")
             return
-        if length > self.max_bytes:
+        limit = self.sheet_max_bytes if scope.get("path", "").endswith("/sheet") else self.max_bytes
+        if length > limit:
             await self._reject(scope, send, 413, "payload_too_large")
             return
         await self.app(scope, receive, send)

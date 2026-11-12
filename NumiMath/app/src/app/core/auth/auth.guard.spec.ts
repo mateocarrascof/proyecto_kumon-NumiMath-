@@ -1,13 +1,14 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router, UrlTree } from '@angular/router';
+import { CanActivateFn, Router, UrlTree } from '@angular/router';
 
 import { MemoryOfflineStore } from '../offline/memory-offline-store';
 import { OfflineStore } from '../offline/offline-store.port';
-import { authGuard, guestGuard } from './auth.guard';
+import { authGuard, guestGuard, roleGuard, roleGuestGuard } from './auth.guard';
 import { AuthPort, AuthUser } from './auth.port';
 
-function run(guard: typeof authGuard, user: AuthUser | null) {
+function run(guard: CanActivateFn, user: AuthUser | null) {
+  TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     providers: [
       { provide: AuthPort, useValue: { user: signal(user), ready: async () => undefined } },
@@ -35,26 +36,99 @@ describe('guards de sesión', () => {
   it('guestGuard deja ver /login sin sesión', async () => {
     expect(await run(guestGuard, null)).toBe(true);
   });
+
+  it('authGuard no deja pasar a docente ni a admin a las rutas del tutor', async () => {
+    expect(await run(authGuard, { id: 'u', email: 'a@b.test', role: 'teacher' })).toEqual({
+      to: '/login',
+    });
+    expect(await run(authGuard, { id: 'u', email: 'a@b.test', role: 'admin' })).toEqual({
+      to: '/login',
+    });
+  });
+
+  it('guestGuard deja ver /login a docente y admin (sin bucle hacia /home)', async () => {
+    expect(await run(guestGuard, { id: 'u', email: 'a@b.test', role: 'teacher' })).toBe(true);
+    expect(await run(guestGuard, { id: 'u', email: 'a@b.test', role: 'admin' })).toBe(true);
+  });
 });
 
-describe('authGuard sin conexión (CU-A12)', () => {
+describe('roleGuard', () => {
+  const teacher: AuthUser = { id: 'u', email: 'a@b.test', role: 'teacher' };
+  const admin: AuthUser = { id: 'u', email: 'a@b.test', role: 'admin' };
+
+  it('deja pasar al rol correcto', async () => {
+    expect(await run(roleGuard('teacher'), teacher)).toBe(true);
+    expect(await run(roleGuard('admin'), admin)).toBe(true);
+  });
+
+  it('sin sesión va a la entrada de ese rol', async () => {
+    expect(await run(roleGuard('teacher'), null)).toEqual({ to: '/docente/login' });
+    expect(await run(roleGuard('admin'), null)).toEqual({ to: '/admin/login' });
+  });
+
+  it('con otro rol va a la zona del suyo', async () => {
+    expect(await run(roleGuard('admin'), teacher)).toEqual({ to: '/docente' });
+    expect(await run(roleGuard('teacher'), admin)).toEqual({ to: '/admin' });
+    expect(await run(roleGuard('admin'), { id: 'u', email: 'a@b.test' })).toEqual({
+      to: '/home',
+    });
+  });
+
+  it('roleGuestGuard manda a su zona a quien ya tiene sesión de ese rol', async () => {
+    expect(await run(roleGuestGuard('admin'), admin)).toEqual({ to: '/admin' });
+    expect(await run(roleGuestGuard('admin'), teacher)).toBe(true);
+    expect(await run(roleGuestGuard('admin'), null)).toBe(true);
+  });
+});
+
+describe('guards de invitado con los enlaces de acceso (tutor <-> docente)', () => {
+  const tutor: AuthUser = { id: 'u', email: 'a@b.test' };
+  const teacher: AuthUser = { id: 'u', email: 'a@b.test', role: 'teacher' };
+
+  it('ver /docente/login con sesión de tutor no hace bucle: se deja ver', async () => {
+    expect(await run(roleGuestGuard('teacher'), tutor)).toBe(true);
+  });
+
+  it('ver /login con sesión de docente se deja ver; con sesión de tutor va a /home', async () => {
+    expect(await run(guestGuard, teacher)).toBe(true);
+    expect(await run(guestGuard, tutor)).toEqual({ to: '/home' });
+  });
+
+  it('con sesión de docente, /docente/login lleva a su zona; sin sesión se deja ver', async () => {
+    expect(await run(roleGuestGuard('teacher'), teacher)).toEqual({ to: '/docente' });
+    expect(await run(roleGuestGuard('teacher'), null)).toBe(true);
+  });
+
+  it('/docente sigue protegido: sin sesión va a su entrada y un tutor va a /home', async () => {
+    expect(await run(roleGuard('teacher'), null)).toEqual({ to: '/docente/login' });
+    expect(await run(roleGuard('teacher'), tutor)).toEqual({ to: '/home' });
+  });
+});
+
+describe('guards sin conexión (CU-A12)', () => {
   afterEach(() => vi.restoreAllMocks());
 
-  async function runOffline(data: Record<string, unknown>, cached: boolean) {
+  async function runOffline(
+    data: Record<string, unknown>,
+    cached: boolean,
+    guard: CanActivateFn = authGuard,
+    user: AuthUser | null = null,
+  ) {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     const store = new MemoryOfflineStore();
     if (cached) {
       await store.saveProfiles([{ id: 'p1', nickname: 'Ana', grade: 2, blocked: false }], { tutorId: 'tutor-1', savedAt: Math.floor(Date.now() / 1000) });
     }
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         // Sin red la sesión puede no renovarse: el usuario queda en null.
-        { provide: AuthPort, useValue: { user: signal(null), ready: async () => undefined } },
+        { provide: AuthPort, useValue: { user: signal(user), ready: async () => undefined } },
         { provide: Router, useValue: { createUrlTree: (c: string[]) => ({ to: c.join('/') }) } },
         { provide: OfflineStore, useValue: store },
       ],
     });
-    return TestBed.runInInjectionContext(() => authGuard({ data, params: {} } as never, {} as never));
+    return TestBed.runInInjectionContext(() => guard({ data, params: {} } as never, {} as never));
   }
 
   it('acepta las rutas de práctica si hay copia local de perfiles', async () => {
@@ -67,5 +141,27 @@ describe('authGuard sin conexión (CU-A12)', () => {
 
   it('otras rutas siguen exigiendo sesión', async () => {
     expect(await runOffline({}, true)).toEqual({ to: '/login' });
+  });
+
+  it('sin conexión y sin sesión no se entra a /admin ni a /docente, ni con copia local', async () => {
+    expect(await runOffline({ offline: true }, true, roleGuard('admin'))).toEqual({
+      to: '/admin/login',
+    });
+    expect(await runOffline({ offline: true }, true, roleGuard('teacher'))).toEqual({
+      to: '/docente/login',
+    });
+  });
+
+  it('un docente o un admin con sesión no entra a la práctica del tutor, ni sin conexión', async () => {
+    const teacher: AuthUser = { id: 'u', email: 'a@b.test', role: 'teacher' };
+    const admin: AuthUser = { id: 'u', email: 'a@b.test', role: 'admin' };
+    expect(await runOffline({ offline: true }, true, authGuard, teacher)).toEqual({ to: '/login' });
+    expect(await runOffline({ offline: true }, true, authGuard, admin)).toEqual({ to: '/login' });
+  });
+
+  it('un docente no entra al panel del tutor: va a su zona', async () => {
+    const teacher: AuthUser = { id: 'u', email: 'a@b.test', role: 'teacher' };
+    expect(await runOffline({}, false, roleGuard('admin'), teacher)).toEqual({ to: '/docente' });
+    expect(await run(authGuard, teacher)).toEqual({ to: '/login' });
   });
 });

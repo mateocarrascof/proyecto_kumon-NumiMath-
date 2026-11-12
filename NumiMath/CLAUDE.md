@@ -1,8 +1,8 @@
 # Proyecto: App de matemáticas para niños (1° a 4° básico, 6–10 años)
 
 Mascota animada + IA tutora que explica matemáticas. Móvil (Android/iOS) y web.
-Actores del MVP: Tutor (adulto, único con cuenta) y Alumno (perfil dependiente, sin registro propio).
-Fase posterior: Profesor, reportes, gamificación. Administrador: gestión de usuarios y contenido.
+Actores del MVP: Tutor (adulto), Docente y Administrador (adultos con cuenta) y Alumno (perfil dependiente, sin registro propio).
+Docente y administrador están dentro del MVP (el administrador crea las cuentas de docentes; el docente ve solo a los niños que el tutor le vincula). Fase posterior: gamificación y contenido gestionado por el administrador.
 
 ## Stack y carpetas
 - `app/`      Ionic + Angular, Capacitor (Android/iOS), Lottie o Rive para la mascota, KaTeX para fórmulas.
@@ -16,7 +16,7 @@ Fase posterior: Profesor, reportes, gamificación. Administrador: gestión de us
 - DB: `supabase db reset` · `supabase test db` (pgTAP, incluye tests de RLS)
 
 ## Reglas inamovibles (privacidad, seguridad, niños)
-- IMPORTANT: solo el tutor tiene cuenta en Supabase Auth. El alumno es una fila en `students` sin credenciales ni email.
+- IMPORTANT: solo adultos tienen cuenta en Supabase Auth: tutor, docente y administrador; los niños nunca. El rol viaja en `app_metadata.role` (sin rol = tutor). El alumno es una fila en `students` sin credenciales ni email.
 - IMPORTANT: del alumno solo se guarda apodo y curso. Nunca apellidos, fotos, ubicación, fecha de nacimiento, voz ni identificadores de dispositivo con fines de perfilado.
 - IMPORTANT: ningún dato personal del niño llega al modelo de IA. El prompt lleva solo curso, tema y ejercicio. El texto libre que escriba el niño se filtra (PII, groserías, temas fuera de matemáticas) antes de enviarse.
 - IMPORTANT: la app nunca llama a la IA directamente. Todo pasa por FastAPI. Las claves viven solo en variables de entorno del servidor.

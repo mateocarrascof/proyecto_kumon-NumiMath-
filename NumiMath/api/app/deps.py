@@ -10,7 +10,7 @@ from fastapi import Depends, Request
 
 from app.access.authorize import AuthorizedStudent, authorize_student
 from app.auth.jwt import AuthenticatedTutor, InvalidToken, TokenVerifier
-from app.db.gateway import Gateway
+from app.db.gateway import Gateway, GatewayError
 from app.errors import ApiError
 from app.logging import get_logger, log_event
 from app.parental import InvalidParentalToken, verify_parental_token
@@ -18,7 +18,7 @@ from app.parental import InvalidParentalToken, verify_parental_token
 logger = get_logger("mathtutor.auth")
 
 
-async def get_current_tutor(request: Request) -> AuthenticatedTutor:
+async def _authenticate(request: Request) -> AuthenticatedTutor:
     """Comprobación 1 del ADR 0001: JWT válido; `tutor_id` es el `sub` del token.
 
     Responde siempre 401 genérico: no se explica qué falló.
@@ -38,8 +38,47 @@ async def get_current_tutor(request: Request) -> AuthenticatedTutor:
         raise ApiError(401, "unauthorized") from None
 
 
+def _require_role(user: AuthenticatedTutor, role: str | None) -> AuthenticatedTutor:
+    if user.app_role != role:
+        log_event(logger, "auth.rejected", code="wrong_app_role")
+        raise ApiError(403, "forbidden")
+    return user
+
+
+async def get_current_tutor(request: Request) -> AuthenticatedTutor:
+    """Solo tutores: un token de docente o de administrador no entra a las rutas del tutor."""
+    return _require_role(await _authenticate(request), None)
+
+
+async def get_current_teacher(request: Request) -> AuthenticatedTutor:
+    """Solo docentes (`app_metadata.role == "teacher"`) QUE SIGAN TENIENDO PERFIL.
+
+    Un docente eliminado puede conservar un token vigente unos minutos; como su perfil ya no
+    existe, se rechaza igual (403). `tutor_id` es aquí el id del docente.
+    """
+    user = _require_role(await _authenticate(request), "teacher")
+    gateway: Gateway = request.app.state.gateway
+    try:
+        profile = await gateway.teacher_profile(user.tutor_id)
+    except GatewayError as exc:
+        log_event(logger, "auth.rejected", code=f"gateway_{exc.reason}")
+        raise ApiError(503, "service_unavailable") from None
+    if profile is None:
+        log_event(logger, "auth.rejected", code="teacher_profile_missing")
+        raise ApiError(403, "forbidden")
+    request.state.teacher_profile = profile  # lo reutiliza la ruta, sin segunda consulta
+    return user
+
+
+async def get_current_admin(request: Request) -> AuthenticatedTutor:
+    """Solo administradores (`app_metadata.role == "admin"`). `tutor_id` es aquí el id del admin."""
+    return _require_role(await _authenticate(request), "admin")
+
+
 # Uso en rutas: `async def ruta(tutor: CurrentTutor): ...`
 CurrentTutor = Annotated[AuthenticatedTutor, Depends(get_current_tutor)]
+CurrentTeacher = Annotated[AuthenticatedTutor, Depends(get_current_teacher)]
+CurrentAdmin = Annotated[AuthenticatedTutor, Depends(get_current_admin)]
 
 
 async def get_authorized_student(
@@ -63,10 +102,19 @@ def parental_key(request: Request) -> bytes:
     return key.encode()
 
 
-def _require_parental(request: Request, tutor: AuthenticatedTutor) -> None:
+# Vincular o quitar a un docente exige un PIN escrito hace muy poco: no basta el permiso del panel.
+FRESH_PIN_SECONDS = 120
+
+
+def _require_parental(
+    request: Request, tutor: AuthenticatedTutor, max_age: float | None = None
+) -> None:
     try:
         verify_parental_token(
-            parental_key(request), request.headers.get("x-parental-token"), tutor.tutor_id
+            parental_key(request),
+            request.headers.get("x-parental-token"),
+            tutor.tutor_id,
+            max_age=max_age,
         )
     except InvalidParentalToken:
         log_event(logger, "parental.denied", code="token_invalid")
@@ -97,3 +145,24 @@ async def get_parental_tutor(tutor: CurrentTutor, request: Request) -> Authentic
 
 
 ParentalTutorDep = Annotated[AuthenticatedTutor, Depends(get_parental_tutor)]
+
+
+async def get_fresh_parental_student(
+    student_id: uuid.UUID, tutor: CurrentTutor, request: Request
+) -> AuthorizedStudent:
+    """Como `get_parental_student`, pero el PIN debe haberse verificado hace menos de 2 minutos."""
+    _require_parental(request, tutor, max_age=FRESH_PIN_SECONDS)
+    return await get_authorized_student(student_id, tutor, request)
+
+
+FreshParentalStudentDep = Annotated[AuthorizedStudent, Depends(get_fresh_parental_student)]
+
+
+async def get_fresh_parental_tutor(tutor: CurrentTutor, request: Request) -> AuthenticatedTutor:
+    """Tutor con el PIN recién verificado, sin exigir consentimiento vigente ni perfil desbloqueado
+    (quitar un vínculo debe poder hacerse siempre)."""
+    _require_parental(request, tutor, max_age=FRESH_PIN_SECONDS)
+    return tutor
+
+
+FreshParentalTutorDep = Annotated[AuthenticatedTutor, Depends(get_fresh_parental_tutor)]

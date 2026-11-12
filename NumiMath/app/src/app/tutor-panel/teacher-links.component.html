@@ -1,0 +1,132 @@
+<section aria-labelledby="h-teachers" class="teachers" data-testid="teacher-links">
+  <h2 id="h-teachers">Docentes de {{ nickname }}</h2>
+
+  @if (ok) {
+    <p class="ok" role="status" data-testid="links-ok">{{ ok }}</p>
+  }
+  @if (listError) {
+    <p class="error" role="alert">{{ listError }}</p>
+  }
+
+  @if (teachers.length) {
+    <ul class="admin-list">
+      @for (t of teachers; track t.teacherId) {
+        <li class="card" data-testid="linked-teacher">
+          <div class="admin-row">
+            <span class="admin-name"><strong>{{ t.name }}</strong></span>
+            @if (removing?.teacherId !== t.teacherId) {
+              <ion-button size="small" fill="clear" color="danger" (click)="askRemove(t)" data-testid="remove-teacher">Quitar</ion-button>
+            }
+          </div>
+          @if (t.shownName !== t.name) {
+            <p class="hint" data-testid="name-differs">
+              Este docente cambió de nombre: cuando lo vinculaste se llamaba «{{ t.shownName }}».
+            </p>
+          }
+
+          @if (removing?.teacherId === t.teacherId) {
+            <div class="confirm" role="group" aria-label="Confirmar que se quita al docente">
+              <p>
+                {{ t.name }} dejará de ver el perfil de {{ nickname }}. Los datos del niño y las hojas
+                que ya se guardaron <strong>no se borran</strong>. Escribe tu PIN para confirmar.
+              </p>
+              <ion-input
+                type="password"
+                inputmode="numeric"
+                label="PIN"
+                labelPlacement="stacked"
+                [maxlength]="4"
+                [value]="removePin"
+                (ionInput)="onRemovePin($any($event.target).value)"
+                data-testid="remove-pin"
+              ></ion-input>
+              @if (removeError) {
+                <p class="error" role="alert" data-testid="remove-error">{{ removeError }}</p>
+              }
+              <div class="confirm-actions">
+                <ion-button color="danger" [disabled]="removePin.length !== 4 || removeBusy" (click)="confirmRemove()" data-testid="confirm-remove">
+                  {{ removeBusy ? 'Quitando…' : 'Quitar docente' }}
+                </ion-button>
+                <ion-button fill="outline" (click)="cancelRemove()" data-testid="cancel-remove">Cancelar</ion-button>
+              </div>
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  } @else if (!listError) {
+    <p class="hint">{{ nickname }} todavía no tiene docentes vinculados.</p>
+  }
+
+  @switch (step) {
+    @case ('idle') {
+      <ion-button expand="block" fill="outline" (click)="startLink()" data-testid="start-link">Vincular docente</ion-button>
+    }
+    @case ('code') {
+      <form class="card form" (ngSubmit)="search()" novalidate>
+        <p>
+          Escribe tu PIN y el código de 8 caracteres que te dio el docente. Cada hijo se vincula por
+          separado: este vínculo es solo para {{ nickname }}.
+        </p>
+        <ion-input
+          type="password"
+          inputmode="numeric"
+          label="PIN"
+          labelPlacement="stacked"
+          [maxlength]="4"
+          [value]="pin"
+          (ionInput)="onPin($any($event.target).value)"
+          data-testid="link-pin"
+        ></ion-input>
+        <ion-input
+          label="Código del docente"
+          labelPlacement="stacked"
+          autocapitalize="characters"
+          [maxlength]="codeLength"
+          [value]="code"
+          (ionInput)="onCode($any($event.target).value)"
+          data-testid="link-code"
+        ></ion-input>
+        @if (error) {
+          <p class="error" role="alert" data-testid="link-error">{{ error }}</p>
+        }
+        <div class="confirm-actions">
+          <ion-button type="submit" [disabled]="!canSearch" data-testid="search-teacher">
+            {{ busy ? 'Buscando…' : 'Buscar docente' }}
+          </ion-button>
+          <ion-button fill="outline" (click)="cancel()" data-testid="cancel-link">Cancelar</ion-button>
+        </div>
+      </form>
+    }
+    @case ('notice') {
+      <div class="card" data-testid="link-notice">
+        <h3>Vas a vincular a <strong data-testid="notice-teacher">{{ teacherName }}</strong> con {{ nickname }}</h3>
+        @if (textVerified) {
+          @for (block of blocks; track $index) {
+            <p>
+              @for (run of block.runs; track $index) {
+                @if (run.bold) { <strong>{{ run.text }}</strong> } @else { {{ run.text }} }
+              }
+            </p>
+          }
+          <ion-checkbox labelPlacement="end" justify="start" [checked]="accepted" (ionChange)="accepted = $event.detail.checked" data-testid="accept-link">
+            Entiendo y autorizo
+          </ion-checkbox>
+        } @else {
+          <p class="error" role="alert" data-testid="text-unverified">
+            No pudimos verificar el texto de autorización. No se puede vincular por ahora.
+          </p>
+        }
+        @if (error) {
+          <p class="error" role="alert" data-testid="link-error">{{ error }}</p>
+        }
+        <div class="confirm-actions">
+          <ion-button [disabled]="!canConfirm" (click)="confirm()" data-testid="confirm-link">
+            {{ busy ? 'Vinculando…' : 'Vincular docente' }}
+          </ion-button>
+          <ion-button fill="outline" (click)="cancel()" data-testid="cancel-link">Cancelar</ion-button>
+        </div>
+      </div>
+    }
+  }
+</section>

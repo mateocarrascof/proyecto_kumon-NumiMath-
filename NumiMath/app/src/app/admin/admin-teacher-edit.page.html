@@ -1,0 +1,57 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/docentes" text="Docentes"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Editar docente</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 32rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (!teacher) {
+      <p class="error" role="alert" data-testid="admin-edit-error">{{ error }}</p>
+      <ion-button fill="outline" (click)="cancel()">Volver a la lista</ion-button>
+    } @else {
+      <p>
+        Código de vínculo: <strong data-testid="edit-code">{{ teacher.linkCode }}</strong> (no cambia).
+        Los vínculos con tutores se conservan.
+      </p>
+      <form (ngSubmit)="submit()" novalidate>
+        <ion-input
+          label="Nombre"
+          labelPlacement="stacked"
+          fill="outline"
+          style="margin-bottom: 1rem"
+          name="name"
+          [maxlength]="nameMax"
+          [(ngModel)]="name"
+        ></ion-input>
+        <ion-input
+          label="Correo"
+          labelPlacement="stacked"
+          fill="outline"
+          style="margin-bottom: 1rem"
+          type="email"
+          name="email"
+          autocomplete="off"
+          [(ngModel)]="email"
+        ></ion-input>
+        <p>El correo nuevo rige de inmediato y el docente entra con él. La contraseña no cambia.</p>
+
+        @if (notice) {
+          <p role="status" data-testid="admin-edit-notice">{{ notice }}</p>
+        }
+        @if (error) {
+          <p class="error" role="alert" data-testid="admin-edit-error">{{ error }}</p>
+        }
+        <ion-button type="submit" expand="block" [disabled]="busy" data-testid="admin-edit-submit">
+          {{ busy ? 'Guardando…' : 'Guardar cambios' }}
+        </ion-button>
+        <ion-button fill="clear" expand="block" (click)="cancel()" data-testid="admin-edit-cancel">Cancelar</ion-button>
+      </form>
+    }
+  </main>
+</ion-content>

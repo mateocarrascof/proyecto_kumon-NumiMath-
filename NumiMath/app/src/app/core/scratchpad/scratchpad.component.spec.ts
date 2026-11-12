@@ -12,6 +12,7 @@ import {
   SHEET_WIDTH,
   ScratchpadComponent,
 } from './scratchpad.component';
+import { SheetStroke } from '../sheets/sheets.port';
 
 /** Contexto 2D falso: jsdom no dibuja en canvas. */
 function fakeContext() {
@@ -144,6 +145,133 @@ describe('ScratchpadComponent', () => {
     fixture.componentInstance.key.set('ejercicio-2');
     fixture.detectChanges();
     expect(ctx.clearRect).toHaveBeenCalledTimes(1);
+  });
+
+  describe('snapshot para guardar la hoja (CU-A22)', () => {
+    it('sin nada dibujado, o solo con goma, no hay hoja que guardar', () => {
+      const { pad } = setup();
+      expect(pad.snapshot()).toBeNull();
+      pad.pickEraser();
+      pad.onDown(pointer(5, 5));
+      pad.onUp(pointer(5, 5));
+      expect(pad.snapshot()).toBeNull();
+    });
+
+    it('entrega solo trazos vectoriales con puntos enteros, en coordenadas de la hoja', () => {
+      const { pad } = setup();
+      pad.pickColor(PEN_COLORS[1].value);
+      pad.onDown(pointer(10, 10));
+      pad.onMove(pointer(30, 40));
+      pad.onUp(pointer(30, 40));
+      pad.pickEraser();
+      pad.onDown(pointer(12, 12));
+      pad.onUp(pointer(12, 12));
+      const strokes = pad.snapshot();
+      expect(strokes).toHaveLength(2);
+      expect(strokes?.[0]).toEqual({
+        eraser: false,
+        color: PEN_COLORS[1].value,
+        width: PEN_WIDTH,
+        points: [
+          [10, 10],
+          [30, 40],
+        ],
+      });
+      expect(strokes?.[1].eraser).toBe(true);
+      expect(Object.keys(strokes?.[0] ?? {}).sort()).toEqual(['color', 'eraser', 'points', 'width']);
+    });
+
+    it('si pasa los topes del servidor no se guarda (en vez de fallar)', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(1, 1));
+      pad.onUp(pointer(1, 1));
+      const internal = pad as unknown as { strokes: { points: unknown[] }[] };
+      internal.strokes = Array.from({ length: 601 }, () => internal.strokes[0]);
+      expect(pad.snapshot()).toBeNull();
+    });
+
+    it('"Borrar todo" deja la hoja vacía', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(1, 1));
+      pad.onUp(pointer(1, 1));
+      expect(pad.snapshot()).not.toBeNull();
+      pad.clear();
+      expect(pad.snapshot()).toBeNull();
+    });
+
+    /** Lo que acepta el servidor (api/app/routes/sheets.py): coordenadas de -100 a 1400 y topes de puntos. */
+    function acceptedByServer(strokes: SheetStroke[]): boolean {
+      const points = strokes.reduce((n, s) => n + s.points.length, 0);
+      return (
+        strokes.length <= 600 &&
+        points <= 12000 &&
+        strokes.every(
+          (s) =>
+            s.points.length >= 1 &&
+            s.points.length <= 3000 &&
+            s.points.every(([x, y]) => x >= -100 && x <= 1400 && y >= -100 && y <= 1400),
+        )
+      );
+    }
+
+    it('un dibujo que sale de la hoja se ajusta a ella (el servidor rechazaría esos puntos)', () => {
+      const { pad } = setup();
+      // Trazos reales con el puntero: sobre los márgenes de la ventana, fuera de la hoja de 1200 x 900.
+      pad.onDown(pointer(-500, 20));
+      pad.onMove(pointer(300, 450));
+      pad.onMove(pointer(2000, 5000));
+      pad.onUp(pointer(2000, 5000));
+      const strokes = pad.snapshot() ?? [];
+      expect(strokes).toHaveLength(1);
+      const xs = strokes[0].points.map((p) => p[0]);
+      const ys = strokes[0].points.map((p) => p[1]);
+      expect(Math.min(...xs)).toBe(0);
+      expect(Math.max(...xs)).toBe(SHEET_WIDTH);
+      expect(Math.max(...ys)).toBe(SHEET_HEIGHT);
+      expect(acceptedByServer(strokes)).toBe(true);
+    });
+
+    it('los puntos casi iguales se simplifican y se conservan el primero y el último', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(100, 100));
+      for (let i = 1; i <= 400; i++) pad.onMove(pointer(100 + i * 0.5, 100)); // pasos de medio píxel
+      pad.onUp(pointer(300, 100));
+      const points = pad.snapshot()?.[0].points ?? [];
+      expect(points.length).toBeLessThan(120);
+      expect(points[0]).toEqual([100, 100]);
+      expect(points[points.length - 1]).toEqual([300, 100]);
+    });
+
+    it('un trazo con pasos de varios píxeles no pierde puntos', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(10, 10));
+      pad.onMove(pointer(30, 40));
+      pad.onMove(pointer(60, 40));
+      pad.onUp(pointer(60, 40));
+      expect(pad.snapshot()?.[0].points).toEqual([
+        [10, 10],
+        [30, 40],
+        [60, 40],
+      ]);
+    });
+
+    it('un punto suelto sigue siendo un punto', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(50, 60));
+      pad.onUp(pointer(50, 60));
+      expect(pad.snapshot()?.[0].points).toEqual([[50, 60]]);
+    });
+
+    it('un trazo larguísimo se simplifica hasta caber en los topes del servidor', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(0, 0));
+      // 20 000 movimientos de 1 px, fila por fila: sin simplificar pasaría el tope de 3000 por trazo.
+      for (let i = 1; i <= 20000; i++) pad.onMove(pointer(i % 1200, 20 + Math.floor(i / 1200)));
+      pad.onUp(pointer(5, 5));
+      const strokes = pad.snapshot();
+      expect(strokes).not.toBeNull();
+      expect(acceptedByServer(strokes ?? [])).toBe(true);
+    });
   });
 
   describe('zoom', () => {

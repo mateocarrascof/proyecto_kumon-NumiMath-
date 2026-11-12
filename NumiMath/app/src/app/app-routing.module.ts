@@ -75,6 +75,16 @@ const routes: Routes = [
     loadChildren: () =>
       import('./tutor-panel/tutor-panel.module').then((m) => m.TutorPanelPageModule),
   },
+  {
+    // Zona del administrador: sus guards (`roleGuard('admin')`) están dentro del módulo.
+    path: 'admin',
+    loadChildren: () => import('./admin/admin.module').then((m) => m.AdminModule),
+  },
+  {
+    // Zona del docente: sin registro (la cuenta la crea la empresa); guards dentro del módulo.
+    path: 'docente',
+    loadChildren: () => import('./teacher/teacher.module').then((m) => m.TeacherModule),
+  },
   { path: '', redirectTo: 'home', pathMatch: 'full' },
   { path: '**', redirectTo: 'home' },
 ];

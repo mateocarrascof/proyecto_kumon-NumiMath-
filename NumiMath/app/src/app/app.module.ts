@@ -11,6 +11,18 @@ import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { AccountPort } from './core/account/account.port';
 import { HttpAccountService } from './core/account/http-account.service';
+import { AdminPort } from './core/admin/admin.port';
+import { HttpAdminService } from './core/admin/http-admin.service';
+import { HttpHistoryService } from './core/history/http-history.service';
+import { HistoryPort } from './core/history/history.port';
+import { HttpSheetsService } from './core/sheets/http-sheets.service';
+import { HttpTutorSheetsService } from './core/sheets/http-tutor-sheets.service';
+import { SheetsPort } from './core/sheets/sheets.port';
+import { TutorSheetsPort } from './core/sheets/tutor-sheets.port';
+import { HttpTeacherLinksService } from './core/teacher-links/http-teacher-links.service';
+import { TeacherLinksPort } from './core/teacher-links/teacher-links.port';
+import { HttpTeacherService } from './core/teacher/http-teacher.service';
+import { TeacherPort } from './core/teacher/teacher.port';
 import { AuthPort } from './core/auth/auth.port';
 import { SupabaseAuthService } from './core/auth/supabase-auth.service';
 import { ConsentRevocationPort } from './core/consent/consent-revocation.port';
@@ -73,6 +85,12 @@ import { StreakReminderService } from './core/reminders/streak-reminder.service'
     { provide: ConsentRevocationPort, useExisting: HttpConsentRevocationService },
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: AccountPort, useExisting: HttpAccountService },
+    { provide: AdminPort, useExisting: HttpAdminService },
+    { provide: SheetsPort, useExisting: HttpSheetsService },
+    { provide: TutorSheetsPort, useExisting: HttpTutorSheetsService },
+    { provide: TeacherPort, useExisting: HttpTeacherService },
+    { provide: TeacherLinksPort, useExisting: HttpTeacherLinksService },
+    { provide: HistoryPort, useExisting: HttpHistoryService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
     { provide: AssignmentsPort, useExisting: HttpAssignmentsService },

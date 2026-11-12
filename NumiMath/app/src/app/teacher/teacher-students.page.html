@@ -1,0 +1,37 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/docente" text="Inicio"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Mis alumnos</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 40rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error) {
+      <p class="error" role="alert" data-testid="students-error">{{ error }}</p>
+    } @else if (students.length === 0) {
+      <section data-testid="students-empty">
+        <h1>Todavía no tienes alumnos</h1>
+        <p>
+          Un tutor debe vincularte con su hijo o hija usando tu código (lo ves en tu inicio). Solo verás
+          a los niños cuyos tutores te hayan vinculado.
+        </p>
+      </section>
+    } @else {
+      <ion-list data-testid="students-list">
+        @for (student of students; track student.studentId) {
+          <ion-item button detail (click)="open(student)" data-testid="student-row">
+            <ion-label>
+              <h2>{{ student.nickname }}</h2>
+              <p>{{ student.grade }}° básico</p>
+            </ion-label>
+          </ion-item>
+        }
+      </ion-list>
+    }
+  </main>
+</ion-content>

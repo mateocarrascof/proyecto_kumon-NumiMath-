@@ -495,7 +495,7 @@ describe('PracticePage', () => {
     expect(page.paperOpen).toBe(true);
     expect(query(fixture, 'app-scratchpad')).not.toBeNull();
     expect(toggle.textContent).toContain('Cerrar el papel');
-    expect(query(fixture, '.paper-save')?.textContent).toContain('Guardar el papel');
+    expect(query(fixture, '.paper-save')).toBeNull(); // sin botón: la hoja se guarda sola
     toggle.click();
     fixture.detectChanges();
     expect(query(fixture, 'app-scratchpad')).toBeNull();
@@ -506,8 +506,9 @@ describe('PracticePage', () => {
       { eraser: false, color: '#2b2d42', width: 4, points: [[10, 10], [40, 40]] },
     ];
 
-    async function withPaper(inked: boolean, overrides: Partial<PracticePort> = {}) {
+    async function withPaper(inked: boolean, overrides: Partial<PracticePort> = {}, linked = true) {
       const ctx = setup(overrides);
+      ctx.sheets.enabled.mockResolvedValue(linked);
       await ctx.page.ngOnInit();
       await ctx.page.choose(TOPIC);
       ctx.fixture.detectChanges();
@@ -515,21 +516,116 @@ describe('PracticePage', () => {
       ctx.fixture.detectChanges();
       const pad = ctx.fixture.debugElement.query(By.directive(ScratchpadComponent))
         .componentInstance as ScratchpadComponent;
-      vi.spyOn(pad, 'snapshot').mockReturnValue(inked ? INK : null);
-      return ctx;
+      const snapshot = vi.spyOn(pad, 'snapshot').mockReturnValue(inked ? INK : null);
+      return { ...ctx, snapshot };
     }
+    const flush = () => new Promise((r) => setTimeout(r, 0));
+    const MORE_INK: SheetStroke[] = [
+      ...INK,
+      { eraser: false, color: '#1d4ed8', width: 4, points: [[5, 5], [9, 9]] },
+    ];
 
     it('al responder con trazos la hoja se guarda sola, con la respuesta escrita', async () => {
       const { page, sheets } = await withPaper(true);
       page.onAnswerInput('12');
       await page.submit();
+      await flush();
       expect(sheets.savePractice).toHaveBeenCalledWith('perfil-1', EXERCISE.token, 12, null, INK);
+    });
+
+    it('responde, LUEGO dibuja y pulsa "Siguiente": la hoja con lo nuevo se guarda', async () => {
+      const { page, sheets, snapshot } = await withPaper(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      await flush();
+      expect(sheets.savePractice).not.toHaveBeenCalled(); // al responder el papel estaba vacío
+      snapshot.mockReturnValue(INK); // dibuja después de responder
+      await page.next();
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(1);
+      expect(sheets.savePractice).toHaveBeenCalledWith('perfil-1', EXERCISE.token, 12, null, INK);
+    });
+
+    it('al cerrar el papel guarda si hay trazos nuevos, y no repite si no hay nada nuevo', async () => {
+      const { page, sheets, snapshot } = await withPaper(true);
+      page.onAnswerInput('12');
+      await page.submit();
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(1);
+      page.togglePaper(); // cerrar: mismos trazos que ya se guardaron
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(1);
+      page.togglePaper(); // abrir
+      snapshot.mockReturnValue(MORE_INK);
+      page.togglePaper(); // cerrar con trazos nuevos
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(2);
+      expect(sheets.savePractice).toHaveBeenLastCalledWith('perfil-1', EXERCISE.token, 12, null, MORE_INK);
+    });
+
+    it('"Siguiente" sin trazos nuevos no vuelve a guardar', async () => {
+      const { page, sheets } = await withPaper(true);
+      page.onAnswerInput('12');
+      await page.submit();
+      await page.next();
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(1);
+    });
+
+    it('pasar a "Siguiente" no espera al guardado', async () => {
+      const { page, sheets } = await withPaper(true);
+      sheets.savePractice.mockReturnValue(new Promise<boolean>(() => undefined)); // nunca termina
+      page.onAnswerInput('12');
+      await page.submit();
+      await page.next(); // si esperara el guardado, esta línea no volvería
+      expect(page.result).toBeNull();
+      expect(page.error).toBe('');
+    });
+
+    it('pulsar "Siguiente" rápido no duplica guardados y salen en orden (el upsert deja el último)', async () => {
+      const { page, sheets, snapshot } = await withPaper(true);
+      const order: SheetStroke[][] = [];
+      let release: (v: boolean) => void = () => undefined;
+      sheets.enabled.mockReturnValue(new Promise<boolean>((r) => (release = r)));
+      sheets.savePractice.mockImplementation(async (...args: unknown[]) => {
+        order.push(args[4] as SheetStroke[]);
+        return true;
+      });
+      page.onAnswerInput('12');
+      await page.submit(); // guardado 1 queda esperando a `enabled`
+      snapshot.mockReturnValue(MORE_INK);
+      page.togglePaper(); // cerrar con trazos nuevos: guardado 2
+      page.togglePaper();
+      page.togglePaper(); // mismos trazos: no duplica
+      await page.next(); // mismos trazos: no duplica
+      release(true);
+      await flush();
+      expect(order).toEqual([INK, MORE_INK]);
+      expect(sheets.enabled).toHaveBeenCalledTimes(1);
+    });
+
+    it('si el guardado falla, no hay aviso y el siguiente disparador lo reintenta', async () => {
+      const { page, fixture, sheets } = await withPaper(true);
+      sheets.savePractice.mockResolvedValueOnce(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      await flush();
+      fixture.detectChanges();
+      expect(page.result?.correct).toBe(true);
+      expect(page.error).toBe('');
+      expect(query(fixture, '[data-testid="sheet-notice"]')).toBeNull();
+      await page.next();
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(2);
     });
 
     it('sin trazos no guarda nada', async () => {
       const { page, sheets } = await withPaper(false);
       page.onAnswerInput('12');
       await page.submit();
+      await page.next();
+      page.togglePaper();
+      await flush();
       expect(sheets.savePractice).not.toHaveBeenCalled();
     });
 
@@ -539,82 +635,69 @@ describe('PracticePage', () => {
       await page.choose(TOPIC);
       page.onAnswerInput('12');
       await page.submit();
+      await flush();
       expect(sheets.savePractice).not.toHaveBeenCalled();
     });
 
-    it('sin docente vinculado los trazos no salen del dispositivo (no se sube nada)', async () => {
-      const { page, sheets } = await withPaper(true);
-      sheets.enabled.mockResolvedValue(false);
+    it('sin docente vinculado no se sube nada y no se muestra ningún aviso', async () => {
+      const { page, fixture, sheets } = await withPaper(true, {}, false);
       page.onAnswerInput('12');
       await page.submit();
-      await page.savePaper();
+      await page.next();
+      await flush();
+      fixture.detectChanges();
       expect(sheets.enabled).toHaveBeenCalledWith('perfil-1');
       expect(sheets.savePractice).not.toHaveBeenCalled();
-      expect(page.result?.correct).toBe(true);
+      expect(page.result).toBeNull();
       expect(page.error).toBe('');
+      expect(query(fixture, '[data-testid="paper-teacher-note"]')).toBeNull();
     });
 
-    it('lo que se guarda es la respuesta del ejercicio aunque el niño pase al siguiente mientras tanto', async () => {
+    it('el texto "Tu profe puede ver este papel" sale con docente vinculado', async () => {
+      const { fixture } = await withPaper(true);
+      await flush();
+      fixture.detectChanges();
+      expect(query(fixture, '[data-testid="paper-teacher-note"]')?.textContent).toContain(
+        'Tu profe puede ver este papel',
+      );
+    });
+
+    it('el texto no sale sin docente vinculado', async () => {
+      const ctx = setup();
+      ctx.sheets.enabled.mockResolvedValue(false);
+      await ctx.page.ngOnInit();
+      await ctx.page.choose(TOPIC);
+      ctx.fixture.detectChanges();
+      (query(ctx.fixture, '.paper-toggle') as HTMLElement).click();
+      await flush();
+      ctx.fixture.detectChanges();
+      expect(query(ctx.fixture, 'app-scratchpad')).not.toBeNull();
+      expect(query(ctx.fixture, '[data-testid="paper-teacher-note"]')).toBeNull();
+    });
+
+    it('`sheets.enabled` se pregunta una vez por perfil, no en cada ejercicio', async () => {
+      const { page, sheets, snapshot } = await withPaper(true);
+      for (let i = 0; i < 3; i++) {
+        snapshot.mockReturnValue([...INK, { eraser: false, color: '#000', width: 4, points: [[i, i]] }]);
+        page.onAnswerInput('12');
+        await page.submit();
+        await page.next();
+      }
+      await flush();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(3);
+      expect(sheets.enabled).toHaveBeenCalledTimes(1);
+    });
+
+    it('lo que se guarda es la respuesta del ejercicio aunque el niño ya escriba otra', async () => {
       const { page, sheets } = await withPaper(true);
       let release: (v: boolean) => void = () => undefined;
       sheets.enabled.mockReturnValue(new Promise<boolean>((r) => (release = r)));
       page.onAnswerInput('12');
       await page.submit();
-      page.answer = '99'; // el niño ya empezó a escribir otra respuesta
+      page.answer = '99';
       release(true);
-      await new Promise((r) => setTimeout(r, 0));
+      await flush();
       expect(sheets.savePractice).toHaveBeenCalledWith('perfil-1', EXERCISE.token, 12, null, INK);
-    });
-
-    it('si no se pudo guardar, el niño no ve ningún error y el ejercicio queda respondido', async () => {
-      const { page, fixture, sheets } = await withPaper(true);
-      sheets.savePractice.mockResolvedValue(false);
-      page.onAnswerInput('12');
-      await page.submit();
-      fixture.detectChanges();
-      expect(page.result?.correct).toBe(true);
-      expect(page.error).toBe('');
-      expect(query(fixture, '[data-testid="sheet-notice"]')).toBeNull();
-    });
-
-    it('"Guardar el papel" espera a que haya respuesta y luego guarda a mano con aviso "Guardado"', async () => {
-      const { page, fixture, sheets } = await withPaper(true);
-      const save = query(fixture, '.paper-save') as HTMLElement & { disabled: boolean };
-      expect(save.disabled).toBe(true);
-      page.onAnswerInput('12');
-      await page.submit();
-      sheets.savePractice.mockClear();
-      fixture.detectChanges();
-      expect(save.disabled).toBe(false);
-      await page.savePaper();
-      fixture.detectChanges();
-      expect(sheets.savePractice).toHaveBeenCalledTimes(1);
-      expect(query(fixture, '[data-testid="sheet-notice"]')?.textContent).toContain('Guardado');
-    });
-
-    it('si el guardado manual no resulta (sin vínculo, sin red o fallo) da un aviso suave, no un error', async () => {
-      const { page, fixture, sheets } = await withPaper(true);
-      page.onAnswerInput('12');
-      await page.submit();
-      sheets.savePractice.mockResolvedValue(false);
-      await page.savePaper();
-      fixture.detectChanges();
-      const notice = query(fixture, '[data-testid="sheet-notice"]');
-      expect(notice?.textContent).toContain('No se pudo guardar ahora');
-      expect(notice?.getAttribute('role')).toBe('status'); // no es una alerta
-      expect(page.error).toBe('');
-    });
-
-    it('si el papel está vacío, el guardado manual lo dice con suavidad', async () => {
-      const { page, fixture, sheets } = await withPaper(false);
-      page.onAnswerInput('12');
-      await page.submit();
-      await page.savePaper();
-      fixture.detectChanges();
-      expect(sheets.savePractice).not.toHaveBeenCalled();
-      expect(query(fixture, '[data-testid="sheet-notice"]')?.textContent).toContain(
-        'Dibuja algo en el papel',
-      );
     });
 
     it('sin conexión (modo sin conexión de CU-A12) no se guarda ni se encola', async () => {
@@ -622,7 +705,8 @@ describe('PracticePage', () => {
       page.offlineMode = true;
       page.onAnswerInput('12');
       await page.submit();
-      await page.savePaper();
+      await page.next();
+      await flush();
       expect(sheets.savePractice).not.toHaveBeenCalled();
     });
   });

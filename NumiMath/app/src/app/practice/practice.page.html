@@ -276,17 +276,8 @@
         </ion-button>
         @if (paperOpen) {
           <app-scratchpad [resetKey]="exercise.token"></app-scratchpad>
-          <ion-button
-            class="paper-save"
-            fill="outline"
-            expand="block"
-            [disabled]="!result"
-            (click)="savePaper()"
-          >
-            Guardar el papel
-          </ion-button>
-          @if (sheetNotice) {
-            <p class="numi-notice" role="status" data-testid="sheet-notice">{{ sheetNotice }}</p>
+          @if (teacherSeesPaper) {
+            <p class="ion-text-center ion-no-margin" data-testid="paper-teacher-note"><small>Tu profe puede ver este papel</small></p>
           }
         }
       }

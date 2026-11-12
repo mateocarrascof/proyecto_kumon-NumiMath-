@@ -15,6 +15,7 @@ export const MASCOT_PHRASES = {
   progress: ['¡Mira cuánto avanzaste!'],
   mastered: ['¡Esto ya lo manejas!', '¡Qué orgullo!'],
   tasksDone: ['¡Bien hecho!', '¡Listo por hoy!'],
+  recover: ['Calma, esto tiene arreglo.'],
 } as const;
 
 export type PhraseKind = keyof typeof MASCOT_PHRASES;

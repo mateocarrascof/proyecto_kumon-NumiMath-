@@ -64,6 +64,8 @@ def configure_logging(level: int = logging.INFO) -> None:
         handler._mathtutor = True  # type: ignore[attr-defined]
         root.addHandler(handler)
     root.propagate = False
+    # httpx registra la URL completa de cada petición (con el id del tutor en las de Auth).
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def get_logger(name: str = "mathtutor") -> logging.Logger:

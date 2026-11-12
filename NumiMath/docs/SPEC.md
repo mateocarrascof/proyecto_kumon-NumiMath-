@@ -507,3 +507,68 @@ ajustan el mapa; mientras no se edite el mapa, mandan las de aquí.
     (con 4 números: "¿cuál queda segundo?").
   - 2-16 (igualdad y desigualdad): N1 completar la igualdad hasta 10 (3 + 4 = □ + 2);
     N2 hasta 20; N3 "¿Cuánto le falta al lado menor para ser igual?" (9 + 6 y 8 + 4 → 3).
+
+## Recuperar contraseña (T19)
+
+Pantallas del ADULTO (el niño no tiene cuenta ni correo): `/recuperar` y `/nueva-clave`. Se llega desde "¿Olvidaste tu contraseña?" en el login.
+
+### Reglas
+- **Misma respuesta exista o no el correo**: la pantalla siempre dice "Si ese correo tiene una cuenta, te enviamos un enlace…". El puerto `requestPasswordReset` nunca lanza ni distingue (tampoco ante un 429). Pausa de 60 s en la pantalla.
+- **El enlace** (en el correo) abre la APP: `<SiteURL>/nueva-clave?token_hash=…&type=recovery`. Dura **30 minutos** (`otp_expiry`) y sirve **una sola vez**. Abrirlo NO lo gasta: el código se canjea (`verifyOtp`) solo cuando la persona **pulsa el botón**, para que un escáner de correo que solo abra el enlace no lo consuma ni obtenga una sesión. El código se borra de la barra de direcciones al abrir.
+- **Sesión de recuperación**: no cuenta como usuario autenticado (no abre el panel ni los perfiles) hasta que se cambie la contraseña. Si la persona se va o recarga a medias, esa sesión se cierra.
+- **Contraseña nueva**: la misma regla que el registro (mínimo 8 caracteres; `password-rules.ts` en la app y `minimum_password_length` en Supabase). Al cambiarla se cierran las sesiones en TODOS los dispositivos y llega un aviso por correo.
+- **Límites** (Supabase, `config.toml`): un correo de recuperación por usuario cada 60 s (`max_frequency`).
+
+### Limitación conocida
+El 429 por usuario de Supabase permite saber, llamando directo al endpoint público, si un correo tiene cuenta. La app no lo muestra. Pendiente para producción: captcha o proxy por la API (`docs/privacy/pendientes-legales.md`, 25).
+
+### Local
+El correo se ve en **Mailpit: http://127.0.0.1:54324** (`supabase start` lo levanta). Pruebas reales: `api/tests/test_integration_password_recovery.py`.
+
+## Eliminar la cuenta y todos los datos (T21)
+
+Se hace en el **Panel del tutor** (sección "Eliminar mi cuenta"), con el orden del ADR 0001, decisión 3. Ruta: `POST /v1/tutor/account/delete` con `{"confirm": "ELIMINAR"}`.
+
+### Confirmación fuerte
+- La app pide la **contraseña de la cuenta** (el PIN lo puede conocer un niño) y la palabra ELIMINAR (acepta minúsculas; al servidor se envía exacta). Vuelve a iniciar sesión con la contraseña: eso da una sesión "recién iniciada con contraseña".
+- El servidor acepta SOLO la **contraseña** escrita hace menos de 5 minutos (claim `amr` del JWT). El PIN no vale para esto, ni siquiera uno recién escrito: lo puede conocer un niño. Sin contraseña reciente: 401 y no se toca nada.
+- El id a borrar sale solo del JWT: no se puede borrar la cuenta de otro.
+
+### Orden (si algo falla antes del paso 5, no se borra nada y se descongela)
+1. **Congelar**: revoca el consentimiento (bloquea los perfiles; la revocación NO se deshace) y bloquea el acceso en Auth por 15 minutos (si algo falla y el desbloqueo también, se levanta solo).
+2. Seudónimo del tutor (`tutor_ref` = HMAC-SHA256 del id con la clave del servidor). No se guarda ninguna huella del correo.
+3. y 4. Archivar la evidencia mínima del consentimiento (dos veces, idempotente) y comprobar que cada consentimiento tiene su evidencia (por `source_seq`: sirve aunque la clave haya cambiado).
+5. Borrar el usuario en Auth (borrado real). La cascada borra tutor, perfiles, progreso, rachas, tareas, uso, PIN y consentimientos.
+6. Verificar que ya no queda el tutor (la evidencia ya se comprobó en 3 y 4: tras la cascada no quedan consentimientos contra los que contarla).
+7. Purgar el registro de auditoría de Auth (correo e IP del tutor). Mejor esfuerzo.
+
+Reintentar es seguro: si la cuenta ya no existe, el resultado es el mismo.
+
+### Qué se conserva
+Solo la evidencia mínima que exige la ley: seudónimo del tutor (HMAC del id), versión y huella de los textos aceptados, tipo de evento, canal y fechas; sin correo, nombre ni datos del niño; más la declaración del adulto de cada perfil sin apodo ni curso. **Plazo: 5 años (1826 días), provisional y sujeto a validación legal**, configurable en `app_settings.consent_evidence_retention_days`; cuenta desde `archived_at` (el día del borrado). Lo borra a diario la tarea de pg_cron `privacy-purge-evidence`; mientras Legal no lo confirme, `privacy_config_warnings()` lo avisa (`consent_evidence_retention_confirmed`). Ver `pendientes-legales.md`, 26 y 27.
+
+### Pruebas
+`supabase/tests/database/account_deletion.test.sql` (revisa DINÁMICAMENTE todas las tablas con `tutor_id` o `student_id`: si alguien agrega una tabla y olvida la cascada, falla), `api/tests/test_account.py` y `api/tests/test_integration_account_deletion.py` (cuenta real: no queda nada) y `supabase/tests/database/evidence_retention.test.sql` (plazo de 5 años, tarea de pg_cron y purga). Tras correr pruebas de integración, hacer `supabase db reset` antes de `supabase test db`: la evidencia es inmutable y algunas pruebas antiguas cuentan filas de toda la tabla.
+
+## Revocar el consentimiento (T20)
+
+Se hace en el **Panel del tutor** (sección "Revocar mi consentimiento"). Ruta: `POST /v1/tutor/consent/revoke`, con el PIN (token parental). Reutiliza `revoke_consent` (T21) y el bloqueo de perfiles que ya hacen los triggers de la base.
+
+### Qué pasa al revocar
+- **Desde ese momento no se usan datos del niño ni la IA:** todos los perfiles del tutor quedan bloqueados en la misma transacción, y `authorize_student_use` los rechaza (403 en ejercicios, práctica, tareas, progreso, informe y explicaciones).
+- **Constancia con fecha:** un evento `revoke` en `consents` con la fecha-hora del servidor (`occurred_at`). La respuesta la devuelve y la pantalla `/terminos` la muestra. Revocar otra vez no crea otro evento y devuelve la fecha original.
+- **Los datos NO se borran al instante:** quedan bloqueados `purge_after_days` días (hoy **30, provisional**, pendientes-legales 10) y luego los borra la tarea de pg_cron `privacy-purge-blocked`. Antes de eso el tutor puede borrarlos eliminando los perfiles o la cuenta (T21).
+- **La evidencia mínima** (el evento de aceptación y el de revocación con fecha, versión y huella de los textos) sigue en `consents` mientras exista la cuenta; si se elimina la cuenta, se archiva y se conserva 5 años (T21, pendientes-legales 27).
+- **El servidor comprueba el resultado** antes de afirmarlo: debe constar la revocación con fecha y 0 perfiles activos; si no, responde 503 sin decir que se hizo. Si la base falla a medias, el mensaje dice que *puede* estar hecha y que hay que entrar para comprobarlo.
+
+### Alcance y límites conocidos
+- Sin consentimiento, `/panel` no es accesible (guard de consentimiento). Por eso la pantalla `/terminos` ofrece también **eliminar la cuenta y los datos** (derecho de supresión), que no depende del consentimiento.
+- **Aceptar los términos otra vez NO reactiva los perfiles bloqueados:** no hay ningún camino en la app que llame a `unblock_student`. La interfaz lo dice. Pendiente (pendientes-legales 28).
+- Una explicación de IA que ya esté en curso cuando se revoca se corta en el siguiente re-chequeo del streaming (`stream_recheck_seconds`: 10 s por defecto, 60 como máximo), no al instante. Una respuesta de ejercicio que ya había pasado la autorización justo antes puede guardar su intento (sin verificar que las funciones de escritura vuelvan a mirar `blocked_at`).
+- Solo se borran solos los perfiles bloqueados **por la revocación**. Los que ya estaban bloqueados antes (`tutor_request`, `arcop_claim`) no se purgan al revocar (decisión de Lote D; pendientes-legales 28). `profiles_blocked` cuenta todos los perfiles del tutor.
+- Tras revocar no se puede borrar un perfil suelto desde la interfaz (`/panel` exige consentimiento); sí se puede eliminar la cuenta entera. La API de borrar perfiles no exige consentimiento (pendientes-legales 28).
+- La constancia viaja por la dirección (`/terminos?revocado=…`): se puede falsificar con un enlace manipulado (solo muestra un aviso; no cambia datos). La fecha de borrado es una cota ("a partir del"): pg_cron corre una vez al día.
+- La constancia con fecha solo se muestra justo después de revocar; no hay todavía una pantalla que la consulte después.
+
+### Pruebas
+`supabase/tests/database/consent_revocation.test.sql` (constancia, bloqueo, datos intactos, plazo, idempotencia, aislamiento entre tutores, solo `service_role`), `api/tests/test_consent_revocation.py` (PIN, constancia, fallos honestos, logs sin datos personales) y `api/tests/test_integration_consent_revocation.py` (cuenta real: antes funciona, después 403 en todo, los datos siguen y otro tutor no se ve afectado), más las pruebas de la app (`revoke-consent.component.spec.ts`, `http-consent-revocation.service.spec.ts`, `terms.page.spec.ts`).

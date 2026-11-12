@@ -159,9 +159,9 @@ select throws_ok($$delete from public.consents$$,
 
 -- ===== 5. La variable de purga no basta =====
 insert into public.consent_evidence
-  (tutor_ref, tutor_email_ref, hmac_key_version, event_type, terms_version, terms_sha256,
+  (tutor_ref, hmac_key_version, event_type, terms_version, terms_sha256,
    privacy_version, privacy_sha256, channel, occurred_at, source_seq)
-values (repeat('1', 64), repeat('2', 64), 1, 'grant', 'tos-1', repeat('a', 64), 'pp-1', repeat('b', 64), 'web', now(), 910001);
+values (repeat('1', 64), 1, 'grant', 'tos-1', repeat('a', 64), 'pp-1', repeat('b', 64), 'web', now(), 910001);
 
 set local role service_role;
 select set_config('app.evidence_purge', 'on', true);
@@ -216,7 +216,7 @@ select is((select count(*) from public.student_status_events where tutor_id = 'a
   1::bigint, 'el perfil de U8 quedó bloqueado con un evento en el historial');
 
 set local role service_role;
-select is(public.archive_consent_evidence('aaaa1111-0000-0000-0000-000000000008', repeat('8', 64), repeat('9', 64), 1::smallint),
+select is(public.archive_consent_evidence('aaaa1111-0000-0000-0000-000000000008', repeat('8', 64), 1::smallint),
   2, 'se archivan los 2 eventos de U8');
 reset role;
 
@@ -234,9 +234,9 @@ insert into public.declaration_evidence (consent_seq, declaration_version, decla
   (920002, 'ad-1', repeat('c', 64), now() - interval '90 days', now() - interval '30 days'),
   (920003, 'ad-1', repeat('c', 64), now() - interval '90 days', now() - interval '29 days');
 insert into public.consent_evidence
-  (tutor_ref, tutor_email_ref, hmac_key_version, event_type, terms_version, terms_sha256,
+  (tutor_ref, hmac_key_version, event_type, terms_version, terms_sha256,
    privacy_version, privacy_sha256, channel, occurred_at, source_seq, archived_at)
-values (repeat('3', 64), repeat('4', 64), 1, 'grant', 'tos-0', repeat('1', 64), 'pp-0', repeat('2', 64),
+values (repeat('3', 64), 1, 'grant', 'tos-0', repeat('1', 64), 'pp-0', repeat('2', 64),
         'web', now() - interval '90 days', 910002, now() - interval '31 days');
 
 set local role service_role;

@@ -45,8 +45,8 @@ select 1 where public.create_assignment('cccccccc-0000-0000-0000-000000000001',
   'dddddddd-0000-0000-0000-000000000001', '3 + 4 = ?', 7) is null;
 select 1 where public.answer_assignment('cccccccc-0000-0000-0000-000000000001',
   'dddddddd-0000-0000-0000-000000000001',
-  (select id from public.assigned_exercises where answer = 7), 7, null, 95) is null;
-select is((select duration_s::int from public.student_attempts where topic = 'tarea_tutor'), 95,
+  (select id from public.assigned_exercises where answer = 7 and student_id = 'dddddddd-0000-0000-0000-000000000001'), 7, null, 95) is null;
+select is((select duration_s::int from public.student_attempts where topic = 'tarea_tutor' and student_id = 'dddddddd-0000-0000-0000-000000000001'), 95,
   'la tarea guarda su tiempo en el intento');
 reset role;
 

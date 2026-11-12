@@ -40,6 +40,8 @@ class AuthenticatedTutor:
     # Hora (Unix) del último inicio de sesión CON CONTRASEÑA, según el claim `amr` de Supabase.
     # No cambia al refrescar el token: sirve para pedir una reautenticación reciente.
     password_auth_at: int | None = None
+    # Correo del claim `email` (solo para calcular la huella de la evidencia al borrar la cuenta).
+    email: str | None = None
 
 
 def password_auth_time(claims: dict[str, Any]) -> int | None:
@@ -131,4 +133,9 @@ class TokenVerifier:
             tutor_id = uuid.UUID(str(claims["sub"]))
         except ValueError as exc:
             raise InvalidToken("bad_subject") from exc
-        return AuthenticatedTutor(tutor_id=tutor_id, password_auth_at=password_auth_time(claims))
+        email = claims.get("email")
+        return AuthenticatedTutor(
+            tutor_id=tutor_id,
+            password_auth_at=password_auth_time(claims),
+            email=email if isinstance(email, str) and email else None,
+        )

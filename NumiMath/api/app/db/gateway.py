@@ -24,6 +24,18 @@ class GatewayError(Exception):
 
 
 @dataclass(frozen=True)
+class ConsentSummary:
+    """Estado del consentimiento de un tutor (solo lectura; sin datos del niño)."""
+
+    last_event: str | None  # 'grant' | 'revoke' | None si nunca aceptó
+    occurred_at: datetime | None  # fecha-hora UTC de ese evento: la constancia
+    profiles_total: int
+    profiles_active: int  # los que aún se pueden usar (0 tras revocar)
+    purge_after_days: int | None  # plazo provisional para borrar los bloqueados por revocación
+    purge_at: datetime | None
+
+
+@dataclass(frozen=True)
 class AttemptRow:
     """Un intento de práctica: solo tema, resultado y hora (nunca la respuesta del niño)."""
 
@@ -179,6 +191,39 @@ class Gateway(Protocol):
     async def delete_student(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> str:
         """Borra el perfil (y en cascada sus datos). `ok` o `not_found`."""
         ...
+
+    async def revoke_consent(self, tutor_id: uuid.UUID) -> str:
+        """Registra una revocación con las versiones del último consentimiento.
+
+        Bloquea los perfiles del tutor.
+
+        Devuelve `ok`, `already_revoked` o `no_consent`. La constancia lleva la fecha-hora
+        del servidor.
+        """
+        ...
+
+    async def consent_summary(self, tutor_id: uuid.UUID) -> ConsentSummary:
+        """Último evento de consentimiento con su fecha y cuántos perfiles siguen activos."""
+        ...
+
+    async def archive_consent_evidence(
+        self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int
+    ) -> int:
+        """Archiva la evidencia mínima del consentimiento. Devuelve las filas NUEVAS."""
+        ...
+
+    async def consent_evidence_complete(self, tutor_id: uuid.UUID) -> bool:
+        """¿Cada consentimiento del tutor ya tiene su evidencia archivada? (ADR 0001, paso 3).
+
+        Se comprueba por consentimiento, no por la huella: sirve aunque la clave haya cambiado.
+        """
+        ...
+
+    async def purge_auth_audit(self, tutor_id: uuid.UUID, email: str | None) -> int:
+        """Borra de Auth el registro de auditoría del tutor (correo, IP). Devuelve las filas."""
+        ...
+
+    async def tutor_exists(self, tutor_id: uuid.UUID) -> bool: ...
 
     async def get_pin_state(self, tutor_id: uuid.UUID) -> PinState | None:
         """PIN del tutor (hash y bloqueo), o `None` si aún no lo crea."""

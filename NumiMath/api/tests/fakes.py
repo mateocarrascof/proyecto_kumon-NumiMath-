@@ -7,7 +7,14 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
-from app.db.gateway import AssignmentAnswer, AssignmentRow, AttemptRow, GatewayError, PinState
+from app.db.gateway import (
+    AssignmentAnswer,
+    AssignmentRow,
+    AttemptRow,
+    ConsentSummary,
+    GatewayError,
+    PinState,
+)
 from app.exercises.levels import SkillProgress, apply_answer
 from app.streaks import DailyStreakRow, parse_local_day
 
@@ -311,3 +318,116 @@ class FakeGateway:
 
 def gateway_down() -> FakeGateway:
     return FakeGateway(error=GatewayError("transport"))
+
+
+@dataclass
+class AccountFakeGateway(FakeGateway):
+    """Gateway con el flujo de borrado de cuenta: registra el ORDEN de las llamadas."""
+
+    log: list[str] = field(default_factory=list)
+    existing: set[uuid.UUID] = field(default_factory=set)
+    revoke_result: str = "ok"
+    archive_error: Exception | None = None
+    complete: bool = True
+    purge_error: Exception | None = None
+    revoke_error: Exception | None = None
+    exists_error_on_call: int | None = None
+    exists_calls: int = 0
+    summary_error: Exception | None = None
+    summary: ConsentSummary = field(
+        default_factory=lambda: ConsentSummary(
+            "revoke",
+            datetime(2026, 11, 11, 15, 30, tzinfo=UTC),
+            2,
+            0,
+            30,
+            datetime(2026, 12, 11, 15, 30, tzinfo=UTC),
+        )
+    )
+    revoked_for: list[uuid.UUID] = field(default_factory=list)
+    purged: list[tuple[uuid.UUID, str | None]] = field(default_factory=list)
+    archived: list[tuple[uuid.UUID, str, int]] = field(default_factory=list)
+
+    async def tutor_exists(self, tutor_id: uuid.UUID) -> bool:
+        self.log.append("tutor_exists")
+        self.exists_calls += 1
+        if self.exists_error_on_call == self.exists_calls:
+            raise GatewayError("transport")
+        return tutor_id in self.existing
+
+    async def revoke_consent(self, tutor_id: uuid.UUID) -> str:
+        self.log.append("revoke_consent")
+        self.revoked_for.append(tutor_id)
+        if self.revoke_error is not None:
+            raise self.revoke_error
+        return self.revoke_result
+
+    async def consent_summary(self, tutor_id: uuid.UUID) -> ConsentSummary:
+        self.log.append("summary")
+        if self.summary_error is not None:
+            raise self.summary_error
+        return self.summary
+
+    async def archive_consent_evidence(
+        self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int
+    ) -> int:
+        self.log.append("archive")
+        if self.archive_error is not None:
+            raise self.archive_error
+        self.archived.append((tutor_id, tutor_ref, key_version))
+        return 0
+
+    async def consent_evidence_complete(self, tutor_id: uuid.UUID) -> bool:
+        self.log.append("complete")
+        return self.complete
+
+    async def purge_auth_audit(self, tutor_id: uuid.UUID, email: str | None) -> int:
+        self.log.append("purge_audit")
+        self.purged.append((tutor_id, email))
+        if self.purge_error is not None:
+            raise self.purge_error
+        return 0
+
+
+@dataclass
+class FakeAuthAdmin:
+    """Administración de Auth en memoria: comparte el registro de llamadas con el gateway."""
+
+    gateway: AccountFakeGateway
+    emails: dict[uuid.UUID, str] = field(default_factory=dict)
+    fail_on: set[str] = field(default_factory=set)
+    banned: set[uuid.UUID] = field(default_factory=set)
+    deleted: list[uuid.UUID] = field(default_factory=list)
+
+    def _maybe_fail(self, name: str) -> None:
+        from app.auth.admin import AuthAdminError
+
+        if name in self.fail_on:
+            raise AuthAdminError("transport")
+
+    async def get_email(self, user_id: uuid.UUID) -> str | None:
+        self.gateway.log.append("get_email")
+        self._maybe_fail("get_email")
+        return self.emails.get(user_id)
+
+    async def ban(self, user_id: uuid.UUID) -> None:
+        self.gateway.log.append("ban")
+        self._maybe_fail("ban")
+        self.banned.add(user_id)
+
+    async def unban(self, user_id: uuid.UUID) -> None:
+        self.gateway.log.append("unban")
+        self._maybe_fail("unban")
+        self.banned.discard(user_id)
+
+    async def delete(self, user_id: uuid.UUID) -> str:
+        self.gateway.log.append("delete")
+        self._maybe_fail("delete")
+        self.deleted.append(user_id)
+        if user_id in self.gateway.existing:
+            self.gateway.existing.discard(user_id)  # la cascada borra al tutor
+            return "deleted"
+        return "not_found"
+
+    async def aclose(self) -> None:
+        return None

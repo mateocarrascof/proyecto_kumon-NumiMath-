@@ -7,9 +7,13 @@ import { IonicModule, IonicRouteStrategy } from '@ionic/angular/lazy';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
+import { AccountPort } from './core/account/account.port';
+import { HttpAccountService } from './core/account/http-account.service';
 import { AuthPort } from './core/auth/auth.port';
 import { SupabaseAuthService } from './core/auth/supabase-auth.service';
+import { ConsentRevocationPort } from './core/consent/consent-revocation.port';
 import { ConsentPort } from './core/consent/consent.port';
+import { HttpConsentRevocationService } from './core/consent/http-consent-revocation.service';
 import { SupabaseConsentService } from './core/consent/supabase-consent.service';
 import { HttpPracticeService } from './core/practice/http-practice.service';
 import { PracticePort } from './core/practice/practice.port';
@@ -37,7 +41,9 @@ import { HttpExplanationService } from './core/explanation/http-explanation.serv
     { provide: MascotPort, useExisting: MascotService },
     { provide: AuthPort, useExisting: SupabaseAuthService },
     { provide: ConsentPort, useExisting: SupabaseConsentService },
+    { provide: ConsentRevocationPort, useExisting: HttpConsentRevocationService },
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
+    { provide: AccountPort, useExisting: HttpAccountService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
     { provide: AssignmentsPort, useExisting: HttpAssignmentsService },

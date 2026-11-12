@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
 import { AuthPort } from '../core/auth/auth.port';
@@ -15,6 +16,7 @@ export class TermsPage implements OnInit {
   private readonly consent = inject(ConsentPort);
   private readonly auth = inject(AuthPort);
   private readonly nav = inject(NavController);
+  private readonly route = inject(ActivatedRoute);
   protected readonly mascot = inject(MascotPort);
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -23,12 +25,15 @@ export class TermsPage implements OnInit {
   accepted = false;
   busy = false;
   error = '';
+  /** Constancia que llega desde "Revocar mi consentimiento" (solo fechas; sin datos personales). */
+  revocation: { when: string; purgeOn: string | null; days: number | null } | null = null;
 
   get verified(): boolean {
     return !!this.bundle && this.bundle.terms.verified && this.bundle.privacy.verified;
   }
 
   async ngOnInit(): Promise<void> {
+    this.readRevocation();
     this.mascot.set('thinking');
     try {
       this.bundle = await this.consent.loadCurrent();
@@ -45,6 +50,19 @@ export class TermsPage implements OnInit {
       this.loading = false;
       this.cdr.markForCheck();
     }
+  }
+
+  private readRevocation(): void {
+    const q = this.route.snapshot.queryParamMap;
+    const when = formatDate(q.get('revocado'));
+    if (!when) return;
+    const days = Number(q.get('dias'));
+    this.revocation = {
+      when,
+      purgeOn: formatDate(q.get('borrado')),
+      // La dirección se puede manipular: un plazo absurdo se ignora (el servidor manda 30).
+      days: Number.isInteger(days) && days > 0 && days <= 365 ? days : null,
+    };
   }
 
   async accept(): Promise<void> {
@@ -68,4 +86,12 @@ export class TermsPage implements OnInit {
     this.mascot.set('idle');
     await this.nav.navigateRoot('/login');
   }
+}
+
+/** Fecha legible en hora local; null si no es una fecha válida (la URL puede venir manipulada). */
+function formatDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString('es-CL', { dateStyle: 'long', timeStyle: 'short' });
 }

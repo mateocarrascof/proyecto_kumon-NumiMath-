@@ -12,6 +12,17 @@ const routes: Routes = [
     loadChildren: () => import('./login/login.module').then((m) => m.LoginPageModule),
   },
   {
+    path: 'recuperar',
+    canActivate: [guestGuard],
+    loadChildren: () => import('./recover/recover.module').then((m) => m.RecoverPageModule),
+  },
+  {
+    // Sin guard: el enlace del correo abre esta ruta con los datos de recuperación en la URL.
+    path: 'nueva-clave',
+    loadChildren: () =>
+      import('./new-password/new-password.module').then((m) => m.NewPasswordPageModule),
+  },
+  {
     path: 'terminos',
     canActivate: [authGuard],
     loadChildren: () => import('./terms/terms.module').then((m) => m.TermsPageModule),

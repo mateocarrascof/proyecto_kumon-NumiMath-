@@ -41,6 +41,12 @@
       </ul>
     }
 
+    @if (notice) {
+      <p class="check ok" role="status" data-testid="login-notice">
+        <span aria-hidden="true">✔</span> {{ notice }}
+      </p>
+    }
+
     <form class="kid-card" (ngSubmit)="submit()" novalidate>
       <ion-input
         label="Correo"
@@ -103,6 +109,12 @@
         {{ busy ? 'Un momento…' : action }}
       </ion-button>
     </form>
+
+    @if (mode === 'signin') {
+      <ion-button fill="clear" size="small" routerLink="/recuperar" data-testid="forgot-link">
+        ¿Olvidaste tu contraseña?
+      </ion-button>
+    }
 
     <ion-button fill="clear" size="small" (click)="toggleMode()">
       {{ mode === 'signin' ? '¿Primera vez aquí? Crea tu cuenta' : '¿Ya tienes cuenta? Entra aquí' }}

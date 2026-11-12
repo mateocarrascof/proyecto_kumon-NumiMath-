@@ -41,7 +41,7 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 ## 2. Derechos del titular sobre la evidencia ya archivada
 **Pregunta.** Si la persona, después de borrar su cuenta, pide **acceso, rectificación, supresión u oposición** sobre esa evidencia: ¿cómo se responde, con qué base se puede negar (si es el caso) y durante cuánto tiempo? La tabla es inmutable por diseño.
 **Por qué importa.** Condición para que la decisión de inmutabilidad sea defendible.
-**Estado actual.** Acceso: se localiza por el HMAC del correo y se entrega versión, fecha y canal (procedimiento en el ADR 0001, sin implementar). No existe borrado selectivo: solo se purga por vencimiento.
+**Estado actual.** Acceso tras el borrado: **ya no es posible localizar la evidencia por el correo** (se eliminó esa huella, ver 27); solo por el seudónimo del tutor, que requiere el id. Procedimiento por definir. No existe borrado selectivo: solo se purga por vencimiento.
 **Qué cambia.** Podría requerir una función de borrado selectivo de evidencia (hoy descartada) y un procedimiento documentado.
 **Respuesta:** _pendiente_
 
@@ -51,8 +51,8 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 2. ¿Es aceptable que, si alguien se registra de nuevo con el mismo correo, la evidencia antigua quede vinculable con la cuenta nueva?
 3. ¿Se considera dato personal seudonimizado mientras exista la clave? ¿**Destruir una versión de la clave** equivale a anonimizar (y a perder el valor probatorio)? ¿Qué política de claves se espera?
 4. La evidencia se puede reidentificar **sin la clave** mientras existan backups o logs con la tabla `consents` (el orden y la fecha coinciden). ¿Es aceptable? ¿Hay que reducir la precisión de las fechas (ver pregunta 17)?
-**Estado actual.** Ambos HMAC se guardan; la clave vive fuera de la base, versionada; custodio y rotación sin asignar.
-**Qué cambia.** Eliminar `tutor_ref` o `tutor_email_ref`; separar dominios del HMAC; truncar fechas; fijar la política de claves.
+**Estado actual.** Solo se guarda `tutor_ref` (HMAC del id): `tutor_email_ref` se eliminó el 2026-11-11 (ver 27). La clave vive fuera de la base, versionada; custodio y rotación sin asignar.
+**Qué cambia.** Separar dominios del HMAC; separar dominios del HMAC; truncar fechas; fijar la política de claves.
 **Respuesta:** _pendiente_
 
 ## 4. Alcance y forma del consentimiento
@@ -215,6 +215,62 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 
 ---
 
+## 25. Recuperar contraseña: proveedor de correo, registros y enumeración de cuentas (T19)
+**Qué hace hoy:** el tutor pide un enlace por correo; la pantalla muestra SIEMPRE el mismo mensaje, exista o no la cuenta. El enlace (30 minutos, un solo uso) abre la app y el código solo se canjea al pulsar un botón. Al cambiar la contraseña se cierran las sesiones en todos los dispositivos y se envía un aviso. No se guarda ni se trata ningún dato del niño.
+
+**Qué NO está resuelto:**
+1. **Enumeración de cuentas por el límite de Supabase.** Quien llame directo a `/auth/v1/recover` con la llave anon (pública) y pida dos veces seguidas el mismo correo recibe 429 si tiene cuenta y 200 si no. La app no lo muestra, pero el endpoint es público. Mitigación pendiente para producción: captcha de Supabase o un proxy por la API con límite por IP y respuesta uniforme. Hay una prueba que documenta esta limitación a propósito.
+2. **Proveedor de correo (SMTP):** ¿cuál, en qué país, con qué DPA y retención de registros de envío? ¿Se desactiva el seguimiento de clics?
+3. **Registro de auditoría de Auth** (`auth.audit_log_entries`: correo, evento, IP): ¿plazo de conservación? ¿se borra con la cuenta?
+4. **Aviso de cambio de contraseña:** ¿base de licitud (contrato o interés legítimo de seguridad)? ¿debe constar en la política de privacidad?
+5. **Producción:** `site_url`, redirecciones permitidas y `email_sent` (tope global por hora) de `supabase/config.toml` están configurados para localhost; hay que fijarlos al dominio real antes de publicar. En la app nativa (Capacitor) el enlace necesitará un deep link propio.
+**Respuesta:** _pendiente_
+
+---
+
+## 26. Eliminar la cuenta (T21): lo que se conserva y los registros que no controlamos
+**Qué hace hoy:** borra de verdad la cuenta y todos sus datos (ver SPEC), tras confirmar con la contraseña (el PIN no vale) y la palabra ELIMINAR. Conserva solo la evidencia mínima del consentimiento (seudónimo del tutor, versiones, fechas, canal) y la declaración del adulto sin apodo ni curso. Purga el registro de auditoría de Auth (correo e IP).
+
+**Preguntas:**
+1. **Plazo de conservación de la evidencia:** ver 27 (5 años provisional).
+2. **Registros que quedan fuera de la base:** copias de seguridad, registros de la plataforma y correos ya enviados (recuperación de contraseña, avisos). ¿Qué plazo y qué se informa al titular?
+3. **Purga del registro de auditoría de Auth:** se borra el correo y la IP del tutor tras eliminar la cuenta. ¿Hay un deber de conservar registros de seguridad por algún plazo?
+4. **Revocación irreversible:** al empezar el borrado se registra una revocación (bloquea los perfiles) que no se deshace aunque el borrado falle a medias. ¿Es aceptable?
+5. **Constancia del borrado:** hoy solo queda un evento sin datos personales en los registros del servidor. ¿Se debe poder acreditar al titular que se borró y cuándo? ¿Cómo, sin guardar identificadores?
+**Respuesta:** _pendiente_
+
+## 27. Plazo de conservación de la evidencia mínima de consentimiento (T21)
+
+**Estado: PROVISIONAL, SUJETO A VALIDACIÓN LEGAL.** La Ley 21.719 no fija un plazo. Base invocada: art. 7 (excepciones por obligación legal y por defensa de reclamaciones). Se eligieron **5 años** por la prescripción general de las acciones civiles (**inferencia a validar**, no una regla verificada).
+
+**Qué se conserva y cuánto.** Solo el seudónimo del tutor (HMAC-SHA256 del id, con una clave que vive fuera de la base), la versión y la huella de los textos aceptados, el tipo de evento, el canal y las fechas; más la declaración del adulto sin apodo ni curso. **Sin correo, sin nombre y sin datos del niño** (se eliminó `tutor_email_ref`, la huella del correo que antes se guardaba).
+
+**Cómo se aplica.**
+- Constante configurable: `app_settings.consent_evidence_retention_days` = **1826** (5 años; cubre un día bisiesto, nunca menos). Cambiarla no requiere desplegar código.
+- Cuenta desde `archived_at` (el día en que se borró la cuenta) y se lee **al purgar**, así que un cambio de plazo alcanza también a lo ya archivado.
+- Tarea de pg_cron `privacy-purge-evidence` (a diario, 03:10 UTC) que ejecuta `purge_expired_consent_evidence()`. Probada en `supabase/tests/database/evidence_retention.test.sql`. Si el job no corre, `privacy_job_warnings()` lo avisa.
+- Mientras Legal no lo valide (`consent_evidence_retention_confirmed` = false), `privacy_config_warnings()` emite una alerta de valor provisional.
+
+**Preguntas:**
+1. ¿Se confirma el plazo de 5 años y su base (art. 7 y prescripción de acciones civiles)? ¿Cuenta desde el borrado de la cuenta o desde el último evento de consentimiento?
+2. Sin la huella del correo ya **no se puede localizar la evidencia a partir del correo** de la persona (derecho de acceso tras el borrado). ¿Es aceptable, o se prefiere un medio distinto de localización?
+3. Al vencer el plazo la evidencia se borra definitivamente; los respaldos de la base pueden conservarla más tiempo (ver 26, pregunta 2).
+**Respuesta:** _pendiente_
+
+## 28. Revocar el consentimiento (T20): reactivación y constancia
+
+**Qué hace hoy:** el tutor revoca desde el panel (con el PIN); los perfiles quedan bloqueados al instante, sin práctica, informes ni IA; los datos se conservan bloqueados 30 días (provisional, ver 10) y luego se borran; queda un evento con fecha en `consents`. Ver SPEC.
+
+**Preguntas:**
+1. **Reactivación:** hoy volver a aceptar los términos **no** reactiva los perfiles bloqueados (no existe un camino en la app hacia `unblock_student`). ¿Debe poder reactivarlos el tutor dentro del plazo (con una nueva aceptación expresa), o el retiro es definitivo para esos perfiles?
+2. **Constancia visible:** la fecha de la revocación se muestra una vez. ¿Hay que poder consultarla después (derecho de acceso) y por cuánto tiempo?
+3. **IA en curso:** una explicación ya iniciada se corta en el siguiente re-chequeo (segundos), no al instante. ¿Es aceptable?
+4. **Quién revoca:** se exige el PIN, que lo puede conocer un niño. ¿Basta, o la revocación (derecho del titular) debe poder hacerse sin PIN, por ejemplo con la contraseña?
+5. **Bloqueos previos:** los perfiles que ya estaban bloqueados (`tutor_request`, `arcop_claim`) no se purgan al revocar, así que pueden quedar guardados sin plazo y sin consentimiento. ¿Se purgan con el mismo plazo, o con otro?
+6. **Borrar un solo perfil sin consentimiento:** la API lo permite, pero la interfaz solo ofrece eliminar la cuenta entera tras revocar. ¿Hay que ofrecer el borrado por perfil en `/terminos`?
+**Respuesta:** _pendiente_
+---
+
 # P3 — Después, con fecha
 
 ## 19. Información al niño (Ley 21.430)
@@ -228,8 +284,8 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 **Respuesta:** _pendiente_
 
 ## 21. Cambio de correo entre el registro y el borrado
-**Pregunta.** La evidencia guarda el HMAC del correo **vigente al momento del borrado**. Si el tutor cambió de correo, ¿es suficiente? ¿Hay que guardar también el original?
-**Estado actual.** Solo el correo vigente al borrar.
+**Pregunta.** (Sin objeto desde 2026-11-11: la evidencia ya no guarda ninguna huella del correo; ver 27.)
+**Estado actual.** Cerrada por diseño.
 **Respuesta:** _pendiente_
 
 ## 22. Gobierno y gestión de incidentes

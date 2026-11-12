@@ -20,6 +20,7 @@ from app.db.gateway import (
     AssignmentAnswer,
     AssignmentRow,
     AttemptRow,
+    ConsentSummary,
     GatewayError,
     PinState,
 )
@@ -406,6 +407,72 @@ class SupabaseGateway:
         if result not in ("ok", "not_found"):
             raise GatewayError("unexpected_result")
         return str(result)
+
+    async def revoke_consent(self, tutor_id: uuid.UUID) -> str:
+        result = await self._rpc("revoke_consent", {"p_tutor_id": str(tutor_id)})
+        if result not in ("ok", "already_revoked", "no_consent"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def consent_summary(self, tutor_id: uuid.UUID) -> ConsentSummary:
+        result = await self._rpc("consent_revocation_summary", {"p_tutor_id": str(tutor_id)})
+        try:
+            if not isinstance(result, dict):
+                raise TypeError
+            last, when = result["last_event"], result["occurred_at"]
+            days, purge_at = result["purge_after_days"], result["purge_at"]
+            if last not in (None, "grant", "revoke"):
+                raise ValueError
+            total, active = result["profiles_total"], result["profiles_active"]
+            if any(isinstance(n, bool) or not isinstance(n, int) for n in (total, active)):
+                raise TypeError
+            if days is not None and (isinstance(days, bool) or not isinstance(days, int)):
+                raise TypeError
+            return ConsentSummary(
+                last_event=last,
+                occurred_at=datetime.fromisoformat(str(when)) if when else None,
+                profiles_total=total,
+                profiles_active=active,
+                purge_after_days=days,
+                purge_at=datetime.fromisoformat(str(purge_at)) if purge_at else None,
+            )
+        except (KeyError, TypeError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def archive_consent_evidence(
+        self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int
+    ) -> int:
+        result = await self._rpc(
+            "archive_consent_evidence",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_tutor_ref": tutor_ref,
+                "p_key_version": key_version,
+            },
+        )
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def consent_evidence_complete(self, tutor_id: uuid.UUID) -> bool:
+        result = await self._rpc("consent_evidence_is_complete", {"p_tutor_id": str(tutor_id)})
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def purge_auth_audit(self, tutor_id: uuid.UUID, email: str | None) -> int:
+        result = await self._rpc(
+            "purge_auth_audit", {"p_tutor_id": str(tutor_id), "p_email": email}
+        )
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def tutor_exists(self, tutor_id: uuid.UUID) -> bool:
+        result = await self._rpc("tutor_exists", {"p_tutor_id": str(tutor_id)})
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
 
     async def get_pin_state(self, tutor_id: uuid.UUID) -> PinState | None:
         rows = await self._rpc("get_tutor_pin_state", {"p_tutor_id": str(tutor_id)})

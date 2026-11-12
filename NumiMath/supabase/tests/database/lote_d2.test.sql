@@ -184,8 +184,8 @@ select is((select command from cron.job where jobname = 'privacy-purge-blocked')
   'select public.purge_long_blocked_students()', 'cada trabajo ejecuta la función de purga correspondiente');
 
 set local role service_role;
-select is((select count(*) from public.privacy_job_warnings()), 4::bigint,
-  'mientras ningún trabajo haya corrido, hay una alerta por trabajo');
+select is((select count(*) from public.privacy_job_warnings()), 5::bigint,
+  'mientras ningún trabajo haya corrido, hay una alerta por trabajo (5 con la de juegos, CU-A21)');
 reset role;
 
 select cron.unschedule('privacy-purge-blocked');

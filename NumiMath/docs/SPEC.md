@@ -1016,27 +1016,25 @@ Corregido en `fix(cu-a21)`:
   catálogo con su curso y eje, lo sincronizado sin conexión queda `practice`, otro tutor no puede
   insertar intentos.
 
-### Decisiones pendientes del dueño (de la revisión)
-1. **Volumen de intentos de juego (alta, scalability):** una ronda dura segundos y cada respuesta
-   es una fila en `student_attempts`, sin tope ni plazo propio. Opciones: tope diario de intentos
-   de juego guardados por perfil, o plazo propio (p. ej. 90 días) para `activity = 'game'` en la
-   purga programada (también es minimización de datos). Decidir antes de la parte 2 en producción.
-2. **Leer el curso al responder:** el token ya fija el juego y el curso; quitar esa lectura ahorra
-   una ida a la base en el endpoint más usado, pero el SPEC dice "curso leído de la base".
-3. **Pedir varios ejercicios por petición** (p. ej. 5 tokens) para la parte 2.
-4. **ADR corto** (lo sugiere `scalability-reviewer`): plazo y tope de los intentos de juego, y la
-   regla de estabilidad de generadores e ids de juego.
+### Decisiones del dueño (de la revisión, 2026-11-12)
+1. **Volumen de intentos de juego:** plazo propio de **90 días** para `activity = 'game'` en la
+   purga programada (`purge_old_game_attempts`, pg_cron `privacy-purge-games`, migración
+   `20261115120000_game_attempts_retention`). No toca práctica ni diagnóstico. **Sin tope diario**
+   (pendiente). ADR 0004.
+2. **Leer el curso al responder:** se deja como está.
+3. **Varios ejercicios por petición:** no se agrega.
+4. **ADR 0004:** plazo de 90 días, estabilidad de generadores (un juego publicado no se edita: id o
+   versión nueva) y orden de despliegue. `api/tests/test_games_golden.py` guarda las salidas de los
+   9 juegos y detecta si un generador cambia.
 
 ### Pendientes
 1. App de los juegos (parte 2) y figuras SVG propias (parte 3, con su crédito en
    `docs/creditos-recursos.md`).
 2. Los juegos no tienen nivel propio: todos usan rangos fijos por curso.
-3. **Estabilidad de generadores:** cambiar un generador (o agregar un emoji a `_OBJECTS`) invalida
-   los tokens en vuelo (422 hasta 10 min); `random` puede cambiar entre versiones de Python. Regla:
-   los ids de juego son permanentes y cambiar un generador obliga a un id o versión nueva. Falta un
-   test con salidas guardadas por semilla.
-4. **Despliegue:** primero la migración y después la API. Sin vuelta atrás una vez que existan
-   filas `game` (la restricción anterior no las admite).
+3. **Tope diario de intentos de juego por perfil** (no implementado; hoy rige solo el plazo de 90
+   días).
+4. **Optimizaciones no adoptadas:** no leer el curso al responder (el token ya fija el juego);
+   pedir varios ejercicios por petición (p. ej. 5 tokens) en la parte 2.
 5. **Bajos de la revisión (no implementados):** validación y corrección de la respuesta en
    `games.py` (probables sin HTTP); constante para el nivel 1 de los juegos; `GAME_GRADES`, eje y
    curso derivados del catálogo curricular; tipos `Literal` duplicados entre `games.py` y la ruta;

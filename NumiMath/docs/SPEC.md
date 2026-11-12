@@ -444,10 +444,12 @@ están implementados; el resto se construye en el orden de abajo.
 - Borrar un docente borra sus vínculos; no toca perfiles, progreso ni hojas de niños (las hojas solo
   dejan de verse para ese docente). Sin contraseñas, correos ni contenido en logs.
 
-### Hojas guardadas ("Guardar el papel", A22 y D8)
+### Hojas guardadas (papel para calcular, A22 y D8)
 - Por defecto el papel para calcular no se guarda. Se guarda **solo si el niño tiene un docente vinculado
-  activo**: **sola al responder** (si hay trazos) y a mano con "Guardar el papel" (aviso "Guardado" si resultó;
-  sin vínculo o sin red no guarda y no muestra error). Una hoja por ejercicio (upsert). No hay casilla aparte.
+  activo**: **sola, sin botón**: al responder, al pasar a "Siguiente" y al cerrar el papel, si hay trazos nuevos desde el último
+  guardado (los guardados salen en fila y no se duplican; el upsert deja el último). Sin vínculo o sin red no guarda y no
+  muestra error ni aviso. Con docente vinculado, bajo el papel abierto dice "Tu profe puede ver este papel" (la consulta
+  `sheets/enabled` se hace una vez por perfil y se reutiliza 5 minutos). Una hoja por ejercicio (upsert). No hay casilla aparte.
 - **Solo cuentan los vínculos cuyo texto de autorización describe las hojas** (`covers_sheets`, desde `autorizacion-docente-prov-5`):
   los vínculos con textos anteriores no guardan ni muestran hojas (EIPD R35, solo para hojas; el historial y el progreso
   no cambian). Para no subir trazos sin destinatario, el dispositivo consulta `GET /v1/students/{id}/sheets/enabled`.

@@ -186,6 +186,9 @@ export { MEDAL_EVERY };
 /** "Tema" de las tareas del tutor en la pantalla (no es un tema del servidor). */
 export const TASKS_TOPIC: Topic = { id: 'tarea_tutor', label: 'Tareas de tu tutor' };
 
+/** Cuánto se reutiliza la respuesta de `sheets.enabled` para un perfil. */
+const SHEETS_ENABLED_TTL_MS = 5 * 60 * 1000;
+
 @Component({
   selector: 'app-practice',
   templateUrl: 'practice.page.html',
@@ -254,11 +257,26 @@ export class PracticePage implements OnInit {
   fraction: FractionValue = { num: '', den: '' };
 
   // Papel para calcular: abierto o cerrado. Lo dibujado se guarda SOLO si el niño tiene un docente
-  // vinculado (CU-A22): sola al responder y a mano con "Guardar el papel". Sin vínculo o sin red no
-  // se guarda y no se muestra ningún error. Las hojas no entran a la cola sin conexión.
+  // vinculado (CU-A22), solo, sin botón: al responder, al pasar a "Siguiente" y al cerrar el papel, si hay
+  // trazos nuevos. Sin vínculo o sin red no se guarda y no se muestra ningún error. Las hojas no entran a
+  // la cola sin conexión.
   paperOpen = false;
-  sheetNotice = '';
-  private sheetNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Hay un docente vinculado que puede ver el papel (solo para mostrar el aviso fijo). */
+  teacherSeesPaper = false;
+  /** Ejercicio ya respondido cuya hoja se guarda (se copia al responder: el niño puede cambiar de pantalla). */
+  private sheetTarget: {
+    student: string;
+    token: string;
+    task: boolean;
+    answer: number;
+    fraction: { num: number; den: number } | null;
+  } | null = null;
+  /** Trazos (JSON) del último guardado pedido para `sheetTarget`: evita repetir el mismo guardado. */
+  private sheetSaved = '';
+  /** Guardados en fila: así dos guardados del mismo ejercicio salen en orden (el upsert deja el último). */
+  private sheetQueue: Promise<unknown> = Promise.resolve();
+  /** ¿Hay docente vinculado? Se pregunta una vez por perfil y se reutiliza unos minutos. */
+  private sheetsEnabledCache: { student: string; at: number; value: Promise<boolean> } | null = null;
   @ViewChild(ScratchpadComponent) private paper?: ScratchpadComponent;
 
   // Tareas del tutor: el niño recibe solo id y texto; corrige el servidor.
@@ -644,6 +662,9 @@ export class PracticePage implements OnInit {
       this.nextTask();
       return;
     }
+    this.saveSheet(); // guarda lo dibujado ANTES de que el papel se limpie para el siguiente ejercicio
+    this.sheetTarget = null;
+    this.sheetSaved = '';
     this.busy = true;
     this.error = '';
     this.result = null;
@@ -742,7 +763,20 @@ export class PracticePage implements OnInit {
             )
           : await this.practice.answer(this.studentId, this.exercise.token, Number(this.answer));
       }
-      void this.saveSheet(); // automático: solo guarda si hay trazos y un docente vinculado
+      this.sheetTarget =
+        this.offlineMode || this.exercise.offline
+          ? null
+          : {
+              student: this.studentId,
+              token: this.exercise.token,
+              task: this.taskMode,
+              answer: Number(this.answer),
+              fraction: this.fractionMode
+                ? { num: Number(this.fraction.num), den: Number(this.fraction.den) }
+                : null,
+            };
+      this.sheetSaved = '';
+      this.saveSheet(); // solo guarda si hay trazos y un docente vinculado
       this.total += 1;
       // CU-A9: el recordatorio de racha sabe que este perfil ya practicó hoy (solo en el equipo).
       void this.reminders.notePractice(this.studentId);
@@ -802,50 +836,60 @@ export class PracticePage implements OnInit {
   }
 
   togglePaper(): void {
+    if (this.paperOpen) this.saveSheet(); // al cerrar el papel
     this.paperOpen = !this.paperOpen;
+    if (this.paperOpen) void this.refreshTeacherSees();
   }
 
-  /**
-   * Guardado manual de la hoja (el automático ya ocurrió al responder). Dice "Guardado" si resultó; si
-   * no, un aviso suave (sin vínculo, sin red o un fallo del servidor): nunca un error alarmante.
-   */
-  async savePaper(): Promise<void> {
-    const drawn = !!this.paper?.snapshot();
-    const saved = await this.saveSheet();
-    this.sheetNotice = saved
-      ? 'Guardado'
-      : drawn
-        ? 'No se pudo guardar ahora.'
-        : 'Dibuja algo en el papel para guardarlo.';
-    if (this.sheetNoticeTimer) clearTimeout(this.sheetNoticeTimer);
-    this.sheetNoticeTimer = setTimeout(() => {
-      this.sheetNotice = '';
-      this.cdr.markForCheck();
-    }, 2500);
+  private async refreshTeacherSees(): Promise<void> {
+    this.teacherSeesPaper = await this.sheetsEnabled(this.studentId);
     this.cdr.markForCheck();
   }
 
+  /** `sheets.enabled` guardado por perfil: se vuelve a preguntar solo si pasaron más de 5 minutos. */
+  private sheetsEnabled(student: string): Promise<boolean> {
+    const c = this.sheetsEnabledCache;
+    if (c && c.student === student && Date.now() - c.at < SHEETS_ENABLED_TTL_MS) return c.value;
+    const value = this.sheets.enabled(student);
+    this.sheetsEnabledCache = { student, at: Date.now(), value };
+    return value;
+  }
+
   /**
-   * Guarda la hoja del ejercicio ya respondido (upsert: una por ejercicio). Los trazos se copian ANTES
-   * de cualquier espera, así que pasar al siguiente ejercicio no los pierde. Nunca lanza.
+   * Guarda la hoja del ejercicio ya respondido si hay trazos nuevos desde el último guardado (upsert:
+   * una por ejercicio). Copia los trazos AHORA y no hace esperar a nadie. Nunca lanza ni avisa al niño.
    */
-  private async saveSheet(): Promise<boolean> {
-    const exercise = this.exercise;
+  private saveSheet(): void {
+    const target = this.sheetTarget;
     const strokes = this.paper?.snapshot();
-    if (!exercise || !this.result || !strokes) return false;
-    if (this.offlineMode || exercise.offline) return false;
-    // Todo se copia ANTES de esperar: si el niño pasa al siguiente ejercicio, no cambia lo que se guarda.
-    const student = this.studentId;
-    const token = exercise.token;
-    const task = this.taskMode;
-    const fraction = this.fractionMode ? { num: Number(this.fraction.num), den: Number(this.fraction.den) } : null;
-    const answer = Number(this.answer);
-    // Sin docente vinculado el dibujo no sale del dispositivo.
-    if (!(await this.sheets.enabled(student))) return false;
-    if (task) return this.sheets.saveTask(student, token, answer, strokes);
-    return fraction
-      ? this.sheets.savePractice(student, token, fraction.num, fraction.den, strokes)
-      : this.sheets.savePractice(student, token, answer, null, strokes);
+    if (!target || !strokes) return;
+    const signature = JSON.stringify(strokes);
+    if (signature === this.sheetSaved) return;
+    this.sheetSaved = signature;
+    const run = async (): Promise<void> => {
+      let saved = false;
+      try {
+        // Sin docente vinculado el dibujo no sale del dispositivo.
+        if (await this.sheetsEnabled(target.student)) {
+          saved = target.task
+            ? await this.sheets.saveTask(target.student, target.token, target.answer, strokes)
+            : target.fraction
+              ? await this.sheets.savePractice(
+                  target.student,
+                  target.token,
+                  target.fraction.num,
+                  target.fraction.den,
+                  strokes,
+                )
+              : await this.sheets.savePractice(target.student, target.token, target.answer, null, strokes);
+        }
+      } catch {
+        saved = false;
+      }
+      // Si no se guardó, el próximo disparador (siguiente o cerrar) lo vuelve a intentar.
+      if (!saved && this.sheetTarget === target && this.sheetSaved === signature) this.sheetSaved = '';
+    };
+    this.sheetQueue = this.sheetQueue.then(run);
   }
 
   /** "Explícame cómo se hace": pide la explicación por streaming. Una petición a la vez. */

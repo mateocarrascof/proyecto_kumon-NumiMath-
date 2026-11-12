@@ -7,7 +7,7 @@ Estado: implementado (A22, D8 y T27). Complementa
 El papel para calcular del niño **no se guarda**: vive solo en la pantalla y se borra al pasar de ejercicio.
 
 ## Excepción y su justificación
-Una hoja se guarda únicamente cuando el niño tiene **un docente vinculado activo**: sola al responder el ejercicio y también si pulsa "Guardar el papel". El motivo es pedagógico: el docente necesita ver **cómo hizo la cuenta** el niño
+Una hoja se guarda únicamente cuando el niño tiene **un docente vinculado activo**: sola, sin que el niño pulse nada: al responder el ejercicio, al pasar al siguiente y al cerrar el papel. El motivo es pedagógico: el docente necesita ver **cómo hizo la cuenta** el niño
 para corregir errores de procedimiento, algo que el resultado final no muestra.
 
 ## Límites (minimización)

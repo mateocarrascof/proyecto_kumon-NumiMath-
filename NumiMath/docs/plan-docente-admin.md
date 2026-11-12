@@ -14,7 +14,7 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
   existentes conservan la versión que se aceptó (decidir si deben reconfirmarse).
 
 ## Paso 8: hojas guardadas (A22, D8 y T27 hechos)
-- **Hecho:** guardar la hoja (sola al responder y a mano), lectura del docente desde `accepted_at`, borrado por
+- **Hecho:** guardar la hoja (sola, sin botón: al responder, al pasar a "Siguiente" y al cerrar el papel; el niño ve "Tu profe puede ver este papel"), lectura del docente desde `accepted_at`, borrado por
   perfil/cuenta/consentimiento (probado), plazo de 90 días provisional con purga diaria, texto de autorización
   `prov-5`. Decisiones en `docs/SPEC.md` ("Hojas guardadas"). Se eligió jsonb vectorial en vez de imágenes en Storage.
 - **T27 hecho:** el tutor ve y elimina (una o todas) las hojas de su hijo, con PIN reciente y confirmación; el visor del
@@ -48,7 +48,7 @@ Los cinco revisores del CLAUDE.md corrieron una vez; sus hallazgos críticos y a
 - **Token de vínculo de 8 minutos** reutilizable tras quitar al docente (ya anotado más abajo).
 - **Zona horaria de la purga:** `purge_expired_student_sheets` limpia los contadores con `current_date` del servidor y no
   con la hora de Santiago (el límite diario sí usa Santiago).
-- **Dibujo libre con datos personales** escritos a mano (R30): no hay filtro posible; mitigación = aviso al niño y plazo.
+- **Dibujo libre con datos personales** escritos a mano (R30): no hay filtro posible; mitigación = aviso al niño (resuelto: "Tu profe puede ver este papel" bajo el papel) y plazo.
 - **Aviso al niño** de que su docente verá la hoja (ya anotado).
 - **Cobertura no revisada:** `EXPLAIN` sobre una base poblada, y el visor de hojas en equipos de gama baja.
 - **Lo que debe validar un abogado:** los 90 días de las hojas, `admin_audit` sin purga, el docente como tercero y su acceso
@@ -66,6 +66,9 @@ Los cinco revisores del CLAUDE.md corrieron una vez; sus hallazgos críticos y a
   siguen abiertos con Legal (`pendientes-legales.md`, 20).
 - **T8:** editar pide el PIN de nuevo (reciente) aunque el panel ya esté abierto con PIN.
 - **D6:** umbral de "pocos ejercicios" = 5 en total; ajustar con la experiencia de uso.
+
+## Guardado automático de hojas
+- Solo guarda al responder, al pasar a "Siguiente" y al cerrar el papel: si el niño sale de la pantalla o cambia de tema con trazos nuevos sin pulsar "Siguiente", esos trazos no se guardan. El texto de `autorizacion-docente-prov-5` se editó en su sitio (cambió su huella en la semilla; los vínculos ya aceptados en bases existentes conservan la huella anterior).
 
 ## Para más adelante
 - **PRIORIDAD ALTA: registro de lecturas del docente** (EIPD R38). Hacerlo si sobra tiempo después

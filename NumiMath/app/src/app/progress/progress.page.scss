@@ -193,3 +193,17 @@ ion-progress-bar::part(progress) {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
 }
+
+/* Evolución por semana (CU-A23) */
+.evolution {
+  padding: 12px 14px;
+  margin: 16px 0;
+  h2 { margin-top: 0; }
+}
+
+.evolution-note {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+}

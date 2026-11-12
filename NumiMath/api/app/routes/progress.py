@@ -3,6 +3,10 @@
 Se calcula en el servidor a partir de `student_attempts`: aciertos por tema, últimos intentos y
 racha de aciertos. La racha diaria ("días seguidos") sale de `student_daily_streaks`, ajustada a la
 fecha local que manda el dispositivo. Solo se leen tema, resultado y hora; el apodo no interviene.
+
+CU-A23 (evolución): `weeks` agrupa los mismos intentos de práctica en las últimas 8 semanas, con
+la misma función que el informe del tutor (`app/weekly.py`). El diagnóstico inicial no cuenta:
+`list_attempts` solo lee `activity = 'practice'`.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from app.deps import AuthorizedStudentDep
 from app.errors import ApiError
 from app.logging import get_logger, log_event
 from app.streaks import effective_streak, parse_local_day, utc_today
+from app.weekly import WeekOut, weekly
 
 router = APIRouter(prefix="/v1/students", tags=["progress"])
 logger = get_logger("mathtutor.progress")
@@ -48,6 +53,8 @@ class ProgressOut(BaseModel):
     practiced_today: bool = False
     by_topic: list[TopicProgress]
     recent: list[RecentAttempt]
+    # Evolución (CU-A23): 8 semanas que terminan hoy, de la más antigua a la actual, con vacías.
+    weeks: list[WeekOut] = []
 
 
 def summarize(attempts: list[AttemptRow], grade: int) -> ProgressOut:
@@ -104,5 +111,9 @@ async def get_progress(
     local_today = parse_local_day(today) or utc_today()
     daily, practiced_today = effective_streak(streak_row, local_today)
     return summarize(attempts, grade).model_copy(
-        update={"daily_streak": daily, "practiced_today": practiced_today}
+        update={
+            "daily_streak": daily,
+            "practiced_today": practiced_today,
+            "weeks": weekly(attempts, local_today),
+        }
     )

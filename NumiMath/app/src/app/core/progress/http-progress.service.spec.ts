@@ -46,3 +46,44 @@ describe('HttpProgressService', () => {
     expect(progress.practicedToday).toBe(true);
   });
 });
+
+describe('HttpProgressService: evolución (CU-A23)', () => {
+  it('mapea las semanas de la evolución', async () => {
+    const { service, http } = setup();
+    const result = service.get('perfil-1');
+    await tick();
+    http.expectOne((r) => r.url === URL).flush({
+      total: 3,
+      correct: 2,
+      streak: 0,
+      daily_streak: 0,
+      practiced_today: false,
+      by_topic: [],
+      recent: [],
+      weeks: [
+        { start: '2026-10-01', total: 0, correct: 0 },
+        { start: '2026-10-08', total: 3, correct: 2 },
+      ],
+    });
+    expect((await result).weeks).toEqual([
+      { start: '2026-10-01', total: 0, correct: 0 },
+      { start: '2026-10-08', total: 3, correct: 2 },
+    ]);
+  });
+
+  it('si la API aún no envía semanas, deja la lista vacía', async () => {
+    const { service, http } = setup();
+    const result = service.get('perfil-1');
+    await tick();
+    http.expectOne((r) => r.url === URL).flush({
+      total: 0,
+      correct: 0,
+      streak: 0,
+      daily_streak: 0,
+      practiced_today: false,
+      by_topic: [],
+      recent: [],
+    });
+    expect((await result).weeks).toEqual([]);
+  });
+});

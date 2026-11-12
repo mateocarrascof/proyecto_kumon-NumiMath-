@@ -26,6 +26,18 @@ export function topicStars(correct: number, total: number): number {
 /** Racha que muestra la insignia en el resumen. */
 export const STREAK_BADGE = 5;
 
+/**
+ * CU-A23: con menos de 5 ejercicios en las últimas 8 semanas no se dibuja el gráfico (no se ve
+ * ninguna evolución y unas barras casi vacías podrían desanimar). Misma regla de "pocos datos"
+ * que el informe del tutor.
+ */
+export const MIN_EVOLUTION_EXERCISES = 5;
+
+export const EVOLUTION_MESSAGES = {
+  few: 'Aún hay pocos ejercicios para ver tu avance',
+  cheer: '¡Cada semana que practicas, aprendes más!',
+} as const;
+
 @Component({
   selector: 'app-progress',
   templateUrl: 'progress.page.html',
@@ -47,6 +59,16 @@ export class ProgressPage implements OnInit {
   protected readonly starSlots = [0, 1, 2];
   protected readonly streakBadge = STREAK_BADGE;
   protected readonly daysLabel = daysLabel;
+  protected readonly evolutionMessages = EVOLUTION_MESSAGES;
+
+  /** Ejercicios de las últimas 8 semanas (solo práctica: el diagnóstico no cuenta). */
+  get weeksTotal(): number {
+    return (this.progress?.weeks ?? []).reduce((n, w) => n + w.total, 0);
+  }
+
+  get showEvolution(): boolean {
+    return this.weeksTotal >= MIN_EVOLUTION_EXERCISES;
+  }
 
   get dailyHint(): string {
     const p = this.progress;

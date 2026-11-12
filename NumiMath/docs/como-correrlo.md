@@ -60,6 +60,14 @@ Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra u
 5. **Eliminar:** "Eliminar" → lee la explicación → "Sí, eliminar la cuenta". El docente ya no puede entrar
    (si su pantalla seguía abierta, al recargar vuelve a la entrada).
 
+### Probar el vínculo del docente a mano
+1. Con un docente creado (ver arriba), anota su **código** de 8 caracteres (lo ve en `/docente`).
+2. Entra como tutor, abre el **Panel del tutor** (te pide tu PIN) y elige un perfil.
+3. En "Docentes de <perfil>", pulsa **Vincular docente**, escribe tu PIN y el código. Lee el aviso con el
+   nombre del docente, marca "Entiendo y autorizo" y vincula.
+4. Prueba un código inexistente 5 veces: a la sexta te bloquea 15 minutos.
+5. Pulsa **Quitar**, escribe el PIN y confirma. Para repetir tras el bloqueo, espera o reinicia la base.
+
 ## Pruebas
 
 | Qué | Comando |

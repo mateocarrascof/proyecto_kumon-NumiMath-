@@ -161,6 +161,9 @@
         <p class="hint">Todavía no hay tareas.</p>
       }
     </section>
+
+    <!-- ===== Docentes del niño seleccionado (vincular y quitar, con PIN) ===== -->
+    <app-teacher-links [studentId]="studentId" [nickname]="selectedNickname"></app-teacher-links>
     }
 
     <!-- ===== Perfiles (crear y eliminar) ===== -->

@@ -419,14 +419,17 @@ están implementados; el resto se construye en el orden de abajo.
 - Un docente ve a un niño **solo si** hay vínculo activo, el consentimiento del tutor no está
   revocado, el perfil no está bloqueado y el rol del docente sigue verificado. Toda lectura pasa por
   `teacher_can_view`; los docentes no tienen `select` directo sobre tablas de niños.
-- El docente ve **solo apodo, curso, progreso e historial** de esos niños. Nunca la identidad ni el
+- El docente ve **solo apodo, curso, progreso e historial** de esos niños. **Desde cuándo:** el progreso por
+  habilidad (estado actual) lo ve completo; el historial de ejercicios y las hojas, **solo desde `accepted_at` del
+  vínculo** (nunca lo anterior ni hojas guardadas para otro docente). Nunca la identidad ni el
   correo del tutor. En el historial **no ve el texto de las tareas que escribió el tutor** (solo "tarea
   del tutor" y si acertó), ve la fecha sin hora y no ve los segundos de respuesta.
 - El tutor puede quitar el vínculo cuando quiera (T26) y el acceso se corta al instante.
 - **Revocar el consentimiento borra todos los vínculos** del tutor; volver a consentir no los
   restaura (hay que vincular de nuevo). Eliminar la cuenta del tutor o un perfil los borra en cascada.
-- Los términos y la política nuevos (con la cláusula del docente como tercero) se aceptan al vincular
-  por primera vez, no al registrarse.
+- La autorización del docente es un **anexo aparte y versionado** (`teacher_authorization`, con su huella): se
+  acepta en cada vínculo y no modifica los términos ni la política generales (no obliga a re-aceptarlos). Si el
+  anexo cambia de versión, los vínculos existentes conservan la que se aceptó (pendiente decidir si se reconfirman).
 - Borrar un docente borra sus vínculos; no toca perfiles, progreso ni hojas de niños (las hojas solo
   dejan de verse para ese docente). Sin contraseñas, correos ni contenido en logs.
 
@@ -440,6 +443,30 @@ están implementados; el resto se construye en el orden de abajo.
   hojas nuevas. No llegan a la IA.
 - **Pendiente:** plazo máximo de conservación de las hojas (con purga programada).
 - Justificación: `docs/privacy/hojas-guardadas-justificacion.md`. **Pendiente de implementar**.
+
+### Vincular y quitar docentes (T25, con T24 integrado, y T26)
+Hecho en el panel del tutor, sección "Docentes de <apodo>" del perfil seleccionado. **Cada hijo se
+vincula por separado.** La lectura de datos del niño por el docente llega después.
+- **T25 Vincular:** el tutor escribe **su PIN (siempre de nuevo)** y el código de 8 caracteres del docente.
+  - El servidor exige que el PIN se haya verificado hace **menos de 2 minutos** (el permiso del panel no basta).
+  - Se muestra el **nombre del docente** y el texto de autorización (`docs/legal-provisional/autorizacion-docente.md`,
+    tipo `teacher_authorization`, versionado con su huella, provisional): qué verá (progreso por habilidad e
+    historial de ejercicios y hojas solo desde que se vincula, sin el texto de las tareas del tutor), qué se guardará (las hojas, solo con vínculo
+    activo) y cómo quitarlo. Solo se puede aceptar si la huella del texto coincide con la publicada.
+  - Al aceptar ("Entiendo y autorizo", opt-in) se crea el vínculo con `accepted_at`, `terms_version_id` y el
+    nombre mostrado. Exige consentimiento vigente. El código no se reenvía: la búsqueda entrega un token de
+    confirmación firmado (8 minutos) ligado a ese tutor, ese hijo, ese docente, su nombre y esa versión.
+  - **Límite de intentos:** 5 códigos que no existen seguidos y el tutor queda bloqueado 15 minutos (429), por
+    tutor. Un código que no existe, uno mal formado y uno de un docente sin perfil responden lo mismo (404).
+    El docente no se entera de nada y el código no se registra en logs.
+- **T26 Quitar:** lista de docentes vinculados al hijo; "Quitar" pide el PIN de nuevo (recién verificado) y una
+  confirmación. Funciona aunque el perfil esté bloqueado. **No borra datos del niño ni sus hojas**: el docente
+  solo deja de verlas. Si el docente cambió de nombre, se muestra el nombre con el que se vinculó.
+- Quitar un vínculo solo se puede por el servidor (con el PIN): el tutor no puede borrarlo directo desde el
+  cliente. Un acierto de código no reinicia el contador de fallos: se reinicia al crear el vínculo o tras 15
+  minutos sin fallos.
+- Endpoints (`/v1/students/{id}`): `POST /teacher-links/lookup`, `POST /teacher-links`, `GET /teachers`,
+  `DELETE /teachers/{teacher_id}`.
 
 ### Administrador (AD1 a AD5)
 El administrador gestiona **cuentas de adultos (docentes)**. Nunca ve datos de niños ni hojas, y cada
@@ -490,8 +517,8 @@ El docente no se registra desde la app: la empresa le entrega correo y contrase�
 1. **Base y roles** (hecho): migración, trigger, `roleGuard`, dependencias por rol, pruebas de RLS.
 2. **AD1, AD2 y AD3** (hecho).
 3. **D2** entrada del docente; **D3** ver mi código (hecho). **AD4** editar y **AD5** eliminar (hecho).
-4. **T24–T26** el tutor vincula por código con confirmación del nombre y límite de intentos, ve y quita
-   vínculos (incluye términos y política nuevos). *(T24 ya no es un interruptor: es el aviso previo.)*
+4. **T24–T26** (hecho) el tutor vincula por código con PIN, confirmación del nombre y límite de intentos, ve
+   y quita vínculos. *(T24 ya no es un interruptor: es el aviso previo.)*
 5. **T5** historial del hijo (paginado); **D4** alumnos vinculados; **D5** progreso por habilidad;
    **D7** historial.
 6. **T8** editar tareas asignadas; **T22** exportar CSV (neutralizando celdas que empiecen con `=`,

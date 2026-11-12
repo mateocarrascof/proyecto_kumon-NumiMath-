@@ -3,15 +3,15 @@
 Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden de construcción
 (`docs/SPEC.md`, sección "Docentes y administradores") donde se resuelve. Fecha: 2026-11-12.
 
-## Paso 4: vincular por código (T24–T26)
-- Redactar el **texto del aviso** de confirmación del vínculo: identidad del docente, que es un tercero,
-  qué ve exactamente (incluidas las hojas), para qué, por cuánto tiempo, cómo quitarlo y qué hacer si hay
-  abuso. Ligarlo a la versión de los términos (`terms_version_id`).
+## Paso 4: vincular por código (T24–T26): hecho; queda pendiente
+- El **texto del aviso** (`autorizacion-docente.md`) ya existe y es provisional: lo debe revisar Legal. Falta
+  que diga el plazo de conservación (pendiente) y quién responde a las solicitudes del docente.
 - Definir y documentar **quién verifica que el docente es realmente docente** (alta por el administrador)
-  y el procedimiento ante abuso (también en la EIPD).
+  y el procedimiento ante abuso (también en la EIPD, R32).
 - **Rotación del código de vínculo**: hoy es inmutable; si se filtra no se puede cambiar. Evaluar que el
   administrador lo rote y que eso invalide los vínculos pendientes.
-- Probar el **límite de intentos** al vincular (R28 de la EIPD).
+- El texto de autorización no obliga a re-aceptar los términos generales: si cambia su versión, los vínculos
+  existentes conservan la versión que se aceptó (decidir si deben reconfirmarse).
 
 ## Paso 8: hojas guardadas (T27, D8)
 - **Las hojas pertenecen al niño** (decidido): quitar un vínculo o eliminar al docente NO las borra, solo
@@ -26,6 +26,19 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
   guardado.
 
 ## Para más adelante
+- **Lectura del docente (D4 a D7):** decidido que el historial de ejercicios y las hojas se ven **solo desde
+  `accepted_at`** del vínculo y el progreso por habilidad (estado actual) completo. Aplicarlo al construir la
+  lectura, con filtro por `accepted_at` y pruebas pgTAP (EIPD R37).
+- **Archivo de la autorización** al quitar o borrar un vínculo (alta y baja, sin datos del niño; EIPD R36).
+- **Reconfirmar o suspender vínculos** cuando cambie la versión del texto de autorización (EIPD R35).
+- **Token de confirmación de un solo uso:** hoy, si el tutor quita al docente con un token todavía vigente
+  (hasta 8 minutos), ese token podría volver a crear el vínculo sin PIN nuevo. Incluir una marca de tiempo y
+  rechazarlo si hubo una baja posterior, o exigir PIN reciente también al crear.
+- **`accepted_at` devuelto por la API:** la respuesta de crear el vínculo calcula la hora en la API; devolver
+  la que guardó la base.
+- **Publicar la versión del texto de autorización** con un procedimiento versionado (migración o script que
+  verifique la huella): hoy solo la publica la semilla de desarrollo.
+- **Texto de autorización:** completar el responsable y el contacto de privacidad; que lo revise Legal.
 - Quitar la lectura de `tutor_id` por el docente: requiere servir los vínculos del docente solo por
   FastAPI (cambio de diseño; hoy es un UUID opaco).
 - Archivo append-only, sin datos del niño, de los vínculos dados de baja (alta, baja, motivo, versión) y,

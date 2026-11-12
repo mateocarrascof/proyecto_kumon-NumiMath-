@@ -14,6 +14,8 @@ import { AuthPort } from '../core/auth/auth.port';
 import { RevokeConsentComponent } from './revoke-consent.component';
 import { DeleteAccountComponent } from '../core/account/delete-account.component';
 import { ProfileFormComponent } from './profile-form.component';
+import { TeacherLinksPort } from '../core/teacher-links/teacher-links.port';
+import { TeacherLinksComponent } from './teacher-links.component';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
 const REPORT: Report = {
@@ -77,6 +79,7 @@ function setup(
       ProfileFormComponent,
       DeleteAccountComponent,
       RevokeConsentComponent,
+      TeacherLinksComponent,
     ],
     imports: [IonicModule.forRoot()],
     providers: [
@@ -87,6 +90,7 @@ function setup(
       { provide: AccountPort, useValue: { delete: vi.fn(async () => 'ok') } },
       { provide: ConsentRevocationPort, useValue: { revoke: vi.fn() } },
       { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },
+      { provide: TeacherLinksPort, useValue: { list: vi.fn(async () => ({ ok: true, teachers: [] })) } },
       { provide: ConsentPort, useValue: { loadCurrent: vi.fn(async () => ({})) } },
       { provide: NavController, useValue: nav },
     ],

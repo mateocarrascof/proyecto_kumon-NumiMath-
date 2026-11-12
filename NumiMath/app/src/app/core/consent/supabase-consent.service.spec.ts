@@ -35,6 +35,8 @@ async function setup(opts: {
       version: 'ad-1',
       content_sha256: await hash(TEXTS['declaracion-adulto.md']),
     },
+    // Otro texto vigente (autorización del docente): no es parte del consentimiento y no debe romperlo.
+    { id: 'd1', kind: 'teacher_authorization', version: 'doc-1', content_sha256: 'f'.repeat(64) },
   ];
   const inserted: unknown[] = [];
   const client = {

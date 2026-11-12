@@ -75,8 +75,14 @@ def issue_parental_token(signing_key: bytes, tutor_id: uuid.UUID, now: float | N
 
 
 def verify_parental_token(
-    signing_key: bytes, token: str | None, tutor_id: uuid.UUID, now: float | None = None
+    signing_key: bytes,
+    token: str | None,
+    tutor_id: uuid.UUID,
+    now: float | None = None,
+    max_age: float | None = None,
 ) -> None:
+    """Valida el token. Con `max_age`, además exige que el PIN se haya verificado hace poco
+    (el token vence a los `TOKEN_TTL_SECONDS`; su edad es `TTL - tiempo que le queda`)."""
     if not token or len(token) > 300:
         raise InvalidParentalToken
     try:
@@ -93,7 +99,10 @@ def verify_parental_token(
         expires_at = int(data["e"])
     except (ValueError, KeyError, TypeError):
         raise InvalidParentalToken from None
-    if owner != tutor_id or (time.time() if now is None else now) >= expires_at:
+    moment = time.time() if now is None else now
+    if owner != tutor_id or moment >= expires_at:
+        raise InvalidParentalToken
+    if max_age is not None and moment - (expires_at - TOKEN_TTL_SECONDS) > max_age:
         raise InvalidParentalToken
 
 

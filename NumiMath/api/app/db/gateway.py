@@ -96,6 +96,29 @@ class TeacherProfile:
 
 
 @dataclass(frozen=True)
+class LinkLookup:
+    """Resultado de buscar un docente por su código (solo su nombre y el texto legal vigente)."""
+
+    status: str  # ok | not_found | locked | already_linked | student_not_found | no_terms
+    teacher_id: uuid.UUID | None = None
+    name: str = ""
+    terms_id: uuid.UUID | None = None
+    terms_version: str = ""
+    terms_sha256: str = ""
+    retry_after: int = 0
+
+
+@dataclass(frozen=True)
+class LinkedTeacher:
+    """Docente vinculado a un perfil: nombre actual y el mostrado al aceptar (nunca el correo)."""
+
+    teacher_id: uuid.UUID
+    name: str
+    shown_name: str
+    accepted_at: datetime
+
+
+@dataclass(frozen=True)
 class PinState:
     """Estado del PIN del tutor. `pin_hash` es argon2id; nunca sale del servidor."""
 
@@ -331,4 +354,34 @@ class Gateway(Protocol):
         self, admin_id: uuid.UUID, teacher_id: uuid.UUID
     ) -> int:
         """Cierra todas las sesiones del docente (invalida sus tokens de refresco)."""
+        ...
+
+    async def teacher_link_lookup(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, code: str
+    ) -> LinkLookup:
+        """Busca al docente por su código y cuenta los fallos (5 y 15 minutos de bloqueo)."""
+        ...
+
+    async def create_teacher_link(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        teacher_name: str,
+        terms_version_id: uuid.UUID,
+    ) -> str:
+        """Crea el vínculo. `ok`, `already_linked`, `student_not_found`, `teacher_not_found`,
+        `name_changed`, `terms_outdated` o `consent_required`."""
+        ...
+
+    async def list_student_teachers(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[LinkedTeacher] | None:
+        """Docentes vinculados al perfil, o `None` si el perfil no es del tutor."""
+        ...
+
+    async def remove_teacher_link(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> str:
+        """Quita el vínculo (no toca datos del niño). `ok` o `not_found`."""
         ...

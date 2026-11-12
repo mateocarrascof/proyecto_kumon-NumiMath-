@@ -84,6 +84,11 @@ export class TutorPanelPage implements OnInit {
     return avatarFor(p.id);
   }
 
+  /** Apodo del perfil seleccionado (para los textos de la sección de docentes). */
+  get selectedNickname(): string {
+    return this.profiles.find((p) => p.id === this.studentId)?.nickname ?? '';
+  }
+
   get profilesFull(): boolean {
     return this.profiles.length >= MAX_PROFILES;
   }

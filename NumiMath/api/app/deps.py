@@ -102,10 +102,19 @@ def parental_key(request: Request) -> bytes:
     return key.encode()
 
 
-def _require_parental(request: Request, tutor: AuthenticatedTutor) -> None:
+# Vincular o quitar a un docente exige un PIN escrito hace muy poco: no basta el permiso del panel.
+FRESH_PIN_SECONDS = 120
+
+
+def _require_parental(
+    request: Request, tutor: AuthenticatedTutor, max_age: float | None = None
+) -> None:
     try:
         verify_parental_token(
-            parental_key(request), request.headers.get("x-parental-token"), tutor.tutor_id
+            parental_key(request),
+            request.headers.get("x-parental-token"),
+            tutor.tutor_id,
+            max_age=max_age,
         )
     except InvalidParentalToken:
         log_event(logger, "parental.denied", code="token_invalid")
@@ -136,3 +145,24 @@ async def get_parental_tutor(tutor: CurrentTutor, request: Request) -> Authentic
 
 
 ParentalTutorDep = Annotated[AuthenticatedTutor, Depends(get_parental_tutor)]
+
+
+async def get_fresh_parental_student(
+    student_id: uuid.UUID, tutor: CurrentTutor, request: Request
+) -> AuthorizedStudent:
+    """Como `get_parental_student`, pero el PIN debe haberse verificado hace menos de 2 minutos."""
+    _require_parental(request, tutor, max_age=FRESH_PIN_SECONDS)
+    return await get_authorized_student(student_id, tutor, request)
+
+
+FreshParentalStudentDep = Annotated[AuthorizedStudent, Depends(get_fresh_parental_student)]
+
+
+async def get_fresh_parental_tutor(tutor: CurrentTutor, request: Request) -> AuthenticatedTutor:
+    """Tutor con el PIN recién verificado, sin exigir consentimiento vigente ni perfil desbloqueado
+    (quitar un vínculo debe poder hacerse siempre)."""
+    _require_parental(request, tutor, max_age=FRESH_PIN_SECONDS)
+    return tutor
+
+
+FreshParentalTutorDep = Annotated[AuthenticatedTutor, Depends(get_fresh_parental_tutor)]

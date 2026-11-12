@@ -23,6 +23,8 @@ from app.db.gateway import (
     ConsentSummary,
     DiagnosticItem,
     GatewayError,
+    LinkedTeacher,
+    LinkLookup,
     PinState,
     TeacherProfile,
     TeacherRow,
@@ -683,3 +685,105 @@ class SupabaseGateway:
         if isinstance(result, bool) or not isinstance(result, int):
             raise GatewayError("unexpected_result")
         return result
+
+    async def teacher_link_lookup(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, code: str
+    ) -> LinkLookup:
+        result = await self._rpc(
+            "teacher_link_lookup",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id), "p_code": code},
+        )
+        try:
+            status = str(result["status"])
+            if status not in (
+                "ok",
+                "not_found",
+                "locked",
+                "already_linked",
+                "student_not_found",
+                "no_terms",
+            ):
+                raise ValueError
+            if status == "locked":
+                return LinkLookup(status, retry_after=int(result["retry_after"]))
+            if status != "ok":
+                return LinkLookup(status)
+            return LinkLookup(
+                status,
+                teacher_id=uuid.UUID(str(result["teacher_id"])),
+                name=str(result["name"]),
+                terms_id=uuid.UUID(str(result["terms_id"])),
+                terms_version=str(result["terms_version"]),
+                terms_sha256=str(result["terms_sha256"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def create_teacher_link(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        teacher_name: str,
+        terms_version_id: uuid.UUID,
+    ) -> str:
+        result = await self._rpc(
+            "create_teacher_link",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_teacher_id": str(teacher_id),
+                "p_teacher_name": teacher_name,
+                "p_terms_version_id": str(terms_version_id),
+            },
+        )
+        if result not in (
+            "ok",
+            "already_linked",
+            "student_not_found",
+            "teacher_not_found",
+            "name_changed",
+            "terms_outdated",
+            "consent_required",
+        ):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def list_student_teachers(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[LinkedTeacher] | None:
+        result = await self._rpc(
+            "list_student_teachers",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        try:
+            if not isinstance(result, list):
+                raise TypeError
+            return [
+                LinkedTeacher(
+                    teacher_id=uuid.UUID(str(row["teacher_id"])),
+                    name=str(row["name"]),
+                    shown_name=str(row["shown_name"]),
+                    accepted_at=datetime.fromisoformat(str(row["accepted_at"])),
+                )
+                for row in result
+            ]
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def remove_teacher_link(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> str:
+        result = await self._rpc(
+            "remove_teacher_link",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_teacher_id": str(teacher_id),
+            },
+        )
+        if result not in ("ok", "not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)

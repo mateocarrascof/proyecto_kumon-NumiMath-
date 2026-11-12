@@ -90,11 +90,11 @@ reset role;
 set local role service_role;
 select is(public.consent_evidence_is_complete('ffffffff-0000-0000-0000-000000000001'),
   false, 'sin archivar, la evidencia está incompleta (no se debe borrar)');
-select is(public.archive_consent_evidence('ffffffff-0000-0000-0000-000000000001', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 1::smallint),
+select is(public.archive_consent_evidence('ffffffff-0000-0000-0000-000000000001', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1::smallint),
   2, 'archiva las 2 filas (aceptación y revocación)');
 select is(public.consent_evidence_is_complete('ffffffff-0000-0000-0000-000000000001'),
   true, 'archivada, la evidencia está completa');
-select is(public.archive_consent_evidence('ffffffff-0000-0000-0000-000000000001', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 1::smallint),
+select is(public.archive_consent_evidence('ffffffff-0000-0000-0000-000000000001', 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1::smallint),
   0, 'archivar otra vez no duplica (idempotente)');
 select is(public.tutor_exists('ffffffff-0000-0000-0000-000000000001'), true, 'el tutor existe antes de borrar');
 reset role;
@@ -103,7 +103,7 @@ reset role;
 set local role service_role;
 select is(public.consent_evidence_is_complete('ffffffff-0000-0000-0000-000000000001'), true,
   'sigue completa aunque se consulte sin ninguna huella (no depende de la clave HMAC)');
-select is(public.archive_consent_evidence('ffffffff-0000-0000-0000-000000000001', repeat('c', 64), repeat('d', 64), 2::smallint),
+select is(public.archive_consent_evidence('ffffffff-0000-0000-0000-000000000001', repeat('c', 64), 2::smallint),
   0, 'con otra clave (otra huella) no duplica la evidencia ya archivada');
 select is(public.consent_evidence_is_complete('ffffffff-0000-0000-0000-000000000001'), true,
   'y sigue completa: un cambio de clave entre dos intentos no bloquea el borrado');

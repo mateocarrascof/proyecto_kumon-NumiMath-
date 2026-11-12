@@ -1,8 +1,9 @@
 """Zona del tutor: eliminar la cuenta y todos sus datos (T21).
 
-Confirmación fuerte: (a) el PIN verificado (token parental) o una contraseña de hace menos de 5
-minutos, Y (b) escribir la palabra ELIMINAR. Sin consentimiento vigente también se puede borrar:
-suprimir los datos es un derecho del titular. El orden del borrado está en `app/account.py`.
+Confirmación fuerte: (a) la CONTRASEÑA de la cuenta escrita hace menos de 5 minutos (el PIN no
+basta: lo puede conocer un niño), Y (b) escribir la palabra ELIMINAR. Sin consentimiento
+vigente también se puede borrar: suprimir los datos es un derecho del titular. El orden del
+borrado está en `app/account.py`.
 Reglas: docs/SPEC.md ("Eliminar la cuenta").
 """
 
@@ -16,17 +17,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.account import AccountDeletionError, delete_account, evidence_key
 from app.auth.admin import AuthAdmin
 from app.db.gateway import Gateway
-from app.deps import CurrentTutor, parental_key
+from app.deps import CurrentTutor
 from app.errors import ApiError
 from app.logging import get_logger, log_event
-from app.parental import InvalidParentalToken, recently_reauthenticated, verify_parental_token
+from app.parental import recently_reauthenticated
 
 router = APIRouter(prefix="/v1/tutor/account", tags=["account"])
 logger = get_logger("mathtutor.account")
 
 CONFIRM_WORD = "ELIMINAR"
-# El token del PIN debe ser reciente: no basta con haber entrado al panel hace minutos.
-FRESH_PIN_SECONDS = 60
 
 
 class DeleteAccountIn(BaseModel):
@@ -35,25 +34,15 @@ class DeleteAccountIn(BaseModel):
     confirm: Annotated[str, Field(max_length=40)]
 
 
-def _confirm_identity(request: Request, tutor: CurrentTutor) -> None:
-    """PIN escrito AHORA (token parental de menos de 60 s) o contraseña de hace menos de 5 min."""
-    try:
-        verify_parental_token(
-            parental_key(request),
-            request.headers.get("x-parental-token"),
-            tutor.tutor_id,
-            max_age_seconds=FRESH_PIN_SECONDS,
-        )
-        return
-    except InvalidParentalToken:
-        pass
+def _confirm_identity(tutor: CurrentTutor) -> None:
+    """Contraseña escrita hace menos de 5 minutos (claim `amr` del JWT). El PIN no se acepta."""
     if recently_reauthenticated(tutor.password_auth_at):
         return
     log_event(logger, "account.denied", code="reauth_required")
     raise ApiError(
         401,
         "parental_required",
-        message="Para eliminar la cuenta escribe tu PIN o vuelve a entrar con tu contraseña.",
+        message="Para eliminar la cuenta vuelve a entrar con tu contraseña.",
     )
 
 
@@ -61,7 +50,7 @@ def _confirm_identity(request: Request, tutor: CurrentTutor) -> None:
 async def delete_my_account(
     body: DeleteAccountIn, tutor: CurrentTutor, request: Request
 ) -> Response:
-    _confirm_identity(request, tutor)
+    _confirm_identity(tutor)
     if body.confirm.strip() != CONFIRM_WORD:
         raise ApiError(
             422,

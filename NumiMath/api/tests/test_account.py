@@ -14,7 +14,7 @@ import pytest
 import respx
 from fastapi.testclient import TestClient
 
-from app.account import AccountDeletionError, EvidenceKey, email_ref, evidence_key, tutor_ref
+from app.account import AccountDeletionError, EvidenceKey, evidence_key, tutor_ref
 from app.auth.admin import AuthAdminError, GoTrueAdmin
 from app.config import Settings
 from app.db.gateway import GatewayError
@@ -80,7 +80,7 @@ def _delete(
     sub: uuid.UUID = TUTOR,
     email: str | None = EMAIL,
     parental: str | None = None,
-    password_age: int | None = None,
+    password_age: int | None = 30,
     extra: dict[str, Any] | None = None,
 ) -> Any:
     headers = {"Authorization": f"Bearer {_jwt(sub, email=email, password_age=password_age)}"}
@@ -94,7 +94,7 @@ def _delete(
 
 def test_borra_en_el_orden_del_adr_y_responde_204() -> None:
     client, gateway, admin = _build()
-    response = _delete(client, parental=_parental())
+    response = _delete(client)
     assert response.status_code == 204
     assert gateway.log == [
         "tutor_exists",  # ¿ya estaba borrada? (reintentos)
@@ -111,33 +111,28 @@ def test_borra_en_el_orden_del_adr_y_responde_204() -> None:
     assert TUTOR not in gateway.existing
 
 
-def test_la_evidencia_solo_lleva_huellas_hmac_no_el_id_ni_el_correo() -> None:
+def test_la_evidencia_solo_lleva_el_seudonimo_hmac_no_el_id_ni_el_correo() -> None:
     client, gateway, _ = _build()
-    _delete(client, parental=_parental())
-    (tutor_id, t_ref, e_ref, version), _ = gateway.archived
+    _delete(client)
+    (tutor_id, t_ref, version), _ = gateway.archived
     assert tutor_id == TUTOR and version == 1
-    for ref in (t_ref, e_ref):
-        assert re.fullmatch(r"[0-9a-f]{64}", ref)
-    assert str(TUTOR) not in (t_ref, e_ref) and EMAIL.lower() not in (t_ref, e_ref)
-    assert t_ref != e_ref
+    assert re.fullmatch(r"[0-9a-f]{64}", t_ref)
+    assert str(TUTOR) not in t_ref and EMAIL.lower() not in t_ref
 
 
-def test_las_huellas_son_deterministas_y_normalizan_el_correo() -> None:
+def test_el_seudonimo_es_determinista_y_depende_de_la_clave() -> None:
     key = EvidenceKey(1, b"k" * 32)
     assert tutor_ref(key, TUTOR) == tutor_ref(key, TUTOR)
     assert tutor_ref(key, TUTOR) != tutor_ref(key, OTRO)
-    assert email_ref(key, "Ana.Perez@Example.test ") == email_ref(key, "ana.perez@example.test")
     assert tutor_ref(key, TUTOR) != tutor_ref(EvidenceKey(1, b"z" * 32), TUTOR)
-    # Separación de dominio: la huella del id no coincide con la de un correo igual de texto.
-    assert tutor_ref(key, TUTOR) != email_ref(key, str(TUTOR))
 
 
 # ---- confirmación fuerte ------------------------------------------------------------------------
 
 
-def test_sin_pin_ni_contrasena_reciente_no_se_toca_nada() -> None:
+def test_sin_contrasena_reciente_no_se_toca_nada() -> None:
     client, gateway, admin = _build()
-    response = _delete(client)
+    response = _delete(client, password_age=None)
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "parental_required"
     assert gateway.log == [] and admin.deleted == []
@@ -155,39 +150,22 @@ def test_una_contrasena_reciente_si_sirve() -> None:
     assert admin.deleted == [TUTOR]
 
 
-def test_un_pin_escrito_hace_minutos_no_basta_debe_ser_reciente() -> None:
-    client, gateway, _ = _build()
-    viejo = issue_parental_token(SIGN.encode(), TUTOR, now=time.time() - 300)  # válido en el panel
-    assert _delete(client, parental=viejo).status_code == 401
-    assert gateway.log == []
-
-
-def test_un_token_del_pin_sin_hora_de_emision_no_sirve_para_borrar() -> None:
-    import base64
-    import hashlib
-    import hmac as _hmac
-    import json
-
-    from app.parental import _key  # type: ignore[attr-defined]
-
-    payload = json.dumps({"t": str(TUTOR), "e": int(time.time()) + 600}).encode()  # sin "i"
-    firma = _hmac.new(_key(SIGN.encode()), payload, hashlib.sha256).digest()
-    b64 = lambda d: base64.urlsafe_b64encode(d).rstrip(b"=").decode()  # noqa: E731
-    client, gateway, _ = _build()
-    assert _delete(client, parental=f"{b64(payload)}.{b64(firma)}").status_code == 401
-    assert gateway.log == []
-
-
-def test_el_pin_de_otro_tutor_no_sirve() -> None:
-    client, gateway, _ = _build()
-    assert _delete(client, parental=_parental(OTRO)).status_code == 401
-    assert gateway.log == []
+def test_el_pin_NO_reemplaza_a_la_contrasena_ni_con_un_token_valido_y_reciente() -> None:
+    """El servidor ya no acepta el PIN para eliminar la cuenta (un niño podría conocerlo)."""
+    client, gateway, admin = _build()
+    fresco = issue_parental_token(SIGN.encode(), TUTOR)
+    assert _delete(client, password_age=None, parental=fresco).status_code == 401
+    assert _delete(client, password_age=3600, parental=fresco).status_code == 401
+    assert gateway.log == [] and admin.deleted == []
 
 
 @pytest.mark.parametrize("word", ["", "eliminar", "ELIMINAR TODO", "borrar", "SI"])
 def test_hay_que_escribir_eliminar_exactamente(word: str) -> None:
     client, gateway, _ = _build()
-    response = _delete(client, confirm=word, parental=_parental())
+    response = _delete(
+        client,
+        confirm=word,
+    )
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "confirmation_required"
     assert gateway.log == []
@@ -200,7 +178,7 @@ def test_sin_sesion_es_401() -> None:
 
 def test_solo_se_borra_la_cuenta_del_jwt_aunque_la_peticion_traiga_otro_id() -> None:
     client, _, admin = _build()
-    _delete(client, parental=_parental(), extra={"tutor_id": str(OTRO), "id": str(OTRO)})
+    _delete(client, extra={"tutor_id": str(OTRO), "id": str(OTRO)})
     assert admin.deleted == [TUTOR]
 
 
@@ -210,7 +188,7 @@ def test_solo_se_borra_la_cuenta_del_jwt_aunque_la_peticion_traiga_otro_id() -> 
 def test_si_falla_archivar_no_se_borra_nada_y_se_descongela() -> None:
     client, gateway, admin = _build()
     gateway.archive_error = GatewayError("transport")
-    response = _delete(client, parental=_parental())
+    response = _delete(client)
     assert response.status_code == 503
     message = response.json()["error"]["message"]
     # Honesto: no se borraron los datos, pero la revocación ya quedó y bloquea los perfiles.
@@ -222,7 +200,7 @@ def test_si_falla_archivar_no_se_borra_nada_y_se_descongela() -> None:
 def test_si_la_evidencia_queda_incompleta_no_se_borra() -> None:
     client, gateway, admin = _build()
     gateway.complete = False
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert admin.deleted == [] and "delete" not in gateway.log
     assert TUTOR not in admin.banned
 
@@ -230,19 +208,19 @@ def test_si_la_evidencia_queda_incompleta_no_se_borra() -> None:
 def test_si_falla_congelar_no_se_archiva_ni_se_borra() -> None:
     client, gateway, admin = _build()
     admin.fail_on = {"ban"}
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert "archive" not in gateway.log and admin.deleted == []
 
 
 def test_si_no_hay_correo_no_se_puede_calcular_la_huella_y_no_se_borra() -> None:
     client, gateway, admin = _build()  # el JWT sin correo y Auth tampoco lo tiene
-    assert _delete(client, parental=_parental(), email=None).status_code == 503
+    assert _delete(client, email=None).status_code == 503
     assert gateway.archived == [] and admin.deleted == []
 
 
 def test_si_el_jwt_no_trae_correo_se_pregunta_a_auth() -> None:
     client, gateway, admin = _build(emails={TUTOR: EMAIL})
-    assert _delete(client, parental=_parental(), email=None).status_code == 204
+    assert _delete(client, email=None).status_code == 204
     assert "get_email" in gateway.log and admin.deleted == [TUTOR]
 
 
@@ -250,7 +228,7 @@ def test_sin_clave_de_huellas_falla_cerrado(monkeypatch: pytest.MonkeyPatch) -> 
     client, gateway, admin = _build()
     # Se simula una configuración sin ninguna clave utilizable para la evidencia.
     monkeypatch.setattr("app.routes.account.evidence_key", lambda _s: None)
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert gateway.log == [] and admin.deleted == []
 
 
@@ -260,23 +238,23 @@ def test_sin_clave_de_huellas_falla_cerrado(monkeypatch: pytest.MonkeyPatch) -> 
 def test_si_falla_el_paso_de_borrar_la_evidencia_ya_esta_y_el_reintento_termina() -> None:
     client, gateway, admin = _build()
     admin.fail_on = {"delete"}
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert len(gateway.archived) == 2  # la evidencia ya estaba archivada
     assert TUTOR not in admin.banned  # se descongela: la persona puede entrar y reintentar
     admin.fail_on = set()
-    assert _delete(client, parental=_parental()).status_code == 204
+    assert _delete(client).status_code == 204
     assert TUTOR not in gateway.existing
 
 
 def test_la_purga_de_auditoria_lleva_el_id_y_el_correo() -> None:
     client, gateway, _ = _build()
-    assert _delete(client, parental=_parental()).status_code == 204
+    assert _delete(client).status_code == 204
     assert gateway.purged == [(TUTOR, EMAIL)]
 
 
 def test_un_reintento_sobre_una_cuenta_ya_borrada_tambien_purga_la_auditoria() -> None:
     client, gateway, _ = _build(exists=False)
-    assert _delete(client, parental=_parental()).status_code == 204
+    assert _delete(client).status_code == 204
     assert gateway.purged == [(TUTOR, EMAIL)]
 
 
@@ -285,7 +263,7 @@ def test_si_falla_la_purga_de_auditoria_la_cuenta_igual_queda_borrada(
 ) -> None:
     client, gateway, admin = _build()
     gateway.purge_error = GatewayError("transport")
-    assert _delete(client, parental=_parental()).status_code == 204
+    assert _delete(client).status_code == 204
     assert admin.deleted == [TUTOR]
     assert "account.audit_purge_failed" in log_stream.getvalue()
 
@@ -293,14 +271,14 @@ def test_si_falla_la_purga_de_auditoria_la_cuenta_igual_queda_borrada(
 def test_si_falla_un_paso_tardio_el_mensaje_no_dice_que_no_se_borro_nada() -> None:
     client, _, admin = _build()
     admin.fail_on = {"delete"}
-    message = _delete(client, parental=_parental()).json()["error"]["message"]
+    message = _delete(client).json()["error"]["message"]
     assert "no se borraron" not in message and "siguen protegidos" in message
 
 
 def test_si_falla_revocar_no_se_congela_ni_se_borra_nada() -> None:
     client, gateway, admin = _build()
     gateway.revoke_error = GatewayError("transport")
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert "ban" not in gateway.log and "unban" not in gateway.log
     assert admin.deleted == [] and gateway.archived == []
 
@@ -309,21 +287,21 @@ def test_si_falla_revocar_no_se_congela_ni_se_borra_nada() -> None:
 def test_si_ya_estaba_revocado_o_nunca_acepto_el_flujo_continua(result: str) -> None:
     client, gateway, admin = _build()
     gateway.revoke_result = result
-    assert _delete(client, parental=_parental()).status_code == 204
+    assert _delete(client).status_code == 204
     assert admin.deleted == [TUTOR]
 
 
 def test_si_falla_leer_el_estado_inicial_no_se_hace_nada() -> None:
     client, gateway, admin = _build()
     gateway.exists_error_on_call = 1
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert gateway.log == ["tutor_exists"] and admin.deleted == []
 
 
 def test_si_falla_la_verificacion_final_se_avisa_sin_decir_que_no_se_borro_nada() -> None:
     client, gateway, admin = _build()
     gateway.exists_error_on_call = 2  # la verificación del paso 6
-    response = _delete(client, parental=_parental())
+    response = _delete(client)
     assert response.status_code == 503
     assert admin.deleted == [TUTOR]  # ya se había borrado
     assert "siguen protegidos" in response.json()["error"]["message"]
@@ -332,7 +310,7 @@ def test_si_falla_la_verificacion_final_se_avisa_sin_decir_que_no_se_borro_nada(
 def test_si_auth_no_responde_al_pedir_el_correo_no_se_hace_nada() -> None:
     client, gateway, admin = _build()
     admin.fail_on = {"get_email"}
-    assert _delete(client, parental=_parental(), email=None).status_code == 503
+    assert _delete(client, email=None).status_code == 503
     assert "revoke_consent" not in gateway.log and admin.deleted == []
 
 
@@ -340,27 +318,20 @@ def test_si_falla_archivar_y_tambien_descongelar_el_bloqueo_corto_vence_solo() -
     client, gateway, admin = _build()
     gateway.archive_error = GatewayError("transport")
     admin.fail_on = {"unban"}
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert admin.deleted == [] and TUTOR in gateway.existing
-
-
-def test_un_token_del_pin_emitido_en_el_futuro_no_sirve_para_borrar() -> None:
-    client, gateway, _ = _build()
-    futuro = issue_parental_token(SIGN.encode(), TUTOR, now=time.time() + 3600)
-    assert _delete(client, parental=futuro).status_code == 401
-    assert gateway.log == []
 
 
 def test_si_falla_borrar_y_tambien_descongelar_el_bloqueo_corto_se_levanta_solo() -> None:
     client, _, admin = _build()
     admin.fail_on = {"delete", "unban"}
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert TUTOR in admin.banned  # no se pudo descongelar a mano; el bloqueo de 15 min vence solo
 
 
 def test_si_la_cuenta_ya_no_existe_el_borrado_es_idempotente() -> None:
     client, gateway, admin = _build(exists=False)
-    assert _delete(client, parental=_parental()).status_code == 204
+    assert _delete(client).status_code == 204
     assert gateway.archived == []  # no hay nada que archivar
     assert admin.deleted == [TUTOR]  # solo se asegura el borrado en Auth
 
@@ -373,7 +344,7 @@ def test_si_tras_borrar_el_tutor_aun_existe_se_avisa() -> None:
         return "deleted"  # Auth borró pero la cascada no corrió
 
     admin.delete = delete_sin_cascada  # type: ignore[method-assign]
-    assert _delete(client, parental=_parental()).status_code == 503
+    assert _delete(client).status_code == 503
     assert TUTOR in gateway.existing
 
 
@@ -382,15 +353,15 @@ def test_si_tras_borrar_el_tutor_aun_existe_se_avisa() -> None:
 
 def test_los_logs_no_llevan_correo_id_ni_huellas(log_stream: io.StringIO) -> None:
     client, gateway, _ = _build()
-    _delete(client, parental=_parental())
+    _delete(client)
     gateway.archive_error = GatewayError("transport")
     gateway.existing.add(TUTOR)
-    _delete(client, parental=_parental())
+    _delete(client)
     logs = log_stream.getvalue()
     assert "account.deleted" in logs and "account.delete_failed" in logs
     assert EMAIL.lower() not in logs.lower() and str(TUTOR) not in logs
-    _, t_ref, e_ref, _ = gateway.archived[0]
-    assert t_ref not in logs and e_ref not in logs
+    _, t_ref, _ = gateway.archived[0]
+    assert t_ref not in logs
 
 
 def test_httpx_no_registra_las_urls_con_el_id_del_tutor() -> None:

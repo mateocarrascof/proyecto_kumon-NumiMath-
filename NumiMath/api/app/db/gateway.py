@@ -191,7 +191,7 @@ class Gateway(Protocol):
         ...
 
     async def archive_consent_evidence(
-        self, tutor_id: uuid.UUID, tutor_ref: str, email_ref: str, key_version: int
+        self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int
     ) -> int:
         """Archiva la evidencia mínima del consentimiento. Devuelve las filas NUEVAS."""
         ...

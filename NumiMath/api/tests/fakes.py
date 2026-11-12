@@ -327,7 +327,7 @@ class AccountFakeGateway(FakeGateway):
     exists_error_on_call: int | None = None
     exists_calls: int = 0
     purged: list[tuple[uuid.UUID, str | None]] = field(default_factory=list)
-    archived: list[tuple[uuid.UUID, str, str, int]] = field(default_factory=list)
+    archived: list[tuple[uuid.UUID, str, int]] = field(default_factory=list)
 
     async def tutor_exists(self, tutor_id: uuid.UUID) -> bool:
         self.log.append("tutor_exists")
@@ -343,12 +343,12 @@ class AccountFakeGateway(FakeGateway):
         return self.revoke_result
 
     async def archive_consent_evidence(
-        self, tutor_id: uuid.UUID, tutor_ref: str, email_ref: str, key_version: int
+        self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int
     ) -> int:
         self.log.append("archive")
         if self.archive_error is not None:
             raise self.archive_error
-        self.archived.append((tutor_id, tutor_ref, email_ref, key_version))
+        self.archived.append((tutor_id, tutor_ref, key_version))
         return 0
 
     async def consent_evidence_complete(self, tutor_id: uuid.UUID) -> bool:

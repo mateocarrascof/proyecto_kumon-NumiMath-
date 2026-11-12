@@ -24,7 +24,6 @@ from fastapi.testclient import TestClient
 from app.account import evidence_key, tutor_ref
 from app.config import Settings
 from app.main import create_app
-from app.parental import issue_parental_token
 
 pytestmark = pytest.mark.integration
 
@@ -197,10 +196,8 @@ def test_eliminar_la_cuenta_no_deja_nada_y_conserva_solo_la_evidencia_minima(
         response = api.post(
             "/v1/tutor/account/delete",
             json={"confirm": "ELIMINAR"},
-            headers={
-                "Authorization": f"Bearer {session['access_token']}",
-                "X-Parental-Token": issue_parental_token(_SIGN.encode(), uuid.UUID(tutor_id)),
-            },
+            # El JWT del registro acaba de salir de una contraseña: es la confirmación fuerte.
+            headers={"Authorization": f"Bearer {session['access_token']}"},
         )
     assert response.status_code == 204, response.text
 

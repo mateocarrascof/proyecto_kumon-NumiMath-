@@ -4,14 +4,12 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
-import { ParentalSession } from '../parental/parental-session';
 import { AccountPort, DeleteAccountResult } from './account.port';
 
 @Injectable({ providedIn: 'root' })
 export class HttpAccountService extends AccountPort {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthPort);
-  private readonly parental = inject(ParentalSession);
 
   async delete(confirm: string): Promise<DeleteAccountResult> {
     const token = await this.auth.accessToken();
@@ -21,7 +19,7 @@ export class HttpAccountService extends AccountPort {
         this.http.post(
           `${environment.apiUrl}/v1/tutor/account/delete`,
           { confirm },
-          { headers: { Authorization: `Bearer ${token}`, ...this.parental.header() } },
+          { headers: { Authorization: `Bearer ${token}` } },
         ),
       );
       return 'ok';

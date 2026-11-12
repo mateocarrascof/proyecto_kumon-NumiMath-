@@ -38,8 +38,8 @@ import { ParentalSession } from '../core/parental/parental-session';
             (apodo y curso), su progreso, rachas y tareas, tu PIN y tus consentimientos.</p>
           <p><strong>Se conserva</strong> solo un registro mínimo para poder probar que aceptaste
             los términos: la fecha, la versión del texto, el canal y un código irreversible (no
-            muestra tu correo ni tu nombre), más la declaración del adulto sin apodo ni curso. El
-            plazo de conservación está por definir.</p>
+            muestra tu correo ni tu nombre), más la declaración del adulto sin apodo ni curso. Se
+            borra solo a los 5 años (plazo provisional, sujeto a validación legal).</p>
           <p><strong>Fuera de nuestro control:</strong> copias de seguridad, registros técnicos de la
             plataforma y los correos que ya te enviamos pueden conservarse un tiempo limitado.
             Esto no se puede deshacer.</p>

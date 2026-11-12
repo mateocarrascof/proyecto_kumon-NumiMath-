@@ -414,14 +414,13 @@ class SupabaseGateway:
         return str(result)
 
     async def archive_consent_evidence(
-        self, tutor_id: uuid.UUID, tutor_ref: str, email_ref: str, key_version: int
+        self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int
     ) -> int:
         result = await self._rpc(
             "archive_consent_evidence",
             {
                 "p_tutor_id": str(tutor_id),
                 "p_tutor_ref": tutor_ref,
-                "p_email_ref": email_ref,
                 "p_key_version": key_version,
             },
         )

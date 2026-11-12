@@ -236,19 +236,19 @@ select throws_ok($$update public.app_settings set value = '30.5'::jsonb  where k
 select lives_ok($$update public.app_settings set value = 'null'::jsonb   where key = 'consent_evidence_retention_days'$$,
   'plazo nulo (sin definir) es aceptado');
 select throws_ok(
-  $$insert into public.consent_evidence (tutor_ref, tutor_email_ref, hmac_key_version, event_type, terms_version, terms_sha256, privacy_version, privacy_sha256, channel, occurred_at, source_seq) values (repeat('a', 64), repeat('b', 64), 0, 'grant', 'x', repeat('c', 64), 'y', repeat('d', 64), 'web', now(), 1)$$,
+  $$insert into public.consent_evidence (tutor_ref, hmac_key_version, event_type, terms_version, terms_sha256, privacy_version, privacy_sha256, channel, occurred_at, source_seq) values (repeat('a', 64), 0, 'grant', 'x', repeat('c', 64), 'y', repeat('d', 64), 'web', now(), 1)$$,
   '23514', 'new row for relation "consent_evidence" violates check constraint "consent_evidence_hmac_key_version_check"',
   'una versión de clave HMAC no positiva es rechazada');
 
 set local role service_role;
-select is(public.archive_consent_evidence('eeeeeeee-0000-0000-0000-000000000003', repeat('c', 64), repeat('d', 64), 1::smallint),
+select is(public.archive_consent_evidence('eeeeeeee-0000-0000-0000-000000000003', repeat('c', 64), 1::smallint),
   0, 'archivar un tutor sin eventos devuelve 0 y no falla');
 reset role;
 
 -- ===== 9. Privilegios =====
 select ok(not has_function_privilege('authenticated', 'public.on_consent_revoked()', 'execute'),
   'authenticated no ejecuta on_consent_revoked');
-select ok(not has_function_privilege('authenticated', 'public.archive_consent_evidence(uuid, text, text, smallint)', 'execute'),
+select ok(not has_function_privilege('authenticated', 'public.archive_consent_evidence(uuid, text, smallint)', 'execute'),
   'authenticated no ejecuta archive_consent_evidence');
 select ok(not has_function_privilege('authenticated', 'public.privacy_config_warnings()', 'execute'),
   'authenticated no ejecuta privacy_config_warnings');

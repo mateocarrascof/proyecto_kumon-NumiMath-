@@ -4,13 +4,12 @@ import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
-import { ParentalSession } from '../parental/parental-session';
 import { HttpAccountService } from './http-account.service';
 
 const URL = `${environment.apiUrl}/v1/tutor/account/delete`;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-function setup(accessToken: string | null = 'jwt-del-tutor', pin = true) {
+function setup(accessToken: string | null = 'jwt-del-tutor') {
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
@@ -18,7 +17,6 @@ function setup(accessToken: string | null = 'jwt-del-tutor', pin = true) {
       { provide: AuthPort, useValue: { accessToken: async () => accessToken } },
     ],
   });
-  if (pin) TestBed.inject(ParentalSession).start('token-del-pin', 600);
   return {
     service: TestBed.inject(HttpAccountService),
     http: TestBed.inject(HttpTestingController),
@@ -26,14 +24,14 @@ function setup(accessToken: string | null = 'jwt-del-tutor', pin = true) {
 }
 
 describe('HttpAccountService', () => {
-  it('envía el JWT, el token del PIN y la palabra de confirmación', async () => {
+  it('envía el JWT y la palabra de confirmación, y nunca el token del PIN', async () => {
     const { service, http } = setup();
     const result = service.delete('ELIMINAR');
     await tick();
     const req = http.expectOne(URL);
     expect(req.request.method).toBe('POST');
     expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-del-tutor');
-    expect(req.request.headers.get('X-Parental-Token')).toBe('token-del-pin');
+    expect(req.request.headers.has('X-Parental-Token')).toBe(false);
     expect(req.request.body).toEqual({ confirm: 'ELIMINAR' });
     req.flush(null, { status: 204, statusText: 'No Content' });
     expect(await result).toBe('ok');

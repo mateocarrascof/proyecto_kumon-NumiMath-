@@ -122,8 +122,8 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R17 | **Revocación irreversible**: borrar la cuenta revoca el consentimiento y bloquea los perfiles antes de borrar; si el proceso se corta, quedan bloqueados sin datos borrados. | Baja | Media | Bloqueo corto de Auth (15 min) que vence solo, mensaje honesto y reintento seguro. |
 | R18 | **Purga de auditoría de Auth sin reintento propio**: si falla, quedan filas con id o correo. | Baja | Media | Se purga por id y por correo, también al reintentar sobre una cuenta ya borrada; no probado en Supabase alojado. |
 | R19 | **Copias fuera de nuestro control**: respaldos, registros de la plataforma y correos ya enviados. | Media | Media | Informado al tutor en pantalla; plazos del proveedor pendientes (pendientes-legales 26). |
-| R20 | **Reidentificación por la evidencia conservada** (huellas HMAC de tutor y correo). | Baja | Media | Clave solo del servidor; sin id ni correo en claro; plazo de conservación por definir. |
-| R21 | **Borrado autorizado solo con confirmación fuerte** (contraseña reciente o PIN fresco). | Baja | Alta | Palabra ELIMINAR obligatoria; la interfaz pide la contraseña; el servidor acepta PIN fresco (≤60 s) o contraseña: decisión pendiente.,
+| R20 | **Reidentificación por la evidencia conservada** (seudónimo HMAC del tutor; ya no hay huella del correo). | Baja | Media | Clave solo del servidor; sin id ni correo en claro ni huella del correo; plazo de 5 años provisional con purga diaria (pendientes-legales, 27). |
+| R21 | **Borrado autorizado solo con confirmación fuerte** (contraseña escrita hace menos de 5 minutos; el PIN no vale porque un niño podría conocerlo). | Baja | Alta | Palabra ELIMINAR obligatoria y contraseña reciente exigida por el servidor. |
 
 ---
 

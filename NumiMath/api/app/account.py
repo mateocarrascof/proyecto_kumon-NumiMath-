@@ -1,7 +1,7 @@
 """Eliminar la cuenta del tutor y sus datos (T21), en el orden del ADR 0001, decisión 3.
 
     1 congelar   → revocar el consentimiento (bloquea los perfiles) y bloquear el acceso en Auth
-    2 huellas    → tutor_ref y email_ref = HMAC-SHA256 con la clave del servidor
+    2 huella     → tutor_ref = HMAC-SHA256 del id con la clave del servidor (sin huella del correo)
     3 archivar   → evidencia mínima del consentimiento (sin identificadores en claro)
     4 archivar   → otra vez (idempotente): cubre lo que hubiera entrado entre 3 y 5
     5 borrar     → el usuario en Auth; la cascada borra tutor, perfiles, progreso, tareas, etc.
@@ -10,8 +10,9 @@
 Si algo falla en 1 a 4 NO se borra nada y se descongela la cuenta. Si falla el paso 5 la
 evidencia ya está archivada: se puede reintentar el flujo completo. Lo que se conserva después
 de borrar es solo la evidencia mínima que exige la ley (versión y huella de los textos
-aceptados, fecha, canal y las huellas HMAC), y la declaración del adulto archivada sin apodo ni
-curso. Reglas: docs/SPEC.md.
+aceptados, fechas, canal y el seudónimo del tutor), por el plazo de
+`consent_evidence_retention_days` (5 años, provisional; lo borra pg_cron), y la declaración del
+adulto archivada sin apodo ni curso. Reglas: docs/SPEC.md.
 
 Nunca se registra el correo, el id ni la huella: los logs llevan solo códigos de paso.
 """
@@ -83,10 +84,6 @@ def tutor_ref(key: EvidenceKey, tutor_id: uuid.UUID) -> str:
     return _ref(key, b"tutor:", str(tutor_id))
 
 
-def email_ref(key: EvidenceKey, email: str) -> str:
-    return _ref(key, b"email:", email.strip().lower())
-
-
 async def delete_account(
     *, gateway: Gateway, admin: AuthAdmin, tutor: AuthenticatedTutor, key: EvidenceKey
 ) -> str:
@@ -124,9 +121,9 @@ async def delete_account(
         await admin.ban(tutor_id)
         frozen = True
         # 2 y 3 y 4. Huellas y evidencia (dos veces: es idempotente).
-        t_ref, e_ref = tutor_ref(key, tutor_id), email_ref(key, email)
-        await gateway.archive_consent_evidence(tutor_id, t_ref, e_ref, key.version)
-        await gateway.archive_consent_evidence(tutor_id, t_ref, e_ref, key.version)
+        t_ref = tutor_ref(key, tutor_id)
+        await gateway.archive_consent_evidence(tutor_id, t_ref, key.version)
+        await gateway.archive_consent_evidence(tutor_id, t_ref, key.version)
         if not await gateway.consent_evidence_complete(tutor_id):
             raise AccountDeletionError("archive", "evidence_incomplete")
     except AccountDeletionError as exc:

@@ -194,3 +194,7 @@ La base no puede hacer todo sola: **la clave HMAC vive fuera de la base** y el b
 - `docs/privacy/inventario-datos.md`
 - `supabase/tests/concurrency/` (prueba con dos conexiones)
 - `docs/privacy/eipd/eipd-borrador.md`
+
+## Enmienda 2026-11-11 (T21)
+
+Se **elimina `email_ref`**: la evidencia ya no guarda ninguna huella del correo. El paso 2 calcula solo `tutor_ref`, y el paso 3 llama a `archive_consent_evidence(tutor_id, tutor_ref, versión)`. Por eso la frase «Atender un derecho de acceso tras el borrado» (localizar por `email_ref`) **ya no es aplicable**: queda pendiente definir otro medio (`pendientes-legales.md`, 27). El plazo de conservación es de 5 años, provisional. Eliminar la cuenta exige la contraseña (el PIN no vale).

@@ -21,7 +21,7 @@ from app.logging import get_logger, log_event
 from app.report_feedback import TopicStat, WeekStat, build_feedback, percent
 from app.routes.progress import WINDOW, summarize
 from app.streaks import effective_streak, parse_local_day, utc_today
-from app.weekly import WeekOut, attempt_day, weekly
+from app.weekly import WeekOut, local_attempt_day, weekly
 
 router = APIRouter(prefix="/v1/students", tags=["report"])
 logger = get_logger("mathtutor.report")
@@ -64,7 +64,8 @@ class ReportOut(BaseModel):
 
 def practice_days(attempts: list[AttemptRow], today: date) -> int:
     since = today - timedelta(days=6)
-    return len({d for d in map(attempt_day, attempts) if since <= d <= today})
+    days = {local_attempt_day(a, today) for a in attempts}
+    return len({d for d in days if since <= d <= today})
 
 
 @router.get("/{student_id}/report")

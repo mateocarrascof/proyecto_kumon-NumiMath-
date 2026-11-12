@@ -121,6 +121,14 @@ def test_dias_practicados_distintos_en_7_dias() -> None:
     assert practice_days(attempts, today) == 2
 
 
+def test_practicar_de_noche_cuenta_como_hoy() -> None:
+    # 21:30 en Chile ya es el día siguiente en UTC: igual cuenta como un día practicado (hoy).
+    today = date(2026, 10, 26)
+    noche = AttemptRow("1-08", True, datetime(2026, 10, 27, 0, 30, tzinfo=UTC))
+    assert practice_days([noche], today) == 1
+    assert weekly([noche], today)[-1].total == 1
+
+
 # ---- ruta --------------------------------------------------------------------------------
 
 

@@ -206,3 +206,15 @@ def test_cada_perfil_ve_solo_su_evolucion() -> None:
         f"/v1/students/{otro_perfil}/progress", headers={"Authorization": f"Bearer {_jwt()}"}
     )
     assert ajeno.status_code == 403
+
+
+def test_lo_practicado_de_noche_cuenta_en_la_semana_actual() -> None:
+    # 21:30 en Chile (UTC−3) ya es el día siguiente en UTC: igual es "hoy" para el niño.
+    noche = AttemptRow("1-06", True, datetime(HOY.year, HOY.month, HOY.day + 1, 0, 30, tzinfo=UTC))
+    weeks = weekly([noche], HOY)
+    assert (weeks[-1].total, weeks[-1].correct) == (1, 1)
+
+
+def test_dos_dias_despues_no_cuenta() -> None:
+    futuro = AttemptRow("1-06", True, datetime(HOY.year, HOY.month, HOY.day + 2, 0, 30, tzinfo=UTC))
+    assert sum(w.total for w in weekly([futuro], HOY)) == 0

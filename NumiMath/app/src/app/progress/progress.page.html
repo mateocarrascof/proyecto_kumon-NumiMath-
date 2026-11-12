@@ -52,7 +52,7 @@
         <section class="evolution kid-card" aria-labelledby="evolution-title" data-testid="evolution">
           <h2 id="evolution-title">Cómo vas avanzando</h2>
           @if (showEvolution) {
-            <app-weekly-chart [data]="progress.weeks"></app-weekly-chart>
+            <app-weekly-chart [data]="progress.weeks" [kid]="true"></app-weekly-chart>
             <p class="evolution-note" data-testid="evolution-cheer">{{ evolutionMessages.cheer }}</p>
           } @else {
             <p class="evolution-note" data-testid="evolution-few">{{ evolutionMessages.few }}</p>

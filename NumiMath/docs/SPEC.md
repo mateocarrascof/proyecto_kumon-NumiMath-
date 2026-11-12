@@ -630,22 +630,35 @@ En "Mi progreso", el niño ve un gráfico de barras de las **últimas 8 semanas*
 | 5 o más | Gráfico con la frase "¡Cada semana que practicas, aprendes más!" |
 
 - **Semanas:** 8 periodos de 7 días que terminan "hoy", la fecha local del dispositivo validada a ±1 día como en la racha. Las semanas sin práctica aparecen con 0, como un hueco.
-- **Intentos:** cuentan los de práctica y las tareas del tutor. **El diagnóstico inicial no cuenta**, porque `list_attempts` solo lee `activity = 'practice'`. La fecha de cada intento es la UTC.
+- **Intentos:** cuentan los de práctica y las tareas del tutor. **El diagnóstico inicial no cuenta**, porque `list_attempts` solo lee `activity = 'practice'`.
+- **Fecha de cada intento:** la UTC. Un intento con fecha UTC de **mañana** cuenta como de hoy (`local_attempt_day`, misma tolerancia de ±1 día que la fecha del dispositivo). Sin esto, lo que el niño practica de noche en Chile (después de las 20–21 h ya es "mañana" en UTC) no aparecía en el gráfico. El ajuste también corrige los días practicados y las semanas del informe del tutor. Como no se guarda la zona horaria, un intento de la noche anterior puede caer un día después.
 
 ### Cómo está hecho
 - `GET /v1/students/{id}/progress` (solo lectura, `AuthorizedStudentDep`, sin PIN porque es la vista del niño) agrega `weeks: [{start, total, correct}]`.
 - La agrupación es `weekly()`, la misma del informe del tutor. Se movió a `api/app/weekly.py` para que la usen las dos rutas sin un import circular.
 - La vista `student_daily_progress` que proponía el encargo **no existía**. Se decidió reutilizar `weekly()` en vez de crearla.
-- La app reutiliza el gráfico SVG propio del panel del tutor (`core/charts/weekly-chart.component.ts`), sin librerías. Ya trae:
+- La app reutiliza el gráfico SVG propio del panel del tutor (`core/charts/weekly-chart.component.ts`), sin librerías, con `[kid]="true"`. En modo niño el gráfico usa:
+  - leyenda "Bien hechos" / "Ejercicios";
+  - resumen para el lector de pantalla: "En las últimas 8 semanas hiciste N ejercicios. Esta semana hiciste X y te salieron bien Y.";
+  - fechas de la tabla en palabras ("20 de octubre");
+  - letra de 13 unidades (antes 10, unos 9 px reales en el teléfono).
+
+  El panel del tutor conserva sus textos. En ambas vistas, la barra clara lleva un borde del color primario, porque el relleno solo contrastaba 1,2:1 con el fondo blanco (el mínimo para elementos gráficos es 3:1). Además, el gráfico ya traía:
   - `role="img"` con un resumen;
   - la leyenda;
   - el % escrito sobre cada barra, para no depender solo del color;
   - una tabla oculta para el lector de pantalla.
 
 ### Pendientes
-1. **Textos del gráfico:** el componente que se reutiliza está pensado para adultos ("Ejercicios respondidos" y la fecha en formato 2026-10-20 en la tabla). Para usar textos de niño habría que modificar el componente compartido.
-2. **Ventana de 500 intentos** (la misma del informe): un niño con más de 500 intentos en 8 semanas vería incompletas las semanas más antiguas.
-3. **Revisión de CU-A2:** las correcciones que propusieron los revisores siguen sin aplicar.
+1. **Ventana de 500 intentos** (la misma del informe): un niño con más de 500 intentos en 8 semanas vería incompletas las semanas más antiguas.
+2. **Revisión de CU-A2:** las correcciones que propusieron los revisores siguen sin aplicar.
+3. **Mejoras opcionales de la revisión de CU-A23, no aplicadas:**
+   - cambiar el % sobre cada barra por "N de M";
+   - no dibujar "–" en las semanas vacías;
+   - un título sin "avanzando";
+   - avisar en pantalla cuando la ventana de 500 intentos corta semanas;
+   - que la prueba de integración se salte si la URL no es local;
+   - desacoplar `progress.port` de `report.port`.
 
 ### Pruebas
 - `api/tests/test_progress.py`: agrupación en 3 semanas, semanas vacías, límites de la ventana, fecha no creíble y aislamiento.

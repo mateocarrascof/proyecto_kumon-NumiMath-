@@ -143,8 +143,14 @@ describe('ProgressPage: evolución (CU-A23)', () => {
       Array.from(r.querySelectorAll('td')).map((td) => td.textContent?.trim()),
     );
     expect(rows).toHaveLength(8);
-    expect(rows[2]).toEqual(['2026-09-04', '4', '2']);
-    expect(rows[7]).toEqual(['2026-10-09', '5', '4']);
+    // Fechas en palabras para el lector de pantalla y textos simples (modo niño del gráfico).
+    expect(rows[2]).toEqual(['4 de septiembre', '4', '2']);
+    expect(rows[7]).toEqual(['9 de octubre', '5', '4']);
+    expect(chart?.querySelector('caption')?.textContent).toBe('Tus ejercicios por semana');
+    expect(chart?.querySelector('svg')?.getAttribute('aria-label')).toBe(
+      'En las últimas 8 semanas hiciste 12 ejercicios. Esta semana hiciste 5 y te salieron bien 4.',
+    );
+    expect(chart?.textContent).not.toContain('respondidos');
     expect(chart?.querySelector('svg')?.getAttribute('role')).toBe('img');
     expect(el.querySelector('[data-testid="evolution-cheer"]')?.textContent).toContain(
       EVOLUTION_MESSAGES.cheer,

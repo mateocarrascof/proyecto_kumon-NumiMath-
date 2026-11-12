@@ -137,6 +137,35 @@ describe('OrderCardsComponent (CU-A21)', () => {
     expect(c.placed).toEqual(['n:7', null, null]);
   });
 
+  it('si tras arrastrar no llega el "click", el próximo toque igual funciona', async () => {
+    const { fixture, q, c } = render();
+    const card = q('pool-n:7');
+    card.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 2, clientX: 0, clientY: 0, button: 0 }));
+    card.dispatchEvent(new PointerEvent('pointermove', { pointerId: 2, clientX: 40, clientY: 40 }));
+    card.dispatchEvent(new PointerEvent('pointerup', { pointerId: 2, clientX: 40, clientY: 40 }));
+    // Sin "click" del navegador: la bandera se limpia sola.
+    await new Promise((r) => setTimeout(r, 0));
+    q('pool-n:2').click();
+    fixture.detectChanges();
+    expect(c.placed).toContain('n:2');
+  });
+
+  it('teclado: el foco sigue a la tarjeta al ponerla y al sacarla', async () => {
+    const { fixture, q } = render();
+    document.body.appendChild(fixture.nativeElement);
+    q('pool-n:7').click();
+    fixture.detectChanges();
+    await vi.waitFor(() =>
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('pool-n:2'), // la siguiente
+    );
+    q('slot-card-0').click();
+    fixture.detectChanges();
+    await vi.waitFor(() =>
+      expect(document.activeElement?.getAttribute('data-testid')).toBe('pool-n:7'), // volvió al montón
+    );
+    fixture.nativeElement.remove();
+  });
+
   it('lugares vacíos y ocupados tienen nombre para el lector de pantalla', () => {
     const { fixture, q, el } = render();
     expect(q('slot-empty-0').textContent).toContain('Lugar 1, vacío');

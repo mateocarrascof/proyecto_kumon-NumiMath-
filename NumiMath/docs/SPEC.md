@@ -1091,11 +1091,39 @@ Usa los endpoints de la parte 1 sin cambiar el servidor.
 - Emoji repetidos del enunciado: `aria-hidden` y un resumen accesible ("7 manzanas").
 - Animaciones suaves que respetan "reducir movimiento".
 
+### Revisión antes del PR
+`code-reviewer` y `child-safety-ai-reviewer` sobre `main..e195711`. Sin altos ni bloqueantes de
+tiendas. Medios corregidos en `fix(cu-a21)`:
+- Tras un arrastre sin "click" del navegador, el próximo toque ya no se pierde.
+- Una respuesta con forma rara del servidor ya no se muestra como "sin internet".
+- El aviso de "ya respondido" no queda pegado en el resumen.
+- El grupo de opciones se nombra con el enunciado resumido (sin leer cada emoji).
+- Resultado y medalla en una región viva siempre presente.
+- El foco va a "Siguiente" tras responder y al título en el resumen; en las tarjetas, el foco sigue
+  a la tarjeta al ponerla o sacarla (`afterNextRender`).
+- El resumen no dice "0 de 5" ("¡Terminaste! Jugando se aprende.").
+- Durante las rondas Numi se achica y sin burbuja: a 360 px "Siguiente" queda a la vista (y se
+  desplaza hasta él con el ajuste de "reducir movimiento").
+
 ### Pendientes
 1. **Completar** una secuencia con hueco: el componente ya lo admite, pero necesita un juego nuevo
    en el servidor. El tema 1 de 1° ("completa el camino") lo necesitará en la parte 3.
 2. Figuras SVG propias (parte 3).
 3. Voz de Numi (CU-A20, no construido).
+4. **Decisiones del dueño (child-safety):** "Jugar de nuevo" es el botón destacado del resumen y las
+   medallas se acumulan entre partidas, sin límite diario (leve empuje a seguir jugando): ¿mismo peso
+   a los tres botones o sugerir una pausa tras N partidas?; el ícono 🎲 evoca el azar (🧩 sería más
+   neutro).
+5. **Bajos de la revisión (no implementados):** tras perder la red al responder se puede tocar otra
+   opción con el mismo token; `session`, `forbidden` y `not_found` ofrecen un reintento que no
+   sirve (mejor "pide ayuda a un adulto" sin reintento); un ejercicio vencido se reemplaza sin
+   aviso; `aria-pressed` en opciones que no son de alternancia; la etiqueta de una tarjeta ya
+   corregida sigue diciendo "toca para sacarla" y no dice si quedó bien; la flecha "‹" se lee en voz
+   alta; textos del componente de tarjetas y "Jugar" de la práctica fuera de `games.messages.ts`; un
+   número de 3 cifras (100) podría no caber en un lugar con 4 lugares; respaldo genérico para un
+   emoji nuevo del servidor; `touch-action: none` en las tarjetas impide desplazar la página si el
+   dedo empieza sobre ellas; comentario huérfano en `practice.page.ts`; el re-export de
+   `MEDAL_EVERY` en la práctica.
 
 ### Pruebas
 - `core/games/http-games.service.spec.ts` (endpoints, errores, textos accesibles),

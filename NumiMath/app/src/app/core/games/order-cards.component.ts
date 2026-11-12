@@ -6,8 +6,10 @@ import {
   EventEmitter,
   Input,
   OnChanges,
+  Injector,
   Output,
   SimpleChanges,
+  afterNextRender,
   inject,
 } from '@angular/core';
 
@@ -248,6 +250,7 @@ export class OrderCardsComponent implements OnChanges {
 
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly injector = inject(Injector);
   private drag: {
     id: string;
     pointerId: number;
@@ -306,6 +309,8 @@ export class OrderCardsComponent implements OnChanges {
     if (free < 0) return;
     this.placed[free] = id;
     this.say(`Pusiste ${this.spoken(id)} en el lugar ${free + 1}.`);
+    // El botón tocado se fue del montón: el foco pasa a la siguiente tarjeta (o a "Listo").
+    this.focusAfter(() => this.firstPoolButton() ?? this.readyButton());
   }
 
   onSlotClick(i: number): void {
@@ -314,6 +319,25 @@ export class OrderCardsComponent implements OnChanges {
     if (id === null) return;
     this.placed[i] = null;
     this.say(`Sacaste ${this.spoken(id)}.`);
+    // El foco sigue a la tarjeta, que volvió al montón.
+    this.focusAfter(() => this.poolButton(id));
+  }
+
+  private firstPoolButton(): HTMLElement | null {
+    return this.host.nativeElement.querySelector('[data-pool] button') as HTMLElement | null;
+  }
+
+  private readyButton(): HTMLElement | null {
+    return this.host.nativeElement.querySelector('.ready') as HTMLElement | null;
+  }
+
+  private poolButton(id: string): HTMLElement | null {
+    return this.host.nativeElement.querySelector(`[data-testid="pool-${id}"]`) as HTMLElement | null;
+  }
+
+  /** Después del próximo dibujo (antes, el botón todavía no está en su nuevo sitio). */
+  private focusAfter(find: () => HTMLElement | null): void {
+    afterNextRender(() => find()?.focus(), { injector: this.injector });
   }
 
   // ---- Teclado --------------------------------------------------------------------------------
@@ -333,10 +357,9 @@ export class OrderCardsComponent implements OnChanges {
     [this.placed[i], this.placed[j]] = [this.placed[j], this.placed[i]];
     this.say(`Moviste ${this.spoken(id)} al lugar ${j + 1}.`);
     // El foco sigue a la tarjeta movida.
-    setTimeout(() => {
-      const el = this.host.nativeElement.querySelector(`[data-slot-card="${j}"]`) as HTMLElement | null;
-      el?.focus();
-    });
+    this.focusAfter(
+      () => this.host.nativeElement.querySelector(`[data-slot-card="${j}"]`) as HTMLElement | null,
+    );
   }
 
   // ---- Arrastrar (alternativa) ------------------------------------------------------------------
@@ -366,6 +389,9 @@ export class OrderCardsComponent implements OnChanges {
     this.drag = null;
     if (!d.moved) return; // fue un toque: lo maneja el click
     this.suppressClick = true;
+    // Si el navegador no manda el "click" tras soltar (p. ej. la tarjeta cambió de lugar en la
+    // pantalla), la bandera no debe quedar puesta y comerse el próximo toque legítimo.
+    setTimeout(() => (this.suppressClick = false));
     const target = this.targetAt(event.clientX, event.clientY, d.el);
     if (target === null) {
       // Soltada fuera de los lugares: vuelve al montón si estaba puesta.

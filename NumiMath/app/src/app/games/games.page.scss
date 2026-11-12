@@ -5,6 +5,14 @@
   text-align: center;
 }
 
+// Durante las rondas Numi se achica (como en la práctica): el ejercicio y "Siguiente" caben en
+// 360 px sin desplazarse.
+.games.in-round app-mascot {
+  display: block;
+  max-width: 96px;
+  margin: 0 auto;
+}
+
 h1 {
   font-size: 1.4rem;
   margin: 12px 0;

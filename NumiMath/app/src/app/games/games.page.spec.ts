@@ -191,6 +191,55 @@ describe('GamesPage (CU-A21)', () => {
     expect(page.result?.correct).toBe(true);
   });
 
+  it('si la última respuesta ya estaba registrada (409), el resumen no arrastra el aviso', async () => {
+    let n = 0;
+    const answer = vi.fn(async () => {
+      n += 1;
+      if (n === ROUNDS) throw new GameError('already_answered');
+      return { correct: true, correctAnswer: ['n:9'], message: '¡Muy bien!' };
+    });
+    const { page, q, render } = setup({ answer });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame(GROUPS[0].games[0]);
+    await page.start();
+    for (let i = 0; i < ROUNDS - 1; i++) {
+      await page.pick('n:9');
+      await page.nextRound();
+    }
+    await page.pick('n:9');
+    await render();
+    expect(page.step).toBe('summary');
+    expect(q('game-notice')?.textContent?.trim()).toBe('');
+  });
+
+  it('accesibilidad: resultado en una región viva fija, foco en "Siguiente" y Numi compacto', async () => {
+    const { page, el, q, render, fixture } = setup({
+      exercise: vi.fn(async () => ({ ...CHOICE, text: '¿Cuántas manzanas hay? 🍎🍎🍎' })),
+    });
+    document.body.appendChild(fixture.nativeElement);
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame(GROUPS[0].games[0]);
+    await page.start();
+    await render();
+    // El grupo de opciones se nombra con el enunciado resumido, sin los emoji uno por uno.
+    expect(el().querySelector('[role="group"]')?.getAttribute('aria-label')).toBe('¿Cuántas manzanas hay? 3 manzanas');
+    const live = el().querySelector('.result-area')!;
+    expect(live.getAttribute('aria-live')).toBe('polite'); // existe ANTES de responder
+    expect(el().querySelector('main')?.classList).toContain('in-round');
+    await page.pick('n:9');
+    await render();
+    expect(el().querySelector('.result-area')).toBe(live); // la misma región, con texto nuevo
+    expect(live.textContent).toContain('¡Muy bien!');
+    // El foco llega después del próximo dibujo (afterNextRender): se espera a que ocurra.
+    await vi.waitFor(() => expect(document.activeElement).toBe(q('game-next')));
+    fixture.nativeElement.remove();
+  });
+
+  it('el resumen no dice "0 de 5"', () => {
+    expect(GAME_TEXT.end(0, ROUNDS)).toBe('¡Terminaste! Jugando se aprende.');
+    expect(GAME_TEXT.end(3, ROUNDS)).toBe(`¡Terminaste! Acertaste 3 de ${ROUNDS}.`);
+  });
+
   it('curso no permitido (403): mensaje amable y vuelta a practicar', async () => {
     const { page, q, render } = setup({
       list: vi.fn(async () => {

@@ -21,8 +21,15 @@ export const GAME_TEXT = {
   error: 'Algo no salió. Intentemos otra vez.',
   already: 'Ese ya lo respondiste. Vamos con otro.',
   round: (n: number, total: number) => `Ronda ${n} de ${total}`,
+  // Sin "0 de 5": a un niño de 6 años eso lo desanima.
   end: (ok: number, total: number) =>
-    ok === total ? `¡Las ${total} rondas bien!` : `¡Terminaste! Acertaste ${ok} de ${total}.`,
+    ok === total
+      ? `¡Las ${total} rondas bien!`
+      : ok === 0
+        ? '¡Terminaste! Jugando se aprende.'
+        : `¡Terminaste! Acertaste ${ok} de ${total}.`,
+  medalNow: '¡Ganaste una medalla!',
+  medals: (n: number) => `Medallas: ${n}`,
   orderSlots: 'Lugares',
   orderPool: 'Tarjetas',
   orderHelp: 'Toca una tarjeta para ponerla. Tócala otra vez para sacarla.',

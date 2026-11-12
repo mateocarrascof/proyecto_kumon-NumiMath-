@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, Injector, OnInit, afterNextRender, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
@@ -49,6 +49,7 @@ export class GamesPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly injector = inject(Injector);
   protected readonly mascot = inject(MascotPort);
   protected readonly text = GAME_TEXT;
   protected readonly rounds = ROUNDS;
@@ -148,8 +149,12 @@ export class GamesPage implements OnInit {
     if (this.round >= ROUNDS) {
       this.step = 'summary';
       this.exercise = null;
+      this.notice = '';
+      this.retryAction = null;
       this.mascot.set('happy');
       this.cdr.markForCheck();
+      // El foco va al título del resumen (el botón que se tocó ya no existe).
+      this.focusSoon('game-summary');
       return;
     }
     this.round += 1;
@@ -207,6 +212,9 @@ export class GamesPage implements OnInit {
         // Sin tristeza: Numi piensa contigo (como en la práctica).
         this.mascot.set('thinking');
       }
+      // Tras responder, las opciones quedan desactivadas: el foco pasa a "Siguiente" y se muestra en
+      // pantalla (a 360 px podía quedar más abajo).
+      this.focusSoon('game-next', true);
     } catch (error) {
       if (error instanceof GameError && error.code === 'already_answered') {
         // Ya estaba registrado (p. ej. se reintentó tras perder la red): se sigue con otro.
@@ -225,6 +233,20 @@ export class GamesPage implements OnInit {
       this.busy = false;
       this.cdr.markForCheck();
     }
+  }
+
+  /** Lleva el foco (y si hace falta, la vista) a un elemento recién dibujado. */
+  private focusSoon(id: string, scroll = false): void {
+    // Después del próximo dibujo: antes, el botón todavía no existe.
+    afterNextRender(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      if (scroll) {
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      }
+    }, { injector: this.injector });
   }
 
   private fail(error: unknown, retry: () => Promise<void>): void {

@@ -55,7 +55,10 @@ export class HttpGamesService extends GamesPort {
 
   private translate(error: unknown): GameError {
     if (error instanceof GameError) return error;
-    if (!(error instanceof HttpErrorResponse) || error.status === 0) return new GameError('network');
+    // "Sin conexión" solo cuando de verdad no hubo respuesta; cualquier otro error inesperado
+    // (p. ej. una respuesta con forma rara) no debe decirle al niño que no hay internet.
+    if (!(error instanceof HttpErrorResponse)) return new GameError('unavailable');
+    if (error.status === 0) return new GameError('network');
     const code = (error.error as { error?: { code?: string } } | null)?.error?.code;
     if (code === 'game_grade_not_allowed') return new GameError('grade');
     if (error.status === 409 || code === 'already_answered') return new GameError('already_answered');
@@ -70,7 +73,9 @@ export class HttpGamesService extends GamesPort {
     return this.call(async (headers) => {
       const dto = await firstValueFrom(this.http.get<ListDto>(this.url(studentId, '/games'), { headers }));
       // Falla cerrado: una lista con forma rara no se muestra.
-      if (!dto || !Array.isArray(dto.groups)) throw new GameError('unavailable');
+      if (!dto || !Array.isArray(dto.groups) || !dto.groups.every((g) => Array.isArray(g?.games))) {
+        throw new GameError('unavailable');
+      }
       return dto.groups.map((g) => ({ module: g.module, games: g.games.map((x) => ({ ...x })) }));
     });
   }
@@ -107,6 +112,9 @@ export class HttpGamesService extends GamesPort {
           { headers },
         ),
       );
+      if (!dto || typeof dto.correct !== 'boolean' || !Array.isArray(dto.correct_answer)) {
+        throw new GameError('unavailable');
+      }
       return { correct: dto.correct, correctAnswer: [...dto.correct_answer], message: dto.message };
     });
   }

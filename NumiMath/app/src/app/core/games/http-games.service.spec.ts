@@ -74,6 +74,18 @@ describe('HttpGamesService (CU-A21)', () => {
     await expect(pending).rejects.toEqual(new GameError('network'));
   });
 
+  it('una respuesta con forma rara es "unavailable", no "sin conexión"', async () => {
+    const { service, http } = setup();
+    const list = service.list('p1');
+    await tick();
+    http.expectOne(`${BASE}/games`).flush({ groups: [{ module: 'x', games: 'no' }] });
+    await expect(list).rejects.toEqual(new GameError('unavailable'));
+    const ans = service.answer('p1', 'tok', ['n:1']);
+    await tick();
+    http.expectOne(`${BASE}/games/answer`).flush({ correct: true });
+    await expect(ans).rejects.toEqual(new GameError('unavailable'));
+  });
+
   it('sin sesión no llama a la API', async () => {
     const { service, http } = setup(null);
     await expect(service.list('p1')).rejects.toEqual(new GameError('session'));

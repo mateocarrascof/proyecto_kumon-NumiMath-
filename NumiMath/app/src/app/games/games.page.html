@@ -8,8 +8,10 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
-  <main class="games">
-    <app-mascot [state]="mascot.state()" [message]="step === 'intro' || step === 'round' ? instruction : ''"></app-mascot>
+  <main class="games" [class.in-round]="step === 'round'">
+    <!-- La instrucción va en la burbuja solo al empezar; en las rondas Numi se achica y el enunciado
+         ya dice qué hacer (la burbuja no cabría a 360 px). -->
+    <app-mascot [state]="mascot.state()" [message]="step === 'intro' ? instruction : ''"></app-mascot>
 
     <!-- Aviso amable siempre presente (vacío si no hay aviso): el lector de pantalla lo anuncia. -->
     <div class="notice" role="status" aria-live="polite" data-testid="game-notice">
@@ -75,7 +77,7 @@
           @if (exercise.kind === 'choice') {
             <app-choice-options
               [options]="exercise.options"
-              [label]="exercise.text"
+              [label]="prompt.before + prompt.spoken"
               [disabled]="busy || !!result"
               [chosen]="chosen"
               [correct]="result?.correctAnswer ?? null"
@@ -90,16 +92,22 @@
             ></app-order-cards>
           }
 
-          @if (result) {
-            <p class="result" role="status" data-testid="game-result">
-              <span aria-hidden="true">{{ result.correct ? '⭐' : '💭' }}</span> {{ result.message }}
-            </p>
-            @if (medalNow) {
-              <p class="medal" role="status" data-testid="game-medal">
-                <span aria-hidden="true">🏅</span> ¡Ganaste una medalla!
+          <!-- Región viva SIEMPRE presente (vacía antes de responder): el lector de pantalla anuncia
+               el resultado y la medalla al cambiar su texto. -->
+          <div class="result-area" role="status" aria-live="polite">
+            @if (result) {
+              <p class="result" data-testid="game-result">
+                <span aria-hidden="true">{{ result.correct ? '⭐' : '💭' }}</span> {{ result.message }}
               </p>
+              @if (medalNow) {
+                <p class="medal" data-testid="game-medal">
+                  <span aria-hidden="true">🏅</span> {{ text.medalNow }}
+                </p>
+              }
             }
-            <button type="button" class="big primary" (click)="nextRound()" data-testid="game-next">
+          </div>
+          @if (result) {
+            <button type="button" class="big primary" (click)="nextRound()" data-testid="game-next" id="game-next">
               {{ round >= rounds ? text.seeEnd : text.next }}
             </button>
           }
@@ -109,9 +117,9 @@
       }
 
       @case ('summary') {
-        <h1 data-testid="game-summary">{{ text.end(correctCount, rounds) }}</h1>
+        <h1 data-testid="game-summary" id="game-summary" tabindex="-1">{{ text.end(correctCount, rounds) }}</h1>
         @if (medals > 0) {
-          <p class="medal"><span aria-hidden="true">🏅</span> Medallas: {{ medals }}</p>
+          <p class="medal"><span aria-hidden="true">🏅</span> {{ text.medals(medals) }}</p>
         }
         <div class="actions">
           <button type="button" class="big primary" (click)="start()" data-testid="game-again">{{ text.playAgain }}</button>

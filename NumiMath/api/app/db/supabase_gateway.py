@@ -333,6 +333,37 @@ class SupabaseGateway:
         except (ValueError, TypeError, KeyError):
             raise GatewayError("unexpected_result") from None
 
+    async def list_diagnostic_declines(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> set[str]:
+        rows = await self._select(
+            "/diagnostic_declines",
+            # La llave de servidor ignora RLS: se acota a mano al tutor Y al perfil.
+            {
+                "select": "skill_code",
+                "student_id": f"eq.{student_id}",
+                "tutor_id": f"eq.{tutor_id}",
+            },
+        )
+        try:
+            codes = {r["skill_code"] for r in rows}
+        except (TypeError, KeyError):
+            raise GatewayError("bad_json") from None
+        if not all(isinstance(c, str) for c in codes):
+            raise GatewayError("bad_json")
+        return codes
+
+    async def decline_diagnostic(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, topic: str
+    ) -> str:
+        result = await self._rpc(
+            "decline_diagnostic",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id), "p_skill": topic},
+        )
+        if result not in ("ok", "student_not_found", "invalid"):
+            raise GatewayError("bad_json")
+        return str(result)
+
     async def list_skill_progress(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID
     ) -> dict[str, SkillProgress]:

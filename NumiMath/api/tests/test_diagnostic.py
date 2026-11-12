@@ -393,3 +393,58 @@ def test_los_logs_no_llevan_enunciados_ni_respuestas(log_stream: io.StringIO) ->
     for answer in answers:
         assert answer["token"] not in logs
     assert str(PERFIL) not in logs
+
+
+# ---- Rechazar el test inicial: nunca más para ese perfil y tema -------------------------------
+
+
+def _topics(client: TestClient) -> dict[str, bool]:
+    body = client.get(
+        f"/v1/students/{PERFIL}/topics", headers={"Authorization": f"Bearer {_jwt()}"}
+    ).json()
+    return {t["id"]: t["diagnostic_available"] for t in body}
+
+
+def _decline(client: TestClient, topic: str = TOPIC, sub: uuid.UUID = TUTOR) -> Any:
+    return _post(client, f"/v1/students/{PERFIL}/diagnostic/{topic}/decline", {}, sub)
+
+
+def test_rechazar_el_test_no_lo_vuelve_a_ofrecer_en_ese_tema() -> None:
+    client = _client(_gateway())
+    assert _topics(client)[TOPIC] is True
+    response = _decline(client)
+    assert response.status_code == 200 and response.json() == {"declined": True}
+    topics = _topics(client)
+    assert topics[TOPIC] is False
+    assert any(topics.values())  # los otros temas siguen ofreciéndolo
+    # Y tampoco se puede pedir un ejercicio del test de ese tema.
+    assert _exercise(client, 0).status_code == 409
+
+
+def test_rechazar_dos_veces_no_es_error() -> None:
+    client = _client(_gateway())
+    assert _decline(client).status_code == 200
+    assert _decline(client).status_code == 200
+
+
+def test_si_falla_al_guardar_el_rechazo_responde_503_y_no_lo_da_por_hecho() -> None:
+    gateway = _gateway()
+    gateway.declines_error = GatewayError("transport")
+    client = _client(gateway)
+    assert _decline(client).status_code == 503
+    gateway.declines_error = None
+    assert _topics(client)[TOPIC] is True  # se ofrecerá otra vez más tarde, como hoy
+
+
+def test_sin_poder_leer_los_rechazos_no_se_ofrece_el_test() -> None:
+    gateway = _gateway()
+    gateway.declines_error = GatewayError("transport")
+    assert not any(_topics(_client(gateway)).values())
+
+
+def test_otro_tutor_no_rechaza_por_un_perfil_ajeno() -> None:
+    assert _decline(_client(_gateway()), sub=OTRO_TUTOR).status_code in (403, 404)
+
+
+def test_un_tema_que_no_es_del_curso_no_se_rechaza() -> None:
+    assert _decline(_client(_gateway()), topic="4-01").status_code in (403, 404, 422)

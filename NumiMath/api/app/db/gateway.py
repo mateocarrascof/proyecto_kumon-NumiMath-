@@ -375,6 +375,20 @@ class Gateway(Protocol):
         antiguo. Acotado al tutor."""
         ...
 
+    async def list_diagnostic_declines(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> set[str]:
+        """Habilidades cuyo test inicial el perfil rechazó (no se vuelve a ofrecer). Acotado al
+        tutor."""
+        ...
+
+    async def decline_diagnostic(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, topic: str
+    ) -> str:
+        """Guarda el rechazo del test inicial (idempotente): 'ok', 'student_not_found' o
+        'invalid'. Solo con la llave de servidor (función `decline_diagnostic`)."""
+        ...
+
     async def list_skill_progress(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID
     ) -> dict[str, SkillProgress]:

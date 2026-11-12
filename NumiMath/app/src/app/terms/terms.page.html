@@ -10,6 +10,22 @@
 <ion-content [fullscreen]="true" class="ion-padding">
   <main class="terms">
     <app-mascot [state]="mascot.state()"></app-mascot>
+    @if (revocation) {
+      <section class="doc kid-card" role="status" data-testid="revocation-receipt">
+        <h2>Consentimiento revocado</h2>
+        <p>Revocaste tu consentimiento. Fecha y hora: <strong>{{ revocation.when }}</strong></p>
+        <p>Desde ese momento no se usa la información de tus niños: sus perfiles están
+          bloqueados y sus datos guardados, sin acceso.</p>
+        @if (revocation.purgeOn) {
+          <p>Sus datos no se borraron todavía: se borrarán para siempre a partir del
+            <strong>{{ revocation.purgeOn }}</strong>@if (revocation.days) { ({{ revocation.days }}
+            días después de la revocación; plazo provisional)}. Puedes borrarlos antes eliminando
+            tu cuenta, abajo.</p>
+        }
+        <p>Si aceptas los términos otra vez, los perfiles que ya quedaron bloqueados siguen
+          bloqueados.</p>
+      </section>
+    }
     <h1>Antes de empezar</h1>
     <p>Necesito que una persona adulta lea y acepte estos textos.</p>
 
@@ -45,5 +61,9 @@
     <ion-button expand="block" [disabled]="!accepted || busy || !verified" (click)="accept()">
       {{ busy ? 'Guardando…' : 'Aceptar y continuar' }}
     </ion-button>
+
+    <!-- Quien no acepta puede borrar su cuenta y sus datos (derecho de supresión): no depende del
+         consentimiento, por eso está aquí y no solo en el panel. -->
+    <app-delete-account></app-delete-account>
   </main>
 </ion-content>

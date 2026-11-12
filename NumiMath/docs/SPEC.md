@@ -549,3 +549,26 @@ Solo la evidencia mínima que exige la ley: seudónimo del tutor (HMAC del id), 
 
 ### Pruebas
 `supabase/tests/database/account_deletion.test.sql` (revisa DINÁMICAMENTE todas las tablas con `tutor_id` o `student_id`: si alguien agrega una tabla y olvida la cascada, falla), `api/tests/test_account.py` y `api/tests/test_integration_account_deletion.py` (cuenta real: no queda nada) y `supabase/tests/database/evidence_retention.test.sql` (plazo de 5 años, tarea de pg_cron y purga). Tras correr pruebas de integración, hacer `supabase db reset` antes de `supabase test db`: la evidencia es inmutable y algunas pruebas antiguas cuentan filas de toda la tabla.
+
+## Revocar el consentimiento (T20)
+
+Se hace en el **Panel del tutor** (sección "Revocar mi consentimiento"). Ruta: `POST /v1/tutor/consent/revoke`, con el PIN (token parental). Reutiliza `revoke_consent` (T21) y el bloqueo de perfiles que ya hacen los triggers de la base.
+
+### Qué pasa al revocar
+- **Desde ese momento no se usan datos del niño ni la IA:** todos los perfiles del tutor quedan bloqueados en la misma transacción, y `authorize_student_use` los rechaza (403 en ejercicios, práctica, tareas, progreso, informe y explicaciones).
+- **Constancia con fecha:** un evento `revoke` en `consents` con la fecha-hora del servidor (`occurred_at`). La respuesta la devuelve y la pantalla `/terminos` la muestra. Revocar otra vez no crea otro evento y devuelve la fecha original.
+- **Los datos NO se borran al instante:** quedan bloqueados `purge_after_days` días (hoy **30, provisional**, pendientes-legales 10) y luego los borra la tarea de pg_cron `privacy-purge-blocked`. Antes de eso el tutor puede borrarlos eliminando los perfiles o la cuenta (T21).
+- **La evidencia mínima** (el evento de aceptación y el de revocación con fecha, versión y huella de los textos) sigue en `consents` mientras exista la cuenta; si se elimina la cuenta, se archiva y se conserva 5 años (T21, pendientes-legales 27).
+- **El servidor comprueba el resultado** antes de afirmarlo: debe constar la revocación con fecha y 0 perfiles activos; si no, responde 503 sin decir que se hizo. Si la base falla a medias, el mensaje dice que *puede* estar hecha y que hay que entrar para comprobarlo.
+
+### Alcance y límites conocidos
+- Sin consentimiento, `/panel` no es accesible (guard de consentimiento). Por eso la pantalla `/terminos` ofrece también **eliminar la cuenta y los datos** (derecho de supresión), que no depende del consentimiento.
+- **Aceptar los términos otra vez NO reactiva los perfiles bloqueados:** no hay ningún camino en la app que llame a `unblock_student`. La interfaz lo dice. Pendiente (pendientes-legales 28).
+- Una explicación de IA que ya esté en curso cuando se revoca se corta en el siguiente re-chequeo del streaming (`stream_recheck_seconds`: 10 s por defecto, 60 como máximo), no al instante. Una respuesta de ejercicio que ya había pasado la autorización justo antes puede guardar su intento (sin verificar que las funciones de escritura vuelvan a mirar `blocked_at`).
+- Solo se borran solos los perfiles bloqueados **por la revocación**. Los que ya estaban bloqueados antes (`tutor_request`, `arcop_claim`) no se purgan al revocar (decisión de Lote D; pendientes-legales 28). `profiles_blocked` cuenta todos los perfiles del tutor.
+- Tras revocar no se puede borrar un perfil suelto desde la interfaz (`/panel` exige consentimiento); sí se puede eliminar la cuenta entera. La API de borrar perfiles no exige consentimiento (pendientes-legales 28).
+- La constancia viaja por la dirección (`/terminos?revocado=…`): se puede falsificar con un enlace manipulado (solo muestra un aviso; no cambia datos). La fecha de borrado es una cota ("a partir del"): pg_cron corre una vez al día.
+- La constancia con fecha solo se muestra justo después de revocar; no hay todavía una pantalla que la consulte después.
+
+### Pruebas
+`supabase/tests/database/consent_revocation.test.sql` (constancia, bloqueo, datos intactos, plazo, idempotencia, aislamiento entre tutores, solo `service_role`), `api/tests/test_consent_revocation.py` (PIN, constancia, fallos honestos, logs sin datos personales) y `api/tests/test_integration_consent_revocation.py` (cuenta real: antes funciona, después 403 en todo, los datos siguen y otro tutor no se ve afectado), más las pruebas de la app (`revoke-consent.component.spec.ts`, `http-consent-revocation.service.spec.ts`, `terms.page.spec.ts`).

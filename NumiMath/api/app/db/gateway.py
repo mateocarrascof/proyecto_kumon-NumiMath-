@@ -24,6 +24,18 @@ class GatewayError(Exception):
 
 
 @dataclass(frozen=True)
+class ConsentSummary:
+    """Estado del consentimiento de un tutor (solo lectura; sin datos del niño)."""
+
+    last_event: str | None  # 'grant' | 'revoke' | None si nunca aceptó
+    occurred_at: datetime | None  # fecha-hora UTC de ese evento: la constancia
+    profiles_total: int
+    profiles_active: int  # los que aún se pueden usar (0 tras revocar)
+    purge_after_days: int | None  # plazo provisional para borrar los bloqueados por revocación
+    purge_at: datetime | None
+
+
+@dataclass(frozen=True)
 class AttemptRow:
     """Un intento de práctica: solo tema, resultado y hora (nunca la respuesta del niño)."""
 
@@ -188,6 +200,10 @@ class Gateway(Protocol):
         Devuelve `ok`, `already_revoked` o `no_consent`. La constancia lleva la fecha-hora
         del servidor.
         """
+        ...
+
+    async def consent_summary(self, tutor_id: uuid.UUID) -> ConsentSummary:
+        """Último evento de consentimiento con su fecha y cuántos perfiles siguen activos."""
         ...
 
     async def archive_consent_evidence(

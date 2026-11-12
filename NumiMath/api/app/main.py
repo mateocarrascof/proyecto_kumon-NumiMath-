@@ -21,6 +21,7 @@ from app.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
 from app.routes import (
     account,
     assignments,
+    consent,
     exercises,
     explanations,
     health,
@@ -90,6 +91,7 @@ def create_app(
     app.include_router(exercises.router)
     app.include_router(progress.router)
     app.include_router(account.router)
+    app.include_router(consent.router)
     app.include_router(assignments.router)
     app.include_router(report.router)
     app.include_router(pin.router)

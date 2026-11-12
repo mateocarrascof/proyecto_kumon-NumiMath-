@@ -257,6 +257,18 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 3. Al vencer el plazo la evidencia se borra definitivamente; los respaldos de la base pueden conservarla más tiempo (ver 26, pregunta 2).
 **Respuesta:** _pendiente_
 
+## 28. Revocar el consentimiento (T20): reactivación y constancia
+
+**Qué hace hoy:** el tutor revoca desde el panel (con el PIN); los perfiles quedan bloqueados al instante, sin práctica, informes ni IA; los datos se conservan bloqueados 30 días (provisional, ver 10) y luego se borran; queda un evento con fecha en `consents`. Ver SPEC.
+
+**Preguntas:**
+1. **Reactivación:** hoy volver a aceptar los términos **no** reactiva los perfiles bloqueados (no existe un camino en la app hacia `unblock_student`). ¿Debe poder reactivarlos el tutor dentro del plazo (con una nueva aceptación expresa), o el retiro es definitivo para esos perfiles?
+2. **Constancia visible:** la fecha de la revocación se muestra una vez. ¿Hay que poder consultarla después (derecho de acceso) y por cuánto tiempo?
+3. **IA en curso:** una explicación ya iniciada se corta en el siguiente re-chequeo (segundos), no al instante. ¿Es aceptable?
+4. **Quién revoca:** se exige el PIN, que lo puede conocer un niño. ¿Basta, o la revocación (derecho del titular) debe poder hacerse sin PIN, por ejemplo con la contraseña?
+5. **Bloqueos previos:** los perfiles que ya estaban bloqueados (`tutor_request`, `arcop_claim`) no se purgan al revocar, así que pueden quedar guardados sin plazo y sin consentimiento. ¿Se purgan con el mismo plazo, o con otro?
+6. **Borrar un solo perfil sin consentimiento:** la API lo permite, pero la interfaz solo ofrece eliminar la cuenta entera tras revocar. ¿Hay que ofrecer el borrado por perfil en `/terminos`?
+**Respuesta:** _pendiente_
 ---
 
 # P3 — Después, con fecha

@@ -7,7 +7,14 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 
-from app.db.gateway import AssignmentAnswer, AssignmentRow, AttemptRow, GatewayError, PinState
+from app.db.gateway import (
+    AssignmentAnswer,
+    AssignmentRow,
+    AttemptRow,
+    ConsentSummary,
+    GatewayError,
+    PinState,
+)
 from app.exercises.levels import SkillProgress, apply_answer
 from app.streaks import DailyStreakRow, parse_local_day
 
@@ -326,6 +333,18 @@ class AccountFakeGateway(FakeGateway):
     revoke_error: Exception | None = None
     exists_error_on_call: int | None = None
     exists_calls: int = 0
+    summary_error: Exception | None = None
+    summary: ConsentSummary = field(
+        default_factory=lambda: ConsentSummary(
+            "revoke",
+            datetime(2026, 11, 11, 15, 30, tzinfo=UTC),
+            2,
+            0,
+            30,
+            datetime(2026, 12, 11, 15, 30, tzinfo=UTC),
+        )
+    )
+    revoked_for: list[uuid.UUID] = field(default_factory=list)
     purged: list[tuple[uuid.UUID, str | None]] = field(default_factory=list)
     archived: list[tuple[uuid.UUID, str, int]] = field(default_factory=list)
 
@@ -338,9 +357,16 @@ class AccountFakeGateway(FakeGateway):
 
     async def revoke_consent(self, tutor_id: uuid.UUID) -> str:
         self.log.append("revoke_consent")
+        self.revoked_for.append(tutor_id)
         if self.revoke_error is not None:
             raise self.revoke_error
         return self.revoke_result
+
+    async def consent_summary(self, tutor_id: uuid.UUID) -> ConsentSummary:
+        self.log.append("summary")
+        if self.summary_error is not None:
+            raise self.summary_error
+        return self.summary
 
     async def archive_consent_evidence(
         self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int

@@ -20,6 +20,7 @@ from app.db.gateway import (
     AssignmentAnswer,
     AssignmentRow,
     AttemptRow,
+    ConsentSummary,
     GatewayError,
     PinState,
 )
@@ -412,6 +413,31 @@ class SupabaseGateway:
         if result not in ("ok", "already_revoked", "no_consent"):
             raise GatewayError("unexpected_result")
         return str(result)
+
+    async def consent_summary(self, tutor_id: uuid.UUID) -> ConsentSummary:
+        result = await self._rpc("consent_revocation_summary", {"p_tutor_id": str(tutor_id)})
+        try:
+            if not isinstance(result, dict):
+                raise TypeError
+            last, when = result["last_event"], result["occurred_at"]
+            days, purge_at = result["purge_after_days"], result["purge_at"]
+            if last not in (None, "grant", "revoke"):
+                raise ValueError
+            total, active = result["profiles_total"], result["profiles_active"]
+            if any(isinstance(n, bool) or not isinstance(n, int) for n in (total, active)):
+                raise TypeError
+            if days is not None and (isinstance(days, bool) or not isinstance(days, int)):
+                raise TypeError
+            return ConsentSummary(
+                last_event=last,
+                occurred_at=datetime.fromisoformat(str(when)) if when else None,
+                profiles_total=total,
+                profiles_active=active,
+                purge_after_days=days,
+                purge_at=datetime.fromisoformat(str(purge_at)) if purge_at else None,
+            )
+        except (KeyError, TypeError, ValueError):
+            raise GatewayError("unexpected_result") from None
 
     async def archive_consent_evidence(
         self, tutor_id: uuid.UUID, tutor_ref: str, key_version: int

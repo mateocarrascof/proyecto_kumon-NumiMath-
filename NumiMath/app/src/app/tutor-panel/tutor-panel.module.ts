@@ -5,8 +5,8 @@ import { RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
 
 import { CoreModule } from '../core/core.module';
-import { DeleteAccountComponent } from './delete-account.component';
 import { ProfileFormComponent } from './profile-form.component';
+import { RevokeConsentComponent } from './revoke-consent.component';
 import { TutorPanelPage } from './tutor-panel.page';
 
 @NgModule({
@@ -17,6 +17,6 @@ import { TutorPanelPage } from './tutor-panel.page';
     CoreModule,
     RouterModule.forChild([{ path: '', component: TutorPanelPage }]),
   ],
-  declarations: [TutorPanelPage, ProfileFormComponent, DeleteAccountComponent],
+  declarations: [TutorPanelPage, ProfileFormComponent, RevokeConsentComponent],
 })
 export class TutorPanelPageModule {}

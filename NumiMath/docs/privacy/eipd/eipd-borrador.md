@@ -124,6 +124,11 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R19 | **Copias fuera de nuestro control**: respaldos, registros de la plataforma y correos ya enviados. | Media | Media | Informado al tutor en pantalla; plazos del proveedor pendientes (pendientes-legales 26). |
 | R20 | **Reidentificación por la evidencia conservada** (seudónimo HMAC del tutor; ya no hay huella del correo). | Baja | Media | Clave solo del servidor; sin id ni correo en claro ni huella del correo; plazo de 5 años provisional con purga diaria (pendientes-legales, 27). |
 | R21 | **Borrado autorizado solo con confirmación fuerte** (contraseña escrita hace menos de 5 minutos; el PIN no vale porque un niño podría conocerlo). | Baja | Alta | Palabra ELIMINAR obligatoria y contraseña reciente exigida por el servidor. |
+| R22 | **Datos del niño siguen guardados tras revocar** (bloqueados hasta el plazo de 30 días) y el tutor cree que ya se borraron. | Media | Media | La pantalla de revocación y la constancia dicen que NO se borran al instante, con la fecha exacta de borrado y cómo borrarlos antes (pendientes-legales 10 y 28). |
+| R23 | **Revocación hecha por un niño que conoce el PIN**, o por error. | Baja | Media | Exige PIN, explicación previa y confirmación explícita. Los perfiles no se reactivan solos al volver a aceptar: decisión pendiente (28). |
+| R24 | **Perfiles bloqueados antes por otro motivo no se purgan al revocar** y quedan guardados sin plazo ni consentimiento. | Baja | Media | Hoy no hay ruta de la app que bloquee por `tutor_request` o `arcop_claim`; decisión legal pendiente (28.5). |
+| R25 | **Para borrar un solo perfil tras revocar hay que eliminar la cuenta entera** (la interfaz no lo ofrece sin consentimiento). | Media | Media | El texto lo dice con veracidad; la API sí lo permite. Pendiente (28.6). |
+| R26 | **Constancia falsificable o visible en la dirección** (`?revocado=…`). | Baja | Baja | Solo muestra un aviso; plazo absurdo ignorado; no identifica al niño. Mejorar con una consulta al servidor. |
 
 ---
 

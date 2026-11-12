@@ -1,9 +1,9 @@
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { NavController } from '@ionic/angular/lazy';
 
-import { AccountPort, DELETE_ACCOUNT_WORD } from '../core/account/account.port';
-import { AuthPort } from '../core/auth/auth.port';
-import { ParentalSession } from '../core/parental/parental-session';
+import { AccountPort, DELETE_ACCOUNT_WORD } from './account.port';
+import { AuthPort } from '../auth/auth.port';
+import { ParentalSession } from '../parental/parental-session';
 
 /**
  * "Eliminar mi cuenta" (zona del tutor, ya protegida con PIN). Confirmación fuerte: se pide la

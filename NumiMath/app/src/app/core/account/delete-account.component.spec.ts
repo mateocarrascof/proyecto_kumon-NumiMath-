@@ -2,9 +2,9 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
-import { AccountPort, DeleteAccountResult } from '../core/account/account.port';
-import { AuthPort, AuthResult } from '../core/auth/auth.port';
-import { ParentalSession } from '../core/parental/parental-session';
+import { AccountPort, DeleteAccountResult } from './account.port';
+import { AuthPort, AuthResult } from '../auth/auth.port';
+import { ParentalSession } from '../parental/parental-session';
 import { DeleteAccountComponent } from './delete-account.component';
 
 function setup(options: { login?: AuthResult; result?: DeleteAccountResult } = {}) {

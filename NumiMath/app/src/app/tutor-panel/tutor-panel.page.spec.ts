@@ -4,13 +4,15 @@ import { IonicModule, NavController } from '@ionic/angular/lazy';
 import { Assignment, AssignmentsPort, TutorError } from '../core/assignments/assignments.port';
 import { WeeklyChartComponent } from '../core/charts/weekly-chart.component';
 import { ConsentPort } from '../core/consent/consent.port';
+import { ConsentRevocationPort } from '../core/consent/consent-revocation.port';
 import { ParentalSession } from '../core/parental/parental-session';
 import { ParentalPort, PinError } from '../core/parental/parental.port';
 import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
 import { Report, ReportPort } from '../core/report/report.port';
 import { AccountPort } from '../core/account/account.port';
 import { AuthPort } from '../core/auth/auth.port';
-import { DeleteAccountComponent } from './delete-account.component';
+import { RevokeConsentComponent } from './revoke-consent.component';
+import { DeleteAccountComponent } from '../core/account/delete-account.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
@@ -69,7 +71,13 @@ function setup(
   };
   const reports = { get: vi.fn(opts.report ?? (async () => REPORT)) };
   TestBed.configureTestingModule({
-    declarations: [TutorPanelPage, WeeklyChartComponent, ProfileFormComponent, DeleteAccountComponent],
+    declarations: [
+      TutorPanelPage,
+      WeeklyChartComponent,
+      ProfileFormComponent,
+      DeleteAccountComponent,
+      RevokeConsentComponent,
+    ],
     imports: [IonicModule.forRoot()],
     providers: [
       { provide: AssignmentsPort, useValue: assignments },
@@ -77,6 +85,7 @@ function setup(
       { provide: ProfilesPort, useValue: profiles },
       { provide: ParentalPort, useValue: parental },
       { provide: AccountPort, useValue: { delete: vi.fn(async () => 'ok') } },
+      { provide: ConsentRevocationPort, useValue: { revoke: vi.fn() } },
       { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },
       { provide: ConsentPort, useValue: { loadCurrent: vi.fn(async () => ({})) } },
       { provide: NavController, useValue: nav },
@@ -294,5 +303,13 @@ describe('TutorPanelPage', () => {
     expect(el.querySelector('[data-testid="stat-time"]')?.textContent).toBe('1 min 20 s');
     expect(el.querySelector('[data-testid="time-sumas"]')?.textContent).toContain('35 s');
     expect(el.querySelector('[data-testid="time-restas"]')?.textContent).toContain('—');
+  });
+
+  it('ofrece revocar el consentimiento y eliminar la cuenta, cada uno con su explicación', async () => {
+    const { fixture } = setup();
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('app-revoke-consent [data-testid="open-revoke-consent"]')).not.toBeNull();
+    expect(root.querySelector('app-delete-account [data-testid="open-delete-account"]')).not.toBeNull();
   });
 });

@@ -50,6 +50,35 @@ describe('HttpGamesService (CU-A21)', () => {
     });
     expect(await fill).toMatchObject({ kind: 'fill', slots: ['n:2', null] });
 
+    // Parte 3: lo que se dibuja encima de las opciones llega con nombres de la app.
+    const scene = service.exercise('p1', 'donde-esta-1');
+    await tick();
+    http.expectOne(`${BASE}/games/donde-esta-1/exercise`).flush({
+      token: 'ts', game_id: 'donde-esta-1', kind: 'choice', text: 'Toca',
+      options: [{ id: 'e:pelota-1', kind: 'emoji', label: '⚽' }], slots: null,
+      pattern: null, picto: null, measure: null,
+      scene: { center: '📦', center_name: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },
+    });
+    expect(await scene).toMatchObject({
+      pattern: null, picto: null, measure: null,
+      scene: { center: '📦', centerName: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },
+    });
+
+    const measure = service.exercise('p1', 'mide-clips-1');
+    await tick();
+    http.expectOne(`${BASE}/games/mide-clips-1/exercise`).flush({
+      token: 'tm', game_id: 'mide-clips-1', kind: 'choice', text: '¿Cuántos?', options: [],
+      measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 4 },
+      picto: [{ glyph: '🍎', name: 'manzanas', count: 3 }],
+      pattern: [{ id: 'f:cubo-rojo', kind: 'figure', label: 'cubo rojo' }],
+    });
+    expect(await measure).toMatchObject({
+      scene: null,
+      measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 4 },
+      picto: [{ glyph: '🍎', name: 'manzanas', count: 3 }],
+      pattern: [{ id: 'f:cubo-rojo', kind: 'figure', label: 'cubo rojo' }],
+    });
+
     const ans = service.answer('p1', 'tok', ['n:3']);
     await tick();
     const req = http.expectOne(`${BASE}/games/answer`);

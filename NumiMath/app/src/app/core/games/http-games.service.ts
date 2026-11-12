@@ -12,7 +12,10 @@ import {
   GameKind,
   GameOption,
   GameResult,
+  GameMeasure,
+  GamePictoRow,
   GamesPort,
+  ScenePosition,
 } from './games.port';
 
 interface ListDto {
@@ -26,6 +29,14 @@ interface ExerciseDto {
   text: string;
   options: GameOption[];
   slots?: (string | null)[] | null;
+  pattern?: GameOption[] | null;
+  scene?: {
+    center: string;
+    center_name: string;
+    places: { position: ScenePosition; id: string }[];
+  } | null;
+  picto?: GamePictoRow[] | null;
+  measure?: GameMeasure | null;
 }
 
 interface AnswerDto {
@@ -100,6 +111,28 @@ export class HttpGamesService extends GamesPort {
         text: dto.text,
         options: dto.options.map((o) => ({ id: o.id, kind: o.kind, label: o.label })),
         slots: Array.isArray(dto.slots) ? [...dto.slots] : null,
+        pattern: Array.isArray(dto.pattern)
+          ? dto.pattern.map((o) => ({ id: o.id, kind: o.kind, label: o.label }))
+          : null,
+        scene: dto.scene
+          ? {
+              center: dto.scene.center,
+              centerName: dto.scene.center_name,
+              places: dto.scene.places.map((p) => ({ position: p.position, id: p.id })),
+            }
+          : null,
+        picto: Array.isArray(dto.picto)
+          ? dto.picto.map((r) => ({ glyph: r.glyph, name: r.name, count: r.count }))
+          : null,
+        measure: dto.measure
+          ? {
+              thing: dto.measure.thing,
+              name: dto.measure.name,
+              unit: dto.measure.unit,
+              glyph: dto.measure.glyph,
+              length: dto.measure.length,
+            }
+          : null,
       };
     });
   }

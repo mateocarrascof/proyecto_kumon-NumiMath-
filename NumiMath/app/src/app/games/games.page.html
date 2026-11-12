@@ -74,9 +74,12 @@
             }
           </h1>
 
+          <app-game-visual [exercise]="exercise"></app-game-visual>
+
           @if (exercise.kind === 'choice') {
             <app-choice-options
               [options]="exercise.options"
+              [scene]="exercise.scene ?? null"
               [label]="prompt.before + prompt.spoken"
               [disabled]="busy || !!result"
               [chosen]="chosen"

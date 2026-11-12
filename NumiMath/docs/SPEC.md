@@ -1267,6 +1267,15 @@ los de esta parte tienen ids nuevos.
 | 3. Comparar y ordenar de 0 a 20 | `mayor-1` y `ordena-1` (ya existían) | — |
 | 4. Componer y descomponer | `descompone-1` "¿Cuántos faltan?" ("5 = 3 + ?" con objetos) | 1-04 |
 | 5. Sumas y restas hasta 20 | `junta-1` "Junta y cuenta" (dos grupos de objetos) | 1-08 |
+| 6. Patrones simples | `figura-sigue-1` "¿Qué figura sigue?" (AB, ABC, AAB, ABB) | 1-14 |
+| 7. Figuras 2D y 3D | `toca-figura-1` "Toca la figura" (4 figuras de formas distintas) | 1-17 |
+| 8. Orientación espacial | `donde-esta-1` "Arriba, abajo, izquierda y derecha" (escena en cruz) | 1-16 |
+| 9. Longitud con unidades no estandarizadas | `mide-clips-1` "Mide con clips y pasos" | 1-19 |
+| 10. Tablas de conteo y pictogramas | `pictograma-1` "Lee el pictograma" (2 o 3 filas) | 1-22 |
+
+La selección sigue siendo eje → juego; en 1° hay 5 ejes (Números, Patrones, Geometría, Medición y
+Datos) y el nombre de cada juego dice el tema. Los temas 6 a 10 usan habilidades de fase B: un
+juego no cambia el nivel ni el bloque, así que no hace falta que la habilidad sea practicable.
 
 ### Tipo `fill` (completar)
 - El ejercicio trae `slots`: la secuencia con las tarjetas fijas en su lugar y `null` en los
@@ -1280,6 +1289,29 @@ los de esta parte tienen ids nuevos.
 - En "Junta y cuenta" el resumen accesible dice cada grupo ("3 manzanas y 5 manzanas"), no el
   total, que sería la respuesta.
 
+### Lo que se dibuja (temas 6 a 10)
+El ejercicio trae a lo más uno de estos campos. Es parte de la pregunta (se ve en la pantalla),
+igual que los emoji del enunciado; la solución sigue sin viajar.
+- **Figuras** (`f:<forma>-<color>`, `kind: 'figure'`): SVG propios (`core/games/figure.component.ts`).
+  Todas con borde oscuro grueso: se distinguen por la forma, nunca solo por el color (en un
+  ejercicio, dos figuras nunca tienen la misma forma). La etiqueta accesible dice nombre y color
+  ("triángulo rojo"); el nombre no se ve en el botón.
+- **`pattern`**: la fila de figuras antes del "?". Se muestran al menos dos vueltas completas, así
+  la respuesta es una sola. Para el lector de pantalla: "En la fila: círculo rojo, cuadrado azul,
+  … ¿Qué sigue?". (Campo agregado en la implementación: el patrón necesitaba dónde viajar.)
+- **`scene`**: la caja al centro y un objeto arriba, a la izquierda, a la derecha y abajo; cada
+  objeto es un botón ("pelota, arriba"). Izquierda y derecha "desde donde miras tú".
+- **`picto`**: tabla con una fila por categoría; los emoji se ocultan al lector de pantalla y se
+  dice la cantidad. Los distractores son las cantidades de las otras filas.
+- **`measure`**: un lápiz, una cinta o una alfombra dibujados del mismo largo que la fila de clips
+  (📎) o pasos (👣) de debajo (34 px por unidad, hasta 8: cabe en 360 px). Cada unidad es un
+  elemento de lista, para contarla con lector de pantalla. (Campo agregado en la implementación.)
+
+Con lector de pantalla, "Toca la figura" y la escena se responden oyendo el nombre o la posición:
+es la única forma accesible de describirlas y se acepta.
+
 ### Pendientes
 1. `cuantos-20-1`: contar de 11 a 20, con dos filas de 10 para que quepa en 360 px (hoy el tema 2
    queda cubierto por `cuantos-1`, hasta 10).
+2. Variedad: "delante" y "detrás" en la escena; "¿de cuál hay más?" en el pictograma; restas en
+   "Junta y cuenta"; relacionar 3D con 2D.

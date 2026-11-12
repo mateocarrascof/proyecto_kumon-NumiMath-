@@ -35,6 +35,20 @@ export const GAME_TEXT = {
   orderHelp: 'Toca una tarjeta para ponerla. Tócala otra vez para sacarla.',
   orderAnswer: 'Así quedaba:',
   correctBadge: 'Esta era',
+  // Parte 3: lo que se dibuja (para el lector de pantalla).
+  patternRow: (labels: string[]) => `En la fila: ${labels.join(', ')}. ¿Qué sigue?`,
+  pictoCaption: 'Pictograma',
+  measureClips: 'Clips',
+  measureSteps: 'Pasos',
+  /** `name` viene con artículo ("el lápiz"): "El lápiz y, debajo, clips en fila." */
+  measureCaption: (name: string, unit: string) =>
+    `${name.charAt(0).toUpperCase()}${name.slice(1)} y, debajo, ${unit}s en fila.`,
+  scenePlace: {
+    arriba: 'arriba',
+    abajo: 'abajo',
+    izquierda: 'a la izquierda',
+    derecha: 'a la derecha',
+  } as Record<string, string>,
   chosenBadge: 'Tu elección',
 } as const;
 
@@ -53,6 +67,11 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
   'completa-camino-1': 'Pon los números que faltan en el camino.',
   'descompone-1': 'Mira cuántas hay y toca cuántas faltan.',
   'junta-1': 'Junta los dos grupos y cuenta.',
+  'figura-sigue-1': 'Mira la fila de figuras y toca la que sigue.',
+  'toca-figura-1': 'Toca la figura que te pido.',
+  'donde-esta-1': 'Mira la caja y toca lo que te pido.',
+  'mide-clips-1': 'Cuenta los clips o los pasos y toca el número.',
+  'pictograma-1': 'Mira el pictograma y cuenta.',
 };
 export const DEFAULT_INSTRUCTION = 'Mira bien y elige.';
 
@@ -70,7 +89,13 @@ const SYMBOL_NAMES: Record<string, string> = {
   igual: 'igual a',
 };
 
-/** Etiqueta accesible de una opción: "7", "3 manzanas", "mayor que". */
+/** Nombre de un objeto de la escena (`e:pelota-1` → "pelota"). */
+export function objectName(option: GameOption): string {
+  const match = /^e:([a-z]+)-1$/.exec(option.id);
+  return (match && EMOJI_NAMES[match[1]]?.singular) || optionLabel(option);
+}
+
+/** Etiqueta accesible de una opción: "7", "3 manzanas", "mayor que", "cubo rojo". */
 export function optionLabel(option: GameOption): string {
   const [prefix, value = ''] = option.id.split(':');
   if (prefix === 'e') {

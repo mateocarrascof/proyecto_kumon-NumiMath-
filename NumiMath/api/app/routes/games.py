@@ -69,6 +69,31 @@ class GameOptionOut(BaseModel):
     label: str
 
 
+class GameScenePlaceOut(BaseModel):
+    position: str
+    id: str
+
+
+class GameSceneOut(BaseModel):
+    center: str
+    center_name: str
+    places: list[GameScenePlaceOut]
+
+
+class GamePictoRowOut(BaseModel):
+    glyph: str
+    name: str
+    count: int
+
+
+class GameMeasureOut(BaseModel):
+    thing: str
+    name: str
+    unit: str
+    glyph: str
+    length: int
+
+
 class GameExerciseOut(BaseModel):
     token: str
     game_id: str
@@ -78,6 +103,11 @@ class GameExerciseOut(BaseModel):
     options: list[GameOptionOut]
     # Solo `fill`: la secuencia con las tarjetas fijas y `None` en los huecos.
     slots: list[str | None] | None = None
+    # Parte 3: lo que se dibuja encima de las opciones (a lo más uno por juego).
+    pattern: list[GameOptionOut] | None = None
+    scene: GameSceneOut | None = None
+    picto: list[GamePictoRowOut] | None = None
+    measure: GameMeasureOut | None = None
 
 
 class GameAnswerIn(BaseModel):
@@ -130,15 +160,44 @@ async def new_game_exercise(
     issued = issue_game(
         key, student.student_id, game, request.app.state.settings.exercise_token_ttl_seconds
     )
+    ex = issued.exercise
     return GameExerciseOut(
         token=issued.token,
         game_id=game.id,
-        kind=issued.exercise.kind,
-        text=issued.exercise.text,
-        options=[
-            GameOptionOut(id=o.id, kind=o.kind, label=o.label) for o in issued.exercise.options
-        ],
-        slots=list(issued.exercise.slots) if issued.exercise.slots is not None else None,
+        kind=ex.kind,
+        text=ex.text,
+        options=[GameOptionOut(id=o.id, kind=o.kind, label=o.label) for o in ex.options],
+        slots=list(ex.slots) if ex.slots is not None else None,
+        pattern=(
+            [GameOptionOut(id=o.id, kind=o.kind, label=o.label) for o in ex.pattern]
+            if ex.pattern is not None
+            else None
+        ),
+        scene=(
+            GameSceneOut(
+                center=ex.scene.center,
+                center_name=ex.scene.center_name,
+                places=[GameScenePlaceOut(position=p, id=i) for p, i in ex.scene.places],
+            )
+            if ex.scene is not None
+            else None
+        ),
+        picto=(
+            [GamePictoRowOut(glyph=r.glyph, name=r.name, count=r.count) for r in ex.picto]
+            if ex.picto is not None
+            else None
+        ),
+        measure=(
+            GameMeasureOut(
+                thing=ex.measure.thing,
+                name=ex.measure.name,
+                unit=ex.measure.unit,
+                glyph=ex.measure.glyph,
+                length=ex.measure.length,
+            )
+            if ex.measure is not None
+            else None
+        ),
     )
 
 

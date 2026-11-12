@@ -1,3 +1,4 @@
+import { WeekStat } from '../report/report.port';
 import { SheetStroke } from '../sheets/sheets.port';
 
 export interface TeacherProfile {
@@ -81,6 +82,7 @@ export type StudentsResult =
 export type ProgressResult =
   | { ok: true; progress: StudentProgress }
   | { ok: false; reason: TeacherReadFailure };
+export type EvolutionResult = { ok: true; weeks: WeekStat[] } | { ok: false; reason: TeacherReadFailure };
 export type HistoryResult = { ok: true; page: HistoryPage } | { ok: false; reason: TeacherReadFailure };
 export type SheetsResult = { ok: true; page: SheetsPage } | { ok: false; reason: TeacherReadFailure };
 export type SheetResult = { ok: true; sheet: SheetDetail } | { ok: false; reason: TeacherReadFailure };
@@ -93,6 +95,7 @@ export abstract class TeacherPort {
   abstract getProfile(): Promise<TeacherProfileResult>;
   abstract listStudents(): Promise<StudentsResult>;
   abstract getProgress(studentId: string): Promise<ProgressResult>;
+  abstract getEvolution(studentId: string): Promise<EvolutionResult>;
   abstract getHistory(studentId: string, offset: number): Promise<HistoryResult>;
   abstract listSheets(studentId: string, offset: number): Promise<SheetsResult>;
   abstract getSheet(studentId: string, sheetId: string): Promise<SheetResult>;

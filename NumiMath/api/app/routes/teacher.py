@@ -7,6 +7,7 @@ SIEMPRE el mismo 404, exista o no un niño con ese id. Privacidad (docs/privacy/
 - D5: estado actual por habilidad (sin tiempo típico ni racha).
 - D7: solo desde `accepted_at` del vínculo, fecha sin hora, sin segundos de respuesta y sin el texto
   de las tareas del tutor; sin el diagnóstico.
+- D6: ejercicios y aciertos por semana (8 semanas) desde `accepted_at`, sin diagnóstico ni juegos.
 - D8: hojas guardadas desde `accepted_at` (trazos y respuestas), sin texto de tareas del tutor.
 `CurrentTeacher` ya comprobó que el perfil existe (un docente eliminado con un token aún vigente
 recibe 403).
@@ -28,6 +29,7 @@ from app.deps import CurrentTeacher
 from app.errors import ApiError
 from app.logging import get_logger, log_event
 from app.routes.sheets import Stroke
+from app.weekly import WeekOut
 
 router = APIRouter(prefix="/v1/teacher", tags=["teacher"])
 
@@ -89,6 +91,10 @@ class HistoryOut(BaseModel):
     items: list[HistoryItemOut]
     has_more: bool
     next_offset: int | None
+
+
+class EvolutionOut(BaseModel):
+    weeks: list[WeekOut]
 
 
 class SheetItemOut(BaseModel):
@@ -199,6 +205,22 @@ async def student_history(
         has_more=page.has_more,
         next_offset=offset + len(page.items) if page.has_more else None,
     )
+
+
+@router.get("/students/{student_id}/evolution")
+async def student_evolution(
+    student_id: uuid.UUID, teacher: CurrentTeacher, request: Request, response: Response
+) -> EvolutionOut:
+    """D6: evolución semana a semana. Mismo 404 sin acceso."""
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        weeks = await _gateway(request).teacher_student_evolution(teacher.tutor_id, student_id)
+    except GatewayError as exc:
+        log_event(logger, "teacher.read_failed", code=f"gateway_{exc.reason}")
+        raise ApiError(503, "service_unavailable") from None
+    if weeks is None:
+        raise ApiError(404, "not_found", message=_NOT_FOUND)
+    return EvolutionOut(weeks=[WeekOut(start=s, total=t, correct=c) for s, t, c in weeks])
 
 
 @router.get("/students/{student_id}/sheets")

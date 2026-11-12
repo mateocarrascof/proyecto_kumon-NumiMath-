@@ -4,8 +4,10 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
+import { WeekStat } from '../report/report.port';
 import { SheetStroke } from '../sheets/sheets.port';
 import {
+  EvolutionResult,
   HistoryResult,
   ProgressResult,
   SheetResult,
@@ -142,6 +144,22 @@ export class HttpTeacherService extends TeacherPort {
           })),
         },
       };
+    } catch (error) {
+      return { ok: false, reason: failure(error) };
+    }
+  }
+
+  async getEvolution(studentId: string): Promise<EvolutionResult> {
+    const headers = await this.headers();
+    if (!headers) return { ok: false, reason: 'forbidden' };
+    try {
+      const dto = await firstValueFrom(
+        this.http.get<{ weeks: WeekStat[] }>(
+          `${BASE}/students/${encodeURIComponent(studentId)}/evolution`,
+          { headers },
+        ),
+      );
+      return { ok: true, weeks: dto.weeks };
     } catch (error) {
       return { ok: false, reason: failure(error) };
     }

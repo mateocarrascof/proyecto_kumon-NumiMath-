@@ -571,6 +571,12 @@ class Gateway(Protocol):
         """Historial desde `accepted_at` del vínculo, o `None` si no puede ver a ese niño."""
         ...
 
+    async def teacher_student_evolution(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[tuple[date, int, int]] | None:
+        """D6: (inicio de semana, ejercicios, aciertos) de 8 semanas; `None` sin acceso."""
+        ...
+
     async def save_student_sheet(
         self,
         tutor_id: uuid.UUID,

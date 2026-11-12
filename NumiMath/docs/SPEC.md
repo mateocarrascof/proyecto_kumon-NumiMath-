@@ -487,6 +487,11 @@ el mismo 404**, exista o no un niño con ese id. Las rutas del docente solo acep
   práctica de su hijo (habilidad, resultado, nivel y **hora**), paginados; lista vacía si no hay. Sección
   "Historial" del panel del tutor.
 
+- **D6 Evolución** (docente, `GET /v1/teacher/students/{id}/evolution`): ejercicios y aciertos por semana de las
+  últimas 8 semanas (hora de Chile), **solo práctica desde `accepted_at`** (sin diagnóstico ni juegos), solo
+  totales (sin duración, hora ni textos). Mismo `teacher_can_view` y 404 genérico. Gráfico `app-weekly-chart`
+  con tabla accesible; con menos de 5 ejercicios: "Aún hay pocos ejercicios para sacar conclusiones".
+
 ### Vincular y quitar docentes (T25, con T24 integrado, y T26)
 Hecho en el panel del tutor, sección "Docentes de <apodo>" del perfil seleccionado. **Cada hijo se
 vincula por separado.** La lectura de datos del niño por el docente llega después.

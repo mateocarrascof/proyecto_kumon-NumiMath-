@@ -56,6 +56,9 @@ Los cinco revisores del CLAUDE.md corrieron una vez; sus hallazgos críticos y a
 - **Administradores degradados:** `admin_list_teachers` y las demás rutas del administrador solo confían en el rol del token
   (vence en minutos); borrar un docente ya lo comprueba en la base.
 
+## Pendientes de D6, T8 y T22
+- **D6:** umbral de "pocos ejercicios" = 5 en total; ajustar con la experiencia de uso.
+
 ## Para más adelante
 - **PRIORIDAD ALTA: registro de lecturas del docente** (EIPD R38). Hacerlo si sobra tiempo después
   de T8, T22 y D6. Tabla de solo anexar con docente, perfil, recurso (D4, D5, D7) y **día**, sin contenido;

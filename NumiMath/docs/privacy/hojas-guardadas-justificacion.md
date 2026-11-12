@@ -1,6 +1,6 @@
 # Por qué se guardan las hojas del papel para calcular
 
-Estado: implementado (A22 y D8); T27 (el tutor ve y elimina) pendiente. Complementa
+Estado: implementado (A22, D8 y T27). Complementa
 `inventario-datos.md` y `eipd/eipd-borrador.md` (riesgo R30). No es asesoría legal.
 
 ## Regla general
@@ -16,7 +16,7 @@ para corregir errores de procedimiento, algo que el resultado final no muestra.
   tutor creó al confirmar el aviso.
 - Solo la ve el docente vinculado, por la misma regla que el resto de sus datos (`teacher_can_view`:
   vínculo activo, consentimiento no revocado, perfil no bloqueado, rol verificado).
-- **El tutor podrá verlas y borrarlas** (T27, pendiente).
+- **El tutor las ve y las borra** (T27): una o todas, con el PIN recién verificado; el docente deja de verlas de inmediato.
 - **Las hojas pertenecen al niño, no al docente.** Quitar un vínculo o eliminar al docente **no las
   borra**: solo dejan de verse para ese docente. Se eliminan cuando **el tutor las borra** (T27), al
   **borrar el perfil o la cuenta** y al **revocar el consentimiento**.

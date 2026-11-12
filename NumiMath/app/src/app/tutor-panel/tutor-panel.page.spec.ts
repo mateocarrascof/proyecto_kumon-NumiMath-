@@ -18,6 +18,8 @@ import { TeacherLinksPort } from '../core/teacher-links/teacher-links.port';
 import { TeacherLinksComponent } from './teacher-links.component';
 import { HistoryPort } from '../core/history/history.port';
 import { StudentHistoryComponent } from './student-history.component';
+import { TutorSheetsPort } from '../core/sheets/tutor-sheets.port';
+import { StudentSheetsComponent } from './student-sheets.component';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
 const REPORT: Report = {
@@ -83,6 +85,7 @@ function setup(
       RevokeConsentComponent,
       TeacherLinksComponent,
       StudentHistoryComponent,
+      StudentSheetsComponent,
     ],
     imports: [IonicModule.forRoot()],
     providers: [
@@ -94,6 +97,7 @@ function setup(
       { provide: ConsentRevocationPort, useValue: { revoke: vi.fn() } },
       { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },
       { provide: HistoryPort, useValue: { page: vi.fn(async () => ({ ok: true, page: { items: [], hasMore: false, nextOffset: null } })) } },
+      { provide: TutorSheetsPort, useValue: { list: vi.fn(async () => ({ ok: true, page: { items: [], hasMore: false, nextOffset: null, total: 0 } })) } },
       { provide: TeacherLinksPort, useValue: { list: vi.fn(async () => ({ ok: true, teachers: [] })) } },
       { provide: ConsentPort, useValue: { loadCurrent: vi.fn(async () => ({})) } },
       { provide: NavController, useValue: nav },

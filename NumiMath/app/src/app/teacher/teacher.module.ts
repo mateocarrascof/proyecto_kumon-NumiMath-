@@ -5,9 +5,9 @@ import { RouterModule, Routes } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
 
 import { roleGuard, roleGuestGuard } from '../core/auth/auth.guard';
+import { CoreModule } from '../core/core.module';
 import { TeacherHistoryPage } from './teacher-history.page';
 import { TeacherHomePage } from './teacher-home.page';
-import { SheetViewComponent } from './sheet-view.component';
 import { TeacherLoginPage } from './teacher-login.page';
 import { TeacherSheetsPage } from './teacher-sheets.page';
 import { TeacherStudentPage } from './teacher-student.page';
@@ -33,7 +33,7 @@ const routes: Routes = [
 
 /** Zona del docente (`/docente/*`). Sin registro: la cuenta la crea la empresa. */
 @NgModule({
-  imports: [CommonModule, FormsModule, IonicModule, RouterModule.forChild(routes)],
+  imports: [CommonModule, FormsModule, IonicModule, CoreModule, RouterModule.forChild(routes)],
   declarations: [
     TeacherLoginPage,
     TeacherHomePage,
@@ -41,7 +41,6 @@ const routes: Routes = [
     TeacherStudentPage,
     TeacherHistoryPage,
     TeacherSheetsPage,
-    SheetViewComponent,
   ],
 })
 export class TeacherModule {}

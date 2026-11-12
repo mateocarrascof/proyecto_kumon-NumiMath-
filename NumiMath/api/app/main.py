@@ -35,6 +35,7 @@ from app.routes import (
     students,
     teacher,
     teacher_links,
+    tutor_sheets,
 )
 from app.routes import admin as admin_routes
 
@@ -111,6 +112,7 @@ def create_app(
     app.include_router(consent.router)
     app.include_router(assignments.router)
     app.include_router(sheets.router)
+    app.include_router(tutor_sheets.router)
     app.include_router(report.router)
     app.include_router(pin.router)
     return app

@@ -13,11 +13,12 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
 - El texto de autorización no obliga a re-aceptar los términos generales: si cambia su versión, los vínculos
   existentes conservan la versión que se aceptó (decidir si deben reconfirmarse).
 
-## Paso 8: hojas guardadas (A22 y D8 hechos; T27 pendiente)
+## Paso 8: hojas guardadas (A22, D8 y T27 hechos)
 - **Hecho:** guardar la hoja (sola al responder y a mano), lectura del docente desde `accepted_at`, borrado por
   perfil/cuenta/consentimiento (probado), plazo de 90 días provisional con purga diaria, texto de autorización
   `prov-5`. Decisiones en `docs/SPEC.md` ("Hojas guardadas"). Se eligió jsonb vectorial en vez de imágenes en Storage.
-- **T27:** el tutor ve y elimina las hojas de su hijo (falta; hoy solo las lee por RLS).
+- **T27 hecho:** el tutor ve y elimina (una o todas) las hojas de su hijo, con PIN reciente y confirmación; el visor del
+  docente (`app-sheet-view`) se movió a `CoreModule` y lo usan ambos paneles.
 - **Límite: las hojas no entran a la cola sin conexión** (CU-A12/A13): sin red no se guardan.
 - **Plazo de 90 días sin confirmar por Legal:** confirmarlo o cambiarlo. `privacy_config_warnings()` y
   `privacy_job_warnings()` aún NO vigilan `sheet_retention_confirmed` ni el trabajo `privacy-purge-sheets`.
@@ -28,10 +29,10 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
 - **Alertas de la purga:** sumar `sheet_retention_confirmed` a `privacy_config_warnings()` y `privacy-purge-sheets` a
   `privacy_job_warnings()`; avisar si falta `pg_cron`.
 - **Preguntas para Legal:** (1) ¿un vínculo con v1 a v4 puede cubrir historial/progreso o hay que reconfirmar?; (2) ¿son
-  proporcionales los 90 días, y conservar hojas sin docente vinculado y sin T27?; (3) resguardos de la Ley 21.430 para un
+  proporcionales los 90 días, y conservar hojas sin docente vinculado, aunque ahora el tutor puede borrarlas?; (3) resguardos de la Ley 21.430 para un
   dibujo libre de un menor que ve un tercero (¿aviso al niño o al tutor en cada guardado?); (4) ¿el acceso del docente
-  desde el extranjero es transferencia internacional?; (5) ¿basta un canal manual de acceso y supresión mientras T27 no
-  exista?; (6) estado del Boletín 18.623-07 (posterga la Ley 21.719 a 2027).
+  desde el extranjero es transferencia internacional?; (5) ¿el acceso y la supresión de hojas desde el panel (T27) bastan
+  para los derechos ARCOP?; (6) estado del Boletín 18.623-07 (posterga la Ley 21.719 a 2027).
 - **Aceptado (B2):** la hoja contrasta si la respuesta fue correcta, no el valor exacto que escribió el niño; solo afecta a
   datos propios del tutor.
 - **Límite de frecuencia antes de autenticar:** el servidor lee el cuerpo (hasta 256 KB) de `/sheet` antes de validar la

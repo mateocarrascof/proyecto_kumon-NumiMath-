@@ -211,6 +211,36 @@ class SheetDetail:
 
 
 @dataclass(frozen=True)
+class TutorSheetItem:
+    """Una hoja vista por el tutor titular en la lista (T27): sin trazos."""
+
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    statement: str  # "Tarea del tutor" en las tareas del tutor
+    saved_at: datetime
+
+
+@dataclass(frozen=True)
+class TutorSheetsPage:
+    items: list[TutorSheetItem]
+    has_more: bool
+    total: int  # todas las hojas del perfil (para confirmar "Borrar todas")
+
+
+@dataclass(frozen=True)
+class TutorSheetDetail:
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    saved_at: datetime
+    statement: str
+    child_answer: str
+    correct_answer: str
+    strokes: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
 class TutorAttempt:
     """Un intento visto por el tutor (T5): habilidad, resultado, nivel y hora."""
 
@@ -537,6 +567,26 @@ class Gateway(Protocol):
     ) -> str:
         """Guarda (upsert) la hoja del ejercicio ya respondido. `ok`, `not_found`, `no_link` (sin
         docente vinculado activo), `no_attempt` o `mismatch`."""
+        ...
+
+    async def list_student_sheets(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorSheetsPage | None:
+        """Hojas del perfil para el tutor titular (T27), o `None` si el perfil no es suyo."""
+        ...
+
+    async def get_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> TutorSheetDetail | None: ...
+
+    async def delete_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> str:
+        """Borra una hoja (definitivo). `ok` o `not_found`."""
+        ...
+
+    async def delete_student_sheets(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        """Borra todas las hojas del perfil y dice cuántas; `None` si el perfil no es del tutor."""
         ...
 
     async def student_has_sheet_link(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:

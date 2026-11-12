@@ -39,6 +39,9 @@ from app.db.gateway import (
     TeacherStudent,
     TutorAttempt,
     TutorHistoryPage,
+    TutorSheetDetail,
+    TutorSheetItem,
+    TutorSheetsPage,
 )
 from app.exercises.levels import BLOCK_SIZE, MAX_LEVEL, MIN_LEVEL, SkillProgress
 from app.streaks import DailyStreakRow
@@ -950,6 +953,92 @@ class SupabaseGateway:
             },
         )
         if not isinstance(result, str):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def list_student_sheets(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorSheetsPage | None:
+        result = await self._rpc(
+            "list_student_sheets",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return TutorSheetsPage(
+                items=[
+                    TutorSheetItem(
+                        id=uuid.UUID(str(i["id"])),
+                        topic=str(i["topic"]),
+                        correct=bool(i["correct"]),
+                        statement=str(i["statement"]),
+                        saved_at=datetime.fromisoformat(str(i["saved_at"])),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+                total=int(result["total"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def get_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> TutorSheetDetail | None:
+        result = await self._rpc(
+            "get_student_sheet",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_sheet_id": str(sheet_id),
+            },
+        )
+        if result is None:
+            return None
+        try:
+            content = result["content"]
+            return TutorSheetDetail(
+                id=uuid.UUID(str(result["id"])),
+                topic=str(result["topic"]),
+                correct=bool(result["correct"]),
+                saved_at=datetime.fromisoformat(str(result["saved_at"])),
+                statement=str(content["statement"]),
+                child_answer=str(content["child_answer"]),
+                correct_answer=str(content["correct_answer"]),
+                strokes=list(content["strokes"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def delete_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> str:
+        result = await self._rpc(
+            "delete_student_sheet",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_sheet_id": str(sheet_id),
+            },
+        )
+        if not isinstance(result, str):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def delete_student_sheets(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        result = await self._rpc(
+            "delete_student_sheets",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        if isinstance(result, bool) or not isinstance(result, int):
             raise GatewayError("unexpected_result")
         return result
 

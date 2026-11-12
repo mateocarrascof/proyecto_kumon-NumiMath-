@@ -3,7 +3,7 @@ import { ActivatedRoute } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
 
 import { SheetDetail, SheetsResult, SheetResult, TeacherPort } from '../core/teacher/teacher.port';
-import { SheetViewComponent } from './sheet-view.component';
+import { SheetViewComponent } from '../core/sheets/sheet-view.component';
 import { TeacherSheetsPage } from './teacher-sheets.page';
 
 const STROKE = { eraser: false, color: '#2b2d42', width: 4, points: [[10, 10], [60, 40]] as [number, number][] };

@@ -163,3 +163,122 @@ def test_hojas_guardadas_contra_la_base_real(base: str) -> None:
                 headers={"apikey": _SERVICE, "Authorization": f"Bearer {_SERVICE}"},
                 timeout=20,
             )
+
+
+def test_el_tutor_ve_y_borra_las_hojas_contra_la_base_real(base: str) -> None:
+    """T27: el tutor lista, abre y borra (una o todas) con PIN reciente; el docente las pierde."""
+    run = uuid.uuid4().hex[:8].upper()
+    code = f"{run[:4]}2345".replace("0", "2").replace("1", "3")
+    auth = _service(base, "/auth/v1/admin")
+    rest = _service(base, "/rest/v1")
+    email = f"docente-t27-{run}@example.test"
+    created = auth.post(
+        "/users",
+        json={
+            "email": email,
+            "password": _PASSWORD,
+            "email_confirm": True,
+            "app_metadata": {"role": "teacher"},
+        },
+    )
+    assert created.status_code in (200, 201)
+    teacher_id = created.json()["id"]
+    ids = [teacher_id]
+    try:
+        assert (
+            rest.post(
+                "/teachers", json={"id": teacher_id, "name": "Docente T27", "link_code": code}
+            ).status_code
+            == 201
+        )
+        tutor, stranger = _Tutor(base), _Tutor(base)
+        ids += [tutor.id, stranger.id]
+        pia = tutor.students[0]
+        terms = rest.get(
+            "/legal_document_versions",
+            params={"kind": "eq.teacher_authorization", "is_current": "eq.true"},
+        ).json()[0]["id"]
+        linked = rest.post(
+            "/rpc/create_teacher_link",
+            json={
+                "p_tutor_id": tutor.id,
+                "p_student_id": pia,
+                "p_teacher_id": teacher_id,
+                "p_teacher_name": "Docente T27",
+                "p_terms_version_id": terms,
+            },
+        )
+        assert linked.json() == "ok", linked.text
+
+        with _api(base) as api:
+            teacher = _login(base, email)
+
+            def practice_and_save() -> None:
+                exercise = api.post(
+                    f"/v1/students/{pia}/exercises", json={"topic": "2-01"}, headers=tutor.headers()
+                ).json()
+                answer = verify(_SIGN.encode(), exercise["token"], uuid.UUID(pia)).exercise.answer
+                done = api.post(
+                    f"/v1/students/{pia}/exercises/answer",
+                    json={"token": exercise["token"], "answer": answer},
+                    headers=tutor.headers(),
+                )
+                assert done.status_code == 200, done.text
+                saved = api.post(
+                    f"/v1/students/{pia}/exercises/sheet",
+                    json={"token": exercise["token"], "answer": answer, "strokes": _STROKES},
+                    headers=tutor.headers(),
+                )
+                assert saved.json() == {"saved": True}, saved.text
+
+            for _ in range(3):
+                practice_and_save()
+            sheets = f"/v1/students/{pia}/sheets"
+
+            # El tutor titular ve la lista (con total y hora) y abre una hoja con sus trazos.
+            listed = api.get(sheets, headers=tutor.headers()).json()
+            assert listed["total"] == 3 and len(listed["items"]) == 3
+            first = listed["items"][0]
+            assert set(first) == {"id", "label", "tutor_task", "correct", "statement", "saved_at"}
+            opened = api.get(f"{sheets}/{first['id']}", headers=tutor.headers()).json()
+            assert opened["strokes"][0]["points"] == [[10.0, 10.0], [60.0, 40.0]]
+
+            # Sin PIN activo no se ve; otro tutor recibe el mismo 404 que con un perfil inexistente.
+            assert api.get(sheets).status_code == 401
+            other = api.get(sheets, headers=stranger.headers())
+            absent = api.get(f"/v1/students/{uuid.uuid4()}/sheets", headers=tutor.headers())
+            assert other.status_code == absent.status_code == 404
+            assert other.json()["error"]["message"] == absent.json()["error"]["message"]
+            assert (
+                api.delete(f"{sheets}/{first['id']}", headers=stranger.headers()).status_code == 404
+            )
+
+            # Borrar exige el PIN RECIÉN verificado: con uno viejo, 401 y no se borra nada.
+            stale = api.delete(f"{sheets}/{first['id']}", headers=tutor.headers(pin_age=600))
+            assert stale.status_code == 401
+            assert api.get(sheets, headers=tutor.headers()).json()["total"] == 3
+
+            # El docente ve las 3; el tutor borra una con el PIN reciente y el docente ya ve 2.
+            teacher_list = f"/v1/teacher/students/{pia}/sheets"
+            assert len(api.get(teacher_list, headers=teacher).json()["items"]) == 3
+            removed = api.delete(f"{sheets}/{first['id']}", headers=tutor.headers(pin_age=0))
+            assert removed.status_code == 204
+            assert api.get(f"{sheets}/{first['id']}", headers=tutor.headers()).status_code == 404
+            seen = api.get(teacher_list, headers=teacher).json()["items"]
+            assert len(seen) == 2 and first["id"] not in [s["id"] for s in seen]
+            gone = api.get(f"/v1/teacher/students/{pia}/sheets/{first['id']}", headers=teacher)
+            assert gone.status_code == 404
+
+            # Borrar todas dice cuántas fueron; el docente ya no ve ninguna.
+            everything = api.delete(sheets, headers=tutor.headers(pin_age=0))
+            assert everything.status_code == 200 and everything.json() == {"deleted": 2}
+            assert api.get(teacher_list, headers=teacher).json()["items"] == []
+            assert api.get(sheets, headers=tutor.headers()).json()["total"] == 0
+            assert rest.get("/student_sheets", params={"student_id": f"eq.{pia}"}).json() == []
+    finally:
+        for user_id in ids:
+            httpx.delete(
+                f"{base}/auth/v1/admin/users/{user_id}",
+                headers={"apikey": _SERVICE, "Authorization": f"Bearer {_SERVICE}"},
+                timeout=20,
+            )

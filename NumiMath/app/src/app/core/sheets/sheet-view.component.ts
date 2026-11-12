@@ -7,11 +7,11 @@ import {
   ViewChild,
 } from '@angular/core';
 
-import { GRID_SIZE, SHEET_HEIGHT, SHEET_WIDTH } from '../core/scratchpad/scratchpad.component';
-import { SheetStroke } from '../core/sheets/sheets.port';
+import { GRID_SIZE, SHEET_HEIGHT, SHEET_WIDTH } from '../scratchpad/scratchpad.component';
+import { SheetStroke } from './sheets.port';
 
 /**
- * Dibuja una hoja guardada (solo lectura) sobre la misma cuadrícula del papel: la cuadrícula es el
+ * Dibuja una hoja guardada (solo lectura; la usan el docente, D8, y el tutor, T27) sobre la misma cuadrícula del papel: la cuadrícula es el
  * fondo y los trazos van en un canvas transparente, así la goma solo borra tinta, como en el papel.
  */
 @Component({

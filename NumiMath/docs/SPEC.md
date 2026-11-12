@@ -452,7 +452,13 @@ están implementados; el resto se construye en el orden de abajo.
   (solo lectura, desde `accepted_at`, el mismo 404 sin acceso).
 - **Las hojas pertenecen al niño.** Eliminar a un docente o quitar un vínculo **no borra las hojas**: solo dejan
   de verse para ese docente. Se borran al borrar el perfil o la cuenta y al revocar el consentimiento; el tutor
-  podrá eliminarlas (T27, pendiente). Sin docente vinculado activo no se guardan hojas nuevas. No llegan a la IA.
+  las ve y las elimina desde su panel (T27). Sin docente vinculado activo no se guardan hojas nuevas. No llegan a la IA.
+- **T27 (el tutor):** por perfil, "Hojas guardadas" lista fecha y hora de Chile, ejercicio y resultado, y dibuja cada hoja
+  con el mismo visor del docente (`app-sheet-view`). Puede borrar una o todas (la confirmación dice cuántas y que no se
+  puede deshacer) con el **PIN recién verificado cada vez** (menos de 2 minutos en el servidor). Borrar es definitivo y
+  el docente deja de verlas de inmediato. Solo el tutor titular (mismo 404 genérico); ver y borrar funciona aunque el
+  consentimiento esté revocado (derecho del titular). API: `GET /v1/students/{id}/sheets[/{sheet_id}]` y
+  `DELETE /v1/students/{id}/sheets[/{sheet_id}]`; el cliente no puede escribir ni borrar directo (RLS solo lectura).
 - **Plazo máximo: 90 días desde que se guarda (provisional, `sheet_retention_days`, sin confirmar por Legal)**,
   con purga diaria (pg_cron).
 - **Límite conocido:** las hojas no entran a la cola sin conexión de CU-A12/A13; sin red no se guardan.

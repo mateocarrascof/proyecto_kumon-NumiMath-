@@ -3,11 +3,11 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
 
-import { SHEET_HEIGHT, SHEET_WIDTH } from '../core/scratchpad/scratchpad.component';
-import { SheetStroke } from '../core/sheets/sheets.port';
-import { SheetDetail, TeacherPort } from '../core/teacher/teacher.port';
+import { SHEET_HEIGHT, SHEET_WIDTH } from '../scratchpad/scratchpad.component';
+import { SheetDetail, TeacherPort } from '../teacher/teacher.port';
+import { TeacherSheetsPage } from '../../teacher/teacher-sheets.page';
+import { SheetStroke } from './sheets.port';
 import { SheetViewComponent } from './sheet-view.component';
-import { TeacherSheetsPage } from './teacher-sheets.page';
 
 const STROKES: SheetStroke[] = [
   { eraser: false, color: '#2b2d42', width: 4, points: [[36, 9], [346, 133]] },

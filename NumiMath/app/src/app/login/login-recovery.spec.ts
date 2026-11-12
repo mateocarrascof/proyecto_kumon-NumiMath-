@@ -52,4 +52,26 @@ describe('LoginPage: recuperar contraseña', () => {
     fixture.detectChanges();
     expect(root.querySelector('[data-testid="forgot-link"]')).toBeNull();
   });
+
+  it('el inicio de sesión del tutor tiene un enlace discreto "Acceso para docentes" que va a /docente/login', () => {
+    const fixture = setup(null);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const link = root.querySelector('[data-testid="teacher-access-link"]') as HTMLElement;
+    expect(link.textContent).toContain('Acceso para docentes');
+    expect(link.getAttribute('routerLink')).toBe('/docente/login');
+    expect(link.getAttribute('color')).toBe('medium'); // discreto: no es el botón principal
+    // Y nada que lleve al administrador: ese acceso es solo la dirección web /admin/login.
+    expect(root.innerHTML).not.toMatch(/admin/i);
+  });
+
+  it('el enlace a docentes solo se ve al iniciar sesión, no al crear cuenta', () => {
+    const fixture = setup(null);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="teacher-access-link"]')).not.toBeNull();
+    fixture.componentInstance.setMode('signup');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="teacher-access-link"]')).toBeNull();
+  });
 });

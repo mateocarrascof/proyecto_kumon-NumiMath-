@@ -1,0 +1,39 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-title>Docentes</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="signOut()" data-testid="admin-signout">Salir</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 48rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error) {
+      <p class="error" role="alert" data-testid="admin-list-error">{{ error }}</p>
+    } @else if (teachers.length === 0) {
+      <section data-testid="admin-empty">
+        <h1>Aún no hay docentes</h1>
+        <p>Crea la primera cuenta de docente para entregarle su acceso.</p>
+        <ion-button (click)="create()" data-testid="admin-create-first">Crear el primer docente</ion-button>
+      </section>
+    } @else {
+      <ion-button (click)="create()" data-testid="admin-create">Crear docente</ion-button>
+      <ion-list data-testid="admin-list">
+        @for (teacher of teachers; track teacher.id) {
+          <ion-item>
+            <ion-label>
+              <h2>{{ teacher.name }}</h2>
+              <p>{{ teacher.email }}</p>
+            </ion-label>
+            <ion-note slot="end" data-testid="admin-code">{{ teacher.linkCode }}</ion-note>
+            <ion-button slot="end" fill="outline" size="small" (click)="edit(teacher)" data-testid="admin-edit">Editar</ion-button>
+            <ion-button slot="end" fill="outline" size="small" color="danger" (click)="remove(teacher)" data-testid="admin-delete">Eliminar</ion-button>
+          </ion-item>
+        }
+      </ion-list>
+    }
+  </main>
+</ion-content>

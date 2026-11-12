@@ -40,6 +40,46 @@ Abre http://localhost:8100 en Chrome.
 4. **Practicar** → elige un tema → responde con números. La mascota reacciona.
 5. **Progreso**: aciertos por tema, racha y últimos intentos.
 
+## Crear un administrador (solo la empresa, nunca desde la app)
+
+Con Supabase local en marcha (`supabase start`) y la API configurada (`api/.env` con
+`SUPABASE_SERVICE_ROLE_KEY`):
+```bash
+api/.venv/Scripts/python api/scripts/create_admin.py correo@empresa.cl
+```
+Pide la contraseña (mínimo 8) dos veces, sin mostrarla. Luego entra en http://localhost:8100/admin/login.
+Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra una sola vez.
+
+**Cómo se llega a cada acceso:** en el inicio de sesión del tutor (`/login`) hay un enlace discreto "Acceso para
+docentes" que lleva a `/docente/login` (y ahí un "Volver"). **No hay ningún enlace al administrador dentro de la
+app**: el administrador entra por la versión web escribiendo la dirección `/admin/login`.
+
+### Probar docentes a mano (sin escribir contraseñas en ningún chat)
+1. Entra como administrador en http://localhost:8100/admin/login.
+2. **Crear docente:** "Crear el primer docente" (o "Crear docente"), con nombre, correo y una contraseña
+   inicial que elijas. Anota el correo, la contraseña y el código que muestra la pantalla (aparecen una sola vez).
+3. **Editar:** en la lista, "Editar": cambia el nombre y/o el correo. El correo nuevo rige de inmediato.
+4. **Docente:** en otra ventana privada, http://localhost:8100/docente/login con el correo (nuevo) y la
+   contraseña inicial: verás el código con "Copiar". Con el correo viejo no entra.
+5. **Eliminar:** "Eliminar" → lee la explicación → "Sí, eliminar la cuenta". El docente ya no puede entrar
+   (si su pantalla seguía abierta, al recargar vuelve a la entrada).
+
+### Probar el vínculo del docente a mano
+1. Con un docente creado (ver arriba), anota su **código** de 8 caracteres (lo ve en `/docente`).
+2. Entra como tutor, abre el **Panel del tutor** (te pide tu PIN) y elige un perfil.
+3. En "Docentes de <perfil>", pulsa **Vincular docente**, escribe tu PIN y el código. Lee el aviso con el
+   nombre del docente, marca "Entiendo y autorizo" y vincula.
+4. Prueba un código inexistente 5 veces: a la sexta te bloquea 15 minutos.
+5. Pulsa **Quitar**, escribe el PIN y confirma. Para repetir tras el bloqueo, espera o reinicia la base.
+
+### Probar las lecturas del docente y el historial del tutor a mano
+1. Como tutor, practica con un perfil (varios ejercicios) y, en "Docentes de <perfil>", vincula a un docente.
+   Luego practica unos ejercicios más (el docente solo verá lo posterior al vínculo).
+2. En el panel, sección **"Historial de <perfil>"** (T5): ves todos los intentos con habilidad, resultado, nivel y hora.
+3. Como docente (`/docente/login`): **Mis alumnos** → el alumno → **Progreso** (estado actual por habilidad) →
+   **Ver historial**: solo ejercicios desde el vínculo, con fecha sin hora; las tareas del tutor sin su texto.
+4. Como tutor, quita el vínculo: el docente recarga y el alumno ya no aparece (ni su progreso ni su historial).
+
 ## Pruebas
 
 | Qué | Comando |

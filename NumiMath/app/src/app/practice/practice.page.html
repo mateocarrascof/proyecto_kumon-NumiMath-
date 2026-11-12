@@ -264,10 +264,22 @@
           [attr.aria-expanded]="paperOpen"
           (click)="togglePaper()"
         >
-          <span aria-hidden="true">📝</span>&nbsp;{{ paperOpen ? 'Guardar el papel' : 'Papel para calcular' }}
+          <span aria-hidden="true">📝</span>&nbsp;{{ paperOpen ? 'Cerrar el papel' : 'Papel para calcular' }}
         </ion-button>
         @if (paperOpen) {
           <app-scratchpad [resetKey]="exercise.token"></app-scratchpad>
+          <ion-button
+            class="paper-save"
+            fill="outline"
+            expand="block"
+            [disabled]="!result"
+            (click)="savePaper()"
+          >
+            Guardar el papel
+          </ion-button>
+          @if (sheetNotice) {
+            <p class="numi-notice" role="status" data-testid="sheet-notice">{{ sheetNotice }}</p>
+          }
         }
       }
 

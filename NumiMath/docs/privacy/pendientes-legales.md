@@ -276,7 +276,7 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 ## 29. Modo sin conexión (CU-A12): datos en el dispositivo y revocación sin red
 **Contexto.** Para practicar sin internet, la app guarda en el teléfono o la tablet, sin cifrar, el
 apodo y el curso de cada perfil, un lote de ejercicios y las respuestas hechas sin conexión (ADR
-0002; EIPD R27 y R28). Si el tutor revoca, pausa o borra desde otro equipo, un dispositivo sin red
+0002; EIPD R41 y R42). Si el tutor revoca, pausa o borra desde otro equipo, un dispositivo sin red
 sigue permitiendo practicar hasta conectarse o hasta que pasen 7 días. Los datos vencidos dejan de
 usarse a los 7 días y se borran la próxima vez que se abre la app.
 **Preguntas.**
@@ -323,7 +323,7 @@ una sola versión:
 4. Tras revocar y volver a consentir, ¿las preferencias deben volver a sus valores por defecto?
 5. ¿Es aceptable que, si el tutor apaga el recordatorio, revoca, pausa o borra un perfil desde otro
    equipo, un dispositivo sin red siga mostrando como máximo un aviso al día hasta 7 días (mismo
-   criterio que R28)?
+   criterio que R42)?
 **Estado actual.** Implementado sin cambiar la política; pendiente de respuesta.
 **Respuesta:** _pendiente_
 

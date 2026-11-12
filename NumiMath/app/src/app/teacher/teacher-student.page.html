@@ -1,0 +1,44 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/docente/alumnos" text="Alumnos"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Progreso</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 40rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error) {
+      <p class="error" role="alert" data-testid="student-error">{{ error }}</p>
+    } @else if (progress) {
+      <h1 data-testid="student-name">{{ progress.nickname }} · {{ progress.grade }}° básico</h1>
+      <ion-button fill="outline" (click)="openHistory()" data-testid="open-history">Ver historial</ion-button>
+      <ion-button fill="outline" (click)="openSheets()" data-testid="open-sheets">Ver hojas de cálculo</ion-button>
+
+      @if (progress.skills.length === 0) {
+        <p data-testid="progress-empty">Todavía no ha practicado ninguna habilidad.</p>
+      } @else {
+        <ion-list data-testid="skills-list">
+          @for (skill of progress.skills; track skill.code) {
+            <ion-item data-testid="skill-row">
+              <ion-label>
+                <h2>{{ skill.label }}</h2>
+                <p>{{ skill.module }}</p>
+                @if (!skill.mastered) {
+                  <p data-testid="skill-block">
+                    Avance del bloque actual: {{ skill.blockCorrect }} aciertos de {{ skill.blockTotal }} intentos
+                    (un bloque tiene 10 ejercicios).
+                  </p>
+                }
+              </ion-label>
+              <ion-note slot="end" data-testid="skill-level">{{ stars(skill) }}</ion-note>
+            </ion-item>
+          }
+        </ion-list>
+      }
+    }
+  </main>
+</ion-content>

@@ -11,6 +11,7 @@ import { MascotComponent } from './mascot/mascot.component';
 import { FractionInputComponent } from './math/fraction-input.component';
 import { MathTextComponent } from './math/math-text.component';
 import { ScratchpadComponent } from './scratchpad/scratchpad.component';
+import { SheetViewComponent } from './sheets/sheet-view.component';
 import { GentleTimerComponent } from './timer/gentle-timer.component';
 
 /** Piezas compartidas por varias pantallas. */
@@ -22,6 +23,7 @@ import { GentleTimerComponent } from './timer/gentle-timer.component';
     LegalTextComponent,
     ConfettiComponent,
     ScratchpadComponent,
+    SheetViewComponent,
     WeeklyChartComponent,
     GentleTimerComponent,
     MathTextComponent,
@@ -33,6 +35,7 @@ import { GentleTimerComponent } from './timer/gentle-timer.component';
     LegalTextComponent,
     ConfettiComponent,
     ScratchpadComponent,
+    SheetViewComponent,
     WeeklyChartComponent,
     GentleTimerComponent,
     MathTextComponent,

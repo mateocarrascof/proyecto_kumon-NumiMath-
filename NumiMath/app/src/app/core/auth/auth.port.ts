@@ -1,8 +1,13 @@
 import { Signal } from '@angular/core';
 
+/** Rol de la cuenta: sale de `app_metadata.role` (solo lo escribe el servidor). Sin rol = tutor. */
+export type UserRole = 'tutor' | 'teacher' | 'admin';
+
 export interface AuthUser {
   id: string;
   email: string;
+  /** Ausente = tutor. */
+  role?: UserRole;
 }
 
 export type AuthFailure =

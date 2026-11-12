@@ -1,3 +1,4 @@
+import { By } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
@@ -12,6 +13,7 @@ import {
   ExplanationRequest,
 } from '../core/explanation/explanation.port';
 import { MascotComponent } from '../core/mascot/mascot.component';
+import { SheetsPort, SheetStroke } from '../core/sheets/sheets.port';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { Exercise, PracticeError, PracticePort, Topic } from '../core/practice/practice.port';
@@ -65,6 +67,11 @@ function setup(
     remove: vi.fn(),
     ...assignmentOverrides,
   };
+  const sheets = {
+    enabled: vi.fn(async (..._args: unknown[]) => true),
+    savePractice: vi.fn(async (..._args: unknown[]) => true),
+    saveTask: vi.fn(async (..._args: unknown[]) => true),
+  };
   const port = {
     topics: vi.fn(async () => [TOPIC]),
     newExercise: vi.fn(async () => EXERCISE),
@@ -87,6 +94,7 @@ function setup(
       { provide: MascotPort, useExisting: MascotService },
       { provide: PracticePort, useValue: port },
       { provide: ProgressPort, useValue: progress },
+      { provide: SheetsPort, useValue: sheets },
       { provide: AssignmentsPort, useValue: assignments },
       { provide: NavController, useValue: nav },
       { provide: ExplanationPort, useValue: explainer },
@@ -109,6 +117,7 @@ function setup(
     nav,
     queryParams,
     explainer,
+    sheets,
   };
 }
 
@@ -485,9 +494,137 @@ describe('PracticePage', () => {
     fixture.detectChanges();
     expect(page.paperOpen).toBe(true);
     expect(query(fixture, 'app-scratchpad')).not.toBeNull();
+    expect(toggle.textContent).toContain('Cerrar el papel');
+    expect(query(fixture, '.paper-save')?.textContent).toContain('Guardar el papel');
     toggle.click();
     fixture.detectChanges();
     expect(query(fixture, 'app-scratchpad')).toBeNull();
+  });
+
+  describe('hoja del papel (CU-A22)', () => {
+    const INK: SheetStroke[] = [
+      { eraser: false, color: '#2b2d42', width: 4, points: [[10, 10], [40, 40]] },
+    ];
+
+    async function withPaper(inked: boolean, overrides: Partial<PracticePort> = {}) {
+      const ctx = setup(overrides);
+      await ctx.page.ngOnInit();
+      await ctx.page.choose(TOPIC);
+      ctx.fixture.detectChanges();
+      (query(ctx.fixture, '.paper-toggle') as HTMLElement).click();
+      ctx.fixture.detectChanges();
+      const pad = ctx.fixture.debugElement.query(By.directive(ScratchpadComponent))
+        .componentInstance as ScratchpadComponent;
+      vi.spyOn(pad, 'snapshot').mockReturnValue(inked ? INK : null);
+      return ctx;
+    }
+
+    it('al responder con trazos la hoja se guarda sola, con la respuesta escrita', async () => {
+      const { page, sheets } = await withPaper(true);
+      page.onAnswerInput('12');
+      await page.submit();
+      expect(sheets.savePractice).toHaveBeenCalledWith('perfil-1', EXERCISE.token, 12, null, INK);
+    });
+
+    it('sin trazos no guarda nada', async () => {
+      const { page, sheets } = await withPaper(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      expect(sheets.savePractice).not.toHaveBeenCalled();
+    });
+
+    it('con el papel cerrado no guarda nada', async () => {
+      const { page, sheets } = setup();
+      await page.ngOnInit();
+      await page.choose(TOPIC);
+      page.onAnswerInput('12');
+      await page.submit();
+      expect(sheets.savePractice).not.toHaveBeenCalled();
+    });
+
+    it('sin docente vinculado los trazos no salen del dispositivo (no se sube nada)', async () => {
+      const { page, sheets } = await withPaper(true);
+      sheets.enabled.mockResolvedValue(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      await page.savePaper();
+      expect(sheets.enabled).toHaveBeenCalledWith('perfil-1');
+      expect(sheets.savePractice).not.toHaveBeenCalled();
+      expect(page.result?.correct).toBe(true);
+      expect(page.error).toBe('');
+    });
+
+    it('lo que se guarda es la respuesta del ejercicio aunque el niño pase al siguiente mientras tanto', async () => {
+      const { page, sheets } = await withPaper(true);
+      let release: (v: boolean) => void = () => undefined;
+      sheets.enabled.mockReturnValue(new Promise<boolean>((r) => (release = r)));
+      page.onAnswerInput('12');
+      await page.submit();
+      page.answer = '99'; // el niño ya empezó a escribir otra respuesta
+      release(true);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(sheets.savePractice).toHaveBeenCalledWith('perfil-1', EXERCISE.token, 12, null, INK);
+    });
+
+    it('si no se pudo guardar, el niño no ve ningún error y el ejercicio queda respondido', async () => {
+      const { page, fixture, sheets } = await withPaper(true);
+      sheets.savePractice.mockResolvedValue(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      fixture.detectChanges();
+      expect(page.result?.correct).toBe(true);
+      expect(page.error).toBe('');
+      expect(query(fixture, '[data-testid="sheet-notice"]')).toBeNull();
+    });
+
+    it('"Guardar el papel" espera a que haya respuesta y luego guarda a mano con aviso "Guardado"', async () => {
+      const { page, fixture, sheets } = await withPaper(true);
+      const save = query(fixture, '.paper-save') as HTMLElement & { disabled: boolean };
+      expect(save.disabled).toBe(true);
+      page.onAnswerInput('12');
+      await page.submit();
+      sheets.savePractice.mockClear();
+      fixture.detectChanges();
+      expect(save.disabled).toBe(false);
+      await page.savePaper();
+      fixture.detectChanges();
+      expect(sheets.savePractice).toHaveBeenCalledTimes(1);
+      expect(query(fixture, '[data-testid="sheet-notice"]')?.textContent).toContain('Guardado');
+    });
+
+    it('si el guardado manual no resulta (sin vínculo, sin red o fallo) da un aviso suave, no un error', async () => {
+      const { page, fixture, sheets } = await withPaper(true);
+      page.onAnswerInput('12');
+      await page.submit();
+      sheets.savePractice.mockResolvedValue(false);
+      await page.savePaper();
+      fixture.detectChanges();
+      const notice = query(fixture, '[data-testid="sheet-notice"]');
+      expect(notice?.textContent).toContain('No se pudo guardar ahora');
+      expect(notice?.getAttribute('role')).toBe('status'); // no es una alerta
+      expect(page.error).toBe('');
+    });
+
+    it('si el papel está vacío, el guardado manual lo dice con suavidad', async () => {
+      const { page, fixture, sheets } = await withPaper(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      await page.savePaper();
+      fixture.detectChanges();
+      expect(sheets.savePractice).not.toHaveBeenCalled();
+      expect(query(fixture, '[data-testid="sheet-notice"]')?.textContent).toContain(
+        'Dibuja algo en el papel',
+      );
+    });
+
+    it('sin conexión (modo sin conexión de CU-A12) no se guarda ni se encola', async () => {
+      const { page, sheets } = await withPaper(true);
+      page.offlineMode = true;
+      page.onAnswerInput('12');
+      await page.submit();
+      await page.savePaper();
+      expect(sheets.savePractice).not.toHaveBeenCalled();
+    });
   });
 
   it('el botón de tareas se ve siempre, aunque no haya tareas, y abre su pantalla', async () => {

@@ -1,0 +1,44 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/docentes" text="Docentes"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Eliminar docente</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 32rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (!teacher) {
+      <p class="error" role="alert" data-testid="admin-delete-error">{{ error }}</p>
+      <ion-button fill="outline" (click)="cancel()">Volver a la lista</ion-button>
+    } @else {
+      <h1>¿Eliminar a {{ teacher.name }}?</h1>
+      <p data-testid="delete-email">{{ teacher.email }}</p>
+
+      <section aria-label="Qué se borra y qué no" data-testid="delete-explanation">
+        <p><strong>Se borra:</strong></p>
+        <ul>
+          <li>La cuenta del docente: no podrá volver a entrar.</li>
+          <li>Sus vínculos con los tutores.</li>
+        </ul>
+        <p><strong>No se toca:</strong></p>
+        <ul>
+          <li>Los datos de los niños (perfiles, progreso e historial).</li>
+          <li>Las hojas de los niños.</li>
+        </ul>
+        <p>Esta acción no se puede deshacer.</p>
+      </section>
+
+      @if (error) {
+        <p class="error" role="alert" data-testid="admin-delete-error">{{ error }}</p>
+      }
+      <ion-button color="danger" expand="block" [disabled]="busy" (click)="confirm()" data-testid="admin-delete-confirm">
+        {{ busy ? 'Eliminando…' : 'Sí, eliminar la cuenta' }}
+      </ion-button>
+      <ion-button fill="clear" expand="block" (click)="cancel()" data-testid="admin-delete-cancel">Cancelar</ion-button>
+    }
+  </main>
+</ion-content>

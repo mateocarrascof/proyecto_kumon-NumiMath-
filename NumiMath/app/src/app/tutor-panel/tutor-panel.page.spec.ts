@@ -15,6 +15,12 @@ import { RevokeConsentComponent } from './revoke-consent.component';
 import { DeleteAccountComponent } from '../core/account/delete-account.component';
 import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { ProfileFormComponent } from './profile-form.component';
+import { TeacherLinksPort } from '../core/teacher-links/teacher-links.port';
+import { TeacherLinksComponent } from './teacher-links.component';
+import { HistoryPort } from '../core/history/history.port';
+import { StudentHistoryComponent } from './student-history.component';
+import { TutorSheetsPort } from '../core/sheets/tutor-sheets.port';
+import { StudentSheetsComponent } from './student-sheets.component';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
 const REPORT: Report = {
@@ -78,6 +84,9 @@ function setup(
       ProfileFormComponent,
       DeleteAccountComponent,
       RevokeConsentComponent,
+      TeacherLinksComponent,
+      StudentHistoryComponent,
+      StudentSheetsComponent,
     ],
     imports: [IonicModule.forRoot(), StreakReminderToggleComponent],
     providers: [
@@ -88,6 +97,9 @@ function setup(
       { provide: AccountPort, useValue: { delete: vi.fn(async () => 'ok') } },
       { provide: ConsentRevocationPort, useValue: { revoke: vi.fn() } },
       { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },
+      { provide: HistoryPort, useValue: { page: vi.fn(async () => ({ ok: true, page: { items: [], hasMore: false, nextOffset: null } })) } },
+      { provide: TutorSheetsPort, useValue: { list: vi.fn(async () => ({ ok: true, page: { items: [], hasMore: false, nextOffset: null, total: 0 } })) } },
+      { provide: TeacherLinksPort, useValue: { list: vi.fn(async () => ({ ok: true, teachers: [] })) } },
       { provide: ConsentPort, useValue: { loadCurrent: vi.fn(async () => ({})) } },
       { provide: NavController, useValue: nav },
     ],

@@ -1,0 +1,50 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="'/docente/alumnos/' + studentId" text="Progreso"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Historial</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 40rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error && items.length === 0) {
+      <p class="error" role="alert" data-testid="history-error">{{ error }}</p>
+    } @else {
+      <p>Se muestran los ejercicios desde que el tutor te vinculó con este alumno.</p>
+      @if (items.length === 0) {
+        <p data-testid="history-empty">Todavía no hay ejercicios desde el vínculo.</p>
+      } @else {
+        <ion-list data-testid="history-list">
+          @for (item of items; track $index) {
+            <ion-item data-testid="history-row">
+              <ion-label>
+                <h2>{{ item.label }}</h2>
+                @if (item.tutorTask) {
+                  <p data-testid="tutor-task">Tarea escrita por el tutor</p>
+                } @else if (item.exercise) {
+                  <p data-testid="exercise">{{ item.exercise }}</p>
+                }
+                <p>{{ formatDay(item.day) }} · Nivel {{ item.level }}</p>
+              </ion-label>
+              <ion-note slot="end" [color]="item.correct ? 'success' : 'danger'" data-testid="result">
+                {{ item.correct ? '✔ Correcta' : '✗ Incorrecta' }}
+              </ion-note>
+            </ion-item>
+          }
+        </ion-list>
+        @if (error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+        @if (nextOffset !== null) {
+          <ion-button expand="block" fill="outline" [disabled]="loadingMore" (click)="more()" data-testid="history-more">
+            {{ loadingMore ? 'Cargando…' : 'Cargar más' }}
+          </ion-button>
+        }
+      }
+    }
+  </main>
+</ion-content>

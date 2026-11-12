@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.exercises.levels import SkillProgress
 from app.streaks import DailyStreakRow
@@ -91,6 +91,169 @@ class AssignmentAnswer:
     status: str
     correct: bool = False
     answer: int = 0
+
+
+@dataclass(frozen=True)
+class TeacherRow:
+    """Docente para la lista del administrador (cuenta de adulto; nunca datos de niños)."""
+
+    id: uuid.UUID
+    name: str
+    email: str
+    link_code: str
+
+
+@dataclass(frozen=True)
+class TeacherProfile:
+    """Perfil del docente: solo su nombre y su código de vínculo (nunca datos de niños)."""
+
+    name: str
+    link_code: str
+
+
+@dataclass(frozen=True)
+class LinkLookup:
+    """Resultado de buscar un docente por su código (solo su nombre y el texto legal vigente)."""
+
+    status: str  # ok | not_found | locked | already_linked | student_not_found | no_terms
+    teacher_id: uuid.UUID | None = None
+    name: str = ""
+    terms_id: uuid.UUID | None = None
+    terms_version: str = ""
+    terms_sha256: str = ""
+    retry_after: int = 0
+
+
+@dataclass(frozen=True)
+class LinkedTeacher:
+    """Docente vinculado a un perfil: nombre actual y el mostrado al aceptar (nunca el correo)."""
+
+    teacher_id: uuid.UUID
+    name: str
+    shown_name: str
+    accepted_at: datetime
+
+
+@dataclass(frozen=True)
+class TeacherStudent:
+    """Alumno vinculado, para la lista del docente: solo apodo y curso."""
+
+    student_id: uuid.UUID
+    nickname: str
+    grade: int
+
+
+@dataclass(frozen=True)
+class SkillState:
+    """Estado actual de una habilidad practicada (sin tiempos ni fechas)."""
+
+    code: str
+    level: int
+    block_total: int
+    block_correct: int
+    mastered: bool
+
+
+@dataclass(frozen=True)
+class TeacherProgress:
+    nickname: str
+    grade: int
+    skills: list[SkillState]
+
+
+@dataclass(frozen=True)
+class HistoryItem:
+    """Un intento visto por el docente: fecha sin hora y sin duración. `exercise` es `None` en las
+    tareas del tutor (su texto nunca sale de la base hacia el docente)."""
+
+    topic: str
+    exercise: str | None
+    correct: bool
+    level: int
+    day: str  # AAAA-MM-DD, hora de Chile
+
+
+@dataclass(frozen=True)
+class HistoryPage:
+    items: list[HistoryItem]
+    has_more: bool
+
+
+@dataclass(frozen=True)
+class SheetSummary:
+    """Una hoja guardada vista por el docente en la lista: sin trazos ni textos."""
+
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    day: str  # AAAA-MM-DD, hora de Chile
+
+
+@dataclass(frozen=True)
+class SheetPage:
+    items: list[SheetSummary]
+    has_more: bool
+
+
+@dataclass(frozen=True)
+class SheetDetail:
+    """Una hoja completa. `strokes` son datos vectoriales; `statement` es "Tarea del tutor" en las
+    tareas del tutor (su texto nunca se guarda en la hoja)."""
+
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    day: str
+    statement: str
+    child_answer: str
+    correct_answer: str
+    strokes: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class TutorSheetItem:
+    """Una hoja vista por el tutor titular en la lista (T27): sin trazos."""
+
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    statement: str  # "Tarea del tutor" en las tareas del tutor
+    saved_at: datetime
+
+
+@dataclass(frozen=True)
+class TutorSheetsPage:
+    items: list[TutorSheetItem]
+    has_more: bool
+    total: int  # todas las hojas del perfil (para confirmar "Borrar todas")
+
+
+@dataclass(frozen=True)
+class TutorSheetDetail:
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    saved_at: datetime
+    statement: str
+    child_answer: str
+    correct_answer: str
+    strokes: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class TutorAttempt:
+    """Un intento visto por el tutor (T5): habilidad, resultado, nivel y hora."""
+
+    topic: str
+    correct: bool
+    level: int
+    answered_at: datetime
+
+
+@dataclass(frozen=True)
+class TutorHistoryPage:
+    items: list[TutorAttempt]
+    has_more: bool
 
 
 @dataclass(frozen=True)
@@ -314,3 +477,152 @@ class Gateway(Protocol):
         ...
 
     async def aclose(self) -> None: ...
+
+    async def admin_create_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, link_code: str
+    ) -> str:
+        """Registra al docente y deja constancia en una transacción. `ok` o `code_taken`.
+
+        La base comprueba que `admin_id` es administrador y que la cuenta ya tiene el rol docente.
+        """
+        ...
+
+    async def admin_list_teachers(self) -> list[TeacherRow]:
+        """Docentes en orden alfabético, con correo y código. Solo lectura."""
+        ...
+
+    async def teacher_profile(self, teacher_id: uuid.UUID) -> TeacherProfile | None:
+        """Perfil del docente, o `None` si la cuenta no es de docente o ya no tiene perfil."""
+        ...
+
+    async def admin_get_teacher(self, teacher_id: uuid.UUID) -> TeacherRow | None:
+        """Un docente con su correo, o `None` si no existe."""
+        ...
+
+    async def admin_update_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, email_changed: bool
+    ) -> str:
+        """Cambia el nombre y deja constancia. `ok`, `unchanged` o `not_found`."""
+        ...
+
+    async def admin_record_teacher_deleted(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> None:
+        """Constancia de la baja de un docente (solo ids)."""
+        ...
+
+    async def admin_is_admin(self, admin_id: uuid.UUID) -> bool:
+        """¿Sigue siendo administrador en la base? (el rol del token puede estar desactualizado)."""
+        ...
+
+    async def admin_email_in_use(self, email: str, except_id: uuid.UUID) -> bool:
+        """¿Otra cuenta ya usa este correo?"""
+        ...
+
+    async def admin_revoke_teacher_sessions(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> int:
+        """Cierra todas las sesiones del docente (invalida sus tokens de refresco)."""
+        ...
+
+    async def teacher_link_lookup(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, code: str
+    ) -> LinkLookup:
+        """Busca al docente por su código y cuenta los fallos (5 y 15 minutos de bloqueo)."""
+        ...
+
+    async def create_teacher_link(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        teacher_name: str,
+        terms_version_id: uuid.UUID,
+    ) -> str:
+        """Crea el vínculo. `ok`, `already_linked`, `student_not_found`, `teacher_not_found`,
+        `name_changed`, `terms_outdated` o `consent_required`."""
+        ...
+
+    async def list_student_teachers(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[LinkedTeacher] | None:
+        """Docentes vinculados al perfil, o `None` si el perfil no es del tutor."""
+        ...
+
+    async def remove_teacher_link(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> str:
+        """Quita el vínculo (no toca datos del niño). `ok` o `not_found`."""
+        ...
+
+    async def teacher_students(self, teacher_id: uuid.UUID) -> list[TeacherStudent]:
+        """Alumnos que el docente puede ver ahora (vínculo, consentimiento, perfil y rol)."""
+        ...
+
+    async def teacher_student_progress(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> TeacherProgress | None:
+        """Progreso por habilidad, o `None` si el docente no puede ver a ese niño."""
+        ...
+
+    async def teacher_student_history(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> HistoryPage | None:
+        """Historial desde `accepted_at` del vínculo, o `None` si no puede ver a ese niño."""
+        ...
+
+    async def save_student_sheet(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        child_answer: str,
+        correct: bool | None,
+        correct_answer: str | None,
+        strokes: list[Any],
+    ) -> str:
+        """Guarda (upsert) la hoja del ejercicio ya respondido. `ok`, `not_found`, `no_link` (sin
+        docente vinculado activo), `no_attempt` o `mismatch`."""
+        ...
+
+    async def list_student_sheets(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorSheetsPage | None:
+        """Hojas del perfil para el tutor titular (T27), o `None` si el perfil no es suyo."""
+        ...
+
+    async def get_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> TutorSheetDetail | None: ...
+
+    async def delete_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> str:
+        """Borra una hoja (definitivo). `ok` o `not_found`."""
+        ...
+
+    async def delete_student_sheets(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        """Borra todas las hojas del perfil y dice cuántas; `None` si el perfil no es del tutor."""
+        ...
+
+    async def student_has_sheet_link(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        """¿Hay un docente vinculado activo cuyo texto de autorización cubre las hojas?"""
+        ...
+
+    async def teacher_student_sheets(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> SheetPage | None:
+        """Hojas guardadas desde `accepted_at`, o `None` si el docente no puede ver a ese niño."""
+        ...
+
+    async def teacher_student_sheet(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> SheetDetail | None:
+        """Una hoja, o `None` si no hay acceso (o la hoja es anterior al vínculo)."""
+        ...
+
+    async def list_student_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorHistoryPage | None:
+        """Historial del hijo para el tutor (T5), o `None` si el perfil no es del tutor."""
+        ...

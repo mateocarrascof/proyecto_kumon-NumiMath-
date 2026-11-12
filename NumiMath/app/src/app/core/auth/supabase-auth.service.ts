@@ -8,14 +8,20 @@ import {
   AuthUser,
   RecoveryLink,
   RecoveryStart,
+  UserRole,
 } from './auth.port';
 import { OfflineStore } from '../offline/offline-store.port';
 import { passwordProblem } from './password-rules';
 import { SUPABASE_CLIENT } from './supabase.client';
 
+function roleOf(appMetadata: Record<string, unknown> | undefined): UserRole {
+  const role = appMetadata?.['role'];
+  return role === 'teacher' || role === 'admin' ? role : 'tutor';
+}
+
 function toUser(session: Session | null): AuthUser | null {
   const u = session?.user;
-  return u ? { id: u.id, email: u.email ?? '' } : null;
+  return u ? { id: u.id, email: u.email ?? '', role: roleOf(u.app_metadata) } : null;
 }
 
 /** Traduce el error del proveedor a un motivo cerrado; nunca se muestra el mensaje crudo. */

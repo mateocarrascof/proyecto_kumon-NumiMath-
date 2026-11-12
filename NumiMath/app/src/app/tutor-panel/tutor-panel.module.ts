@@ -8,6 +8,9 @@ import { CoreModule } from '../core/core.module';
 import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { RevokeConsentComponent } from './revoke-consent.component';
+import { StudentHistoryComponent } from './student-history.component';
+import { StudentSheetsComponent } from './student-sheets.component';
+import { TeacherLinksComponent } from './teacher-links.component';
 import { TutorPanelPage } from './tutor-panel.page';
 
 @NgModule({
@@ -19,6 +22,13 @@ import { TutorPanelPage } from './tutor-panel.page';
     StreakReminderToggleComponent,
     RouterModule.forChild([{ path: '', component: TutorPanelPage }]),
   ],
-  declarations: [TutorPanelPage, ProfileFormComponent, RevokeConsentComponent],
+  declarations: [
+    TutorPanelPage,
+    ProfileFormComponent,
+    RevokeConsentComponent,
+    TeacherLinksComponent,
+    StudentHistoryComponent,
+    StudentSheetsComponent,
+  ],
 })
 export class TutorPanelPageModule {}

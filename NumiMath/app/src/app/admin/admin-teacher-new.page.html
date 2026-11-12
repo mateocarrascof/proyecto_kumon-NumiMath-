@@ -1,0 +1,92 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/docentes" text="Docentes"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Crear docente</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 32rem; margin: 0 auto">
+    @if (created; as teacher) {
+      <section data-testid="admin-created">
+        <h1>Cuenta creada</h1>
+        <p role="alert">
+          <strong>Entrega estos datos ahora.</strong> La contraseña no se podrá volver a ver.
+        </p>
+        <ion-list>
+          <ion-item>
+            <ion-label>
+              <p>Correo</p>
+              <h2 data-testid="created-email">{{ teacher.email }}</h2>
+            </ion-label>
+            <ion-button slot="end" fill="outline" (click)="copy('correo', teacher.email)">Copiar</ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-label>
+              <p>Contraseña inicial</p>
+              <h2 data-testid="created-password">{{ teacher.password }}</h2>
+            </ion-label>
+            <ion-button slot="end" fill="outline" (click)="copy('contraseña', teacher.password)">Copiar</ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-label>
+              <p>Código de vínculo</p>
+              <h2 data-testid="created-code">{{ teacher.linkCode }}</h2>
+            </ion-label>
+            <ion-button slot="end" fill="outline" (click)="copy('código', teacher.linkCode)">Copiar</ion-button>
+          </ion-item>
+        </ion-list>
+        @if (copied) {
+          <p role="status">Copiado: {{ copied }}.</p>
+        }
+        <ion-button expand="block" (click)="done()" data-testid="admin-done">Listo, ya los entregué</ion-button>
+      </section>
+    } @else {
+      <form (ngSubmit)="submit()" novalidate>
+        <ion-input
+          label="Nombre"
+          labelPlacement="stacked"
+          fill="outline"
+          style="margin-bottom: 1rem"
+          name="name"
+          [maxlength]="nameMax"
+          [(ngModel)]="name"
+        ></ion-input>
+        <ion-input
+          label="Correo"
+          labelPlacement="stacked"
+          fill="outline"
+          type="email"
+          name="email"
+          autocomplete="off"
+          [(ngModel)]="email"
+        ></ion-input>
+        <ion-input
+          label="Contraseña inicial"
+          labelPlacement="stacked"
+          fill="outline"
+          [type]="showPassword ? 'text' : 'password'"
+          name="password"
+          autocomplete="new-password"
+          [helperText]="'Mínimo ' + passwordMin + ' caracteres'"
+          [(ngModel)]="password"
+        ></ion-input>
+        <ion-checkbox
+          labelPlacement="end"
+          justify="start"
+          [checked]="showPassword"
+          (ionChange)="showPassword = $event.detail.checked"
+        >Mostrar contraseña</ion-checkbox>
+
+        @if (error) {
+          <p class="error" role="alert" data-testid="admin-new-error">{{ error }}</p>
+        }
+        <ion-button type="submit" expand="block" [disabled]="busy" data-testid="admin-new-submit">
+          {{ busy ? 'Creando…' : 'Crear cuenta' }}
+        </ion-button>
+      </form>
+    }
+  </main>
+</ion-content>

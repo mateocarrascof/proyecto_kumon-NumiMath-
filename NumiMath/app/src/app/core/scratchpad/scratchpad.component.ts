@@ -12,6 +12,8 @@ import {
   ViewChild,
 } from '@angular/core';
 
+import { SheetStroke } from '../sheets/sheets.port';
+
 export interface PenColor {
   name: string;
   value: string;
@@ -22,6 +24,30 @@ export const PEN_COLORS: readonly PenColor[] = [
   { name: 'azul', value: '#1d4ed8' },
   { name: 'rojo', value: '#c0392b' },
 ];
+
+/** Topes de la API para una hoja guardada (api/app/routes/sheets.py). */
+export const SHEET_MAX_STROKES = 600;
+export const SHEET_MAX_STROKE_POINTS = 3000;
+export const SHEET_MAX_POINTS = 12000;
+
+/** Separación mínima entre puntos guardados, en unidades de la hoja; se prueba de menor a mayor. */
+const SIMPLIFY_STEPS = [2, 4, 8] as const;
+
+/**
+ * Ajusta los puntos al rango de la hoja y descarta los que están a menos de `step` del último
+ * conservado. Siempre deja el primero y el último (un punto suelto sigue siendo un punto).
+ */
+function simplifyPoints(points: Point[], step: number): [number, number][] {
+  const clamp = (v: number, max: number) => Math.min(Math.max(Math.round(v), 0), max);
+  const all = points.map((p): [number, number] => [clamp(p.x, SHEET_WIDTH), clamp(p.y, SHEET_HEIGHT)]);
+  const kept: [number, number][] = [all[0]];
+  for (let i = 1; i < all.length - 1; i++) {
+    const last = kept[kept.length - 1];
+    if (Math.hypot(all[i][0] - last[0], all[i][1] - last[1]) >= step) kept.push(all[i]);
+  }
+  if (all.length > 1) kept.push(all[all.length - 1]);
+  return kept;
+}
 
 export const PEN_WIDTH = 4;
 export const ERASER_WIDTH = 26;
@@ -64,9 +90,9 @@ interface Pinch {
  * La hoja es más grande que la pantalla: se acerca o aleja con los botones, pellizcando
  * con dos dedos o con Ctrl + rueda, y se recorre con la herramienta "Mover".
  *
- * Privacidad: lo dibujado vive solo en la memoria de esta pantalla. No se guarda, no se exporta
- * (sin toDataURL ni toBlob) y no se envía a ningún lado. Se borra al cambiar `resetKey`
- * (el ejercicio siguiente) o al salir de la pantalla.
+ * Privacidad: lo dibujado vive solo en la memoria de esta pantalla (sin toDataURL ni toBlob). Solo
+ * `snapshot()` entrega los trazos como datos vectoriales, y quien los usa (CU-A22) los envía únicamente
+ * si el niño tiene un docente vinculado. Se borra al cambiar `resetKey` o al salir de la pantalla.
  */
 @Component({
   selector: 'app-scratchpad',
@@ -112,6 +138,33 @@ export class ScratchpadComponent implements AfterViewInit, OnChanges, OnDestroy 
   confirmingClear = false;
   clearCountdown = 0;
   private clearTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Copia de los trazos para guardarlos (CU-A22). `null` si no hay nada dibujado con lápiz o si, aun
+   * simplificada, la hoja pasa los topes del servidor (entonces no se guarda).
+   *
+   * - Los puntos se ajustan al rango de la hoja (0 a 1200 y 0 a 900): lo que cae fuera de la hoja no
+   *   se ve (el dibujo se recorta a ella) y el servidor rechazaría coordenadas muy lejanas.
+   * - Se simplifican: se descartan los puntos a menos de 2 px del anterior (y, si aún pesa mucho, a
+   *   menos de 4 u 8 px). Se conservan siempre el primero y el último de cada trazo.
+   */
+  snapshot(): SheetStroke[] | null {
+    const strokes = this.strokes.filter((s) => s.points.length > 0);
+    if (!strokes.some((s) => !s.eraser) || strokes.length > SHEET_MAX_STROKES) return null;
+    for (const step of SIMPLIFY_STEPS) {
+      const out = strokes.map((s) => ({
+        eraser: s.eraser,
+        color: s.color,
+        width: s.width,
+        points: simplifyPoints(s.points, step),
+      }));
+      const total = out.reduce((n, s) => n + s.points.length, 0);
+      if (total <= SHEET_MAX_POINTS && out.every((s) => s.points.length <= SHEET_MAX_STROKE_POINTS)) {
+        return out;
+      }
+    }
+    return null;
+  }
 
   ngAfterViewInit(): void {
     this.ctx = this.canvas.getContext('2d');

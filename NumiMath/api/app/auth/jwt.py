@@ -1,7 +1,8 @@
 """Validación del JWT de Supabase (ADR 0001, comprobación 1).
 
 Reglas:
-- Solo se aceptan tokens de un TUTOR autenticado: `role == "authenticated"`, con `aud` e `iss`
+- Solo se aceptan tokens de un usuario autenticado (`role == "authenticated"`; el rol de la
+  aplicación, `app_role`, lo decide cada dependencia de `deps.py`), con `aud` e `iss`
   esperados, `exp` y `sub` presentes, y NO anónimos. Los tokens `anon` y `service_role`
   se rechazan aunque tengan firma válida.
 - El algoritmo se elige por token y está restringido: HS256 solo con el secreto configurado;
@@ -42,6 +43,14 @@ class AuthenticatedTutor:
     password_auth_at: int | None = None
     # Correo del claim `email` (solo para calcular la huella de la evidencia al borrar la cuenta).
     email: str | None = None
+    # `app_metadata.role`: 'teacher', 'admin' o `None` (= tutor). Solo lo escribe el servidor.
+    app_role: str | None = None
+
+
+def app_role(claims: dict[str, Any]) -> str | None:
+    meta = claims.get("app_metadata")
+    role = meta.get("role") if isinstance(meta, dict) else None
+    return role if isinstance(role, str) and role else None
 
 
 def password_auth_time(claims: dict[str, Any]) -> int | None:
@@ -138,4 +147,5 @@ class TokenVerifier:
             tutor_id=tutor_id,
             password_auth_at=password_auth_time(claims),
             email=email if isinstance(email, str) and email else None,
+            app_role=app_role(claims),
         )

@@ -23,8 +23,25 @@ from app.db.gateway import (
     ConsentSummary,
     DiagnosticItem,
     GatewayError,
+    HistoryItem,
+    HistoryPage,
+    LinkedTeacher,
+    LinkLookup,
     OfflineAttempt,
     PinState,
+    SheetDetail,
+    SheetPage,
+    SheetSummary,
+    SkillState,
+    TeacherProfile,
+    TeacherProgress,
+    TeacherRow,
+    TeacherStudent,
+    TutorAttempt,
+    TutorHistoryPage,
+    TutorSheetDetail,
+    TutorSheetItem,
+    TutorSheetsPage,
 )
 from app.exercises.levels import BLOCK_SIZE, MAX_LEVEL, MIN_LEVEL, SkillProgress
 from app.streaks import DailyStreakRow
@@ -652,3 +669,493 @@ class SupabaseGateway:
     async def aclose(self) -> None:
         if self._client is not None:
             await self._client.aclose()
+
+    async def admin_create_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, link_code: str
+    ) -> str:
+        result = await self._rpc(
+            "admin_create_teacher",
+            {
+                "p_admin_id": str(admin_id),
+                "p_teacher_id": str(teacher_id),
+                "p_name": name,
+                "p_link_code": link_code,
+            },
+        )
+        if result not in ("ok", "code_taken"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def admin_list_teachers(self) -> list[TeacherRow]:
+        result = await self._rpc("admin_list_teachers", {})
+        try:
+            if not isinstance(result, list):
+                raise TypeError
+            return [
+                TeacherRow(
+                    id=uuid.UUID(str(row["id"])),
+                    name=str(row["name"]),
+                    email=str(row["email"] or ""),
+                    link_code=str(row["link_code"]),
+                )
+                for row in result
+            ]
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_profile(self, teacher_id: uuid.UUID) -> TeacherProfile | None:
+        result = await self._rpc("teacher_profile", {"p_teacher_id": str(teacher_id)})
+        if result is None:
+            return None
+        try:
+            return TeacherProfile(name=str(result["name"]), link_code=str(result["link_code"]))
+        except (TypeError, KeyError):
+            raise GatewayError("unexpected_result") from None
+
+    async def admin_get_teacher(self, teacher_id: uuid.UUID) -> TeacherRow | None:
+        result = await self._rpc("admin_get_teacher", {"p_teacher_id": str(teacher_id)})
+        if result is None:
+            return None
+        try:
+            return TeacherRow(
+                id=uuid.UUID(str(result["id"])),
+                name=str(result["name"]),
+                email=str(result["email"] or ""),
+                link_code=str(result["link_code"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def admin_update_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, email_changed: bool
+    ) -> str:
+        result = await self._rpc(
+            "admin_update_teacher",
+            {
+                "p_admin_id": str(admin_id),
+                "p_teacher_id": str(teacher_id),
+                "p_name": name,
+                "p_email_changed": email_changed,
+            },
+        )
+        if result not in ("ok", "unchanged", "not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def admin_record_teacher_deleted(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> None:
+        await self._rpc(
+            "admin_record_teacher_deleted",
+            {"p_admin_id": str(admin_id), "p_teacher_id": str(teacher_id)},
+        )
+
+    async def admin_is_admin(self, admin_id: uuid.UUID) -> bool:
+        result = await self._rpc("admin_is_admin", {"p_admin_id": str(admin_id)})
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def admin_email_in_use(self, email: str, except_id: uuid.UUID) -> bool:
+        result = await self._rpc(
+            "admin_email_in_use", {"p_email": email, "p_except_id": str(except_id)}
+        )
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def admin_revoke_teacher_sessions(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> int:
+        result = await self._rpc(
+            "admin_revoke_teacher_sessions",
+            {"p_admin_id": str(admin_id), "p_teacher_id": str(teacher_id)},
+        )
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def teacher_link_lookup(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, code: str
+    ) -> LinkLookup:
+        result = await self._rpc(
+            "teacher_link_lookup",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id), "p_code": code},
+        )
+        try:
+            status = str(result["status"])
+            if status not in (
+                "ok",
+                "not_found",
+                "locked",
+                "already_linked",
+                "student_not_found",
+                "no_terms",
+            ):
+                raise ValueError
+            if status == "locked":
+                return LinkLookup(status, retry_after=int(result["retry_after"]))
+            if status != "ok":
+                return LinkLookup(status)
+            return LinkLookup(
+                status,
+                teacher_id=uuid.UUID(str(result["teacher_id"])),
+                name=str(result["name"]),
+                terms_id=uuid.UUID(str(result["terms_id"])),
+                terms_version=str(result["terms_version"]),
+                terms_sha256=str(result["terms_sha256"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def create_teacher_link(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        teacher_id: uuid.UUID,
+        teacher_name: str,
+        terms_version_id: uuid.UUID,
+    ) -> str:
+        result = await self._rpc(
+            "create_teacher_link",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_teacher_id": str(teacher_id),
+                "p_teacher_name": teacher_name,
+                "p_terms_version_id": str(terms_version_id),
+            },
+        )
+        if result not in (
+            "ok",
+            "already_linked",
+            "student_not_found",
+            "teacher_not_found",
+            "name_changed",
+            "terms_outdated",
+            "consent_required",
+        ):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def list_student_teachers(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[LinkedTeacher] | None:
+        result = await self._rpc(
+            "list_student_teachers",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        try:
+            if not isinstance(result, list):
+                raise TypeError
+            return [
+                LinkedTeacher(
+                    teacher_id=uuid.UUID(str(row["teacher_id"])),
+                    name=str(row["name"]),
+                    shown_name=str(row["shown_name"]),
+                    accepted_at=datetime.fromisoformat(str(row["accepted_at"])),
+                )
+                for row in result
+            ]
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def remove_teacher_link(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> str:
+        result = await self._rpc(
+            "remove_teacher_link",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_teacher_id": str(teacher_id),
+            },
+        )
+        if result not in ("ok", "not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def teacher_students(self, teacher_id: uuid.UUID) -> list[TeacherStudent]:
+        result = await self._rpc("teacher_students", {"p_teacher_id": str(teacher_id)})
+        try:
+            if not isinstance(result, list):
+                raise TypeError
+            return [
+                TeacherStudent(
+                    student_id=uuid.UUID(str(row["student_id"])),
+                    nickname=str(row["nickname"]),
+                    grade=int(row["grade"]),
+                )
+                for row in result
+            ]
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_progress(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> TeacherProgress | None:
+        result = await self._rpc(
+            "teacher_student_progress",
+            {"p_teacher_id": str(teacher_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        try:
+            return TeacherProgress(
+                nickname=str(result["nickname"]),
+                grade=int(result["grade"]),
+                skills=[
+                    SkillState(
+                        code=str(k["code"]),
+                        level=int(k["level"]),
+                        block_total=int(k["block_total"]),
+                        block_correct=int(k["block_correct"]),
+                        mastered=bool(k["mastered"]),
+                    )
+                    for k in result["skills"]
+                ],
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_history(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> HistoryPage | None:
+        result = await self._rpc(
+            "teacher_student_history",
+            {
+                "p_teacher_id": str(teacher_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return HistoryPage(
+                items=[
+                    HistoryItem(
+                        topic=str(i["topic"]),
+                        exercise=None if i["exercise"] is None else str(i["exercise"]),
+                        correct=bool(i["correct"]),
+                        level=int(i["level"]),
+                        day=str(i["day"]),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def save_student_sheet(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        child_answer: str,
+        correct: bool | None,
+        correct_answer: str | None,
+        strokes: list[Any],
+    ) -> str:
+        result = await self._rpc(
+            "save_student_sheet",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_exercise_id": str(exercise_id),
+                "p_child_answer": child_answer,
+                "p_correct": correct,
+                "p_correct_ans": correct_answer,
+                "p_strokes": strokes,
+            },
+        )
+        if not isinstance(result, str):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def list_student_sheets(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorSheetsPage | None:
+        result = await self._rpc(
+            "list_student_sheets",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return TutorSheetsPage(
+                items=[
+                    TutorSheetItem(
+                        id=uuid.UUID(str(i["id"])),
+                        topic=str(i["topic"]),
+                        correct=bool(i["correct"]),
+                        statement=str(i["statement"]),
+                        saved_at=datetime.fromisoformat(str(i["saved_at"])),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+                total=int(result["total"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def get_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> TutorSheetDetail | None:
+        result = await self._rpc(
+            "get_student_sheet",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_sheet_id": str(sheet_id),
+            },
+        )
+        if result is None:
+            return None
+        try:
+            content = result["content"]
+            return TutorSheetDetail(
+                id=uuid.UUID(str(result["id"])),
+                topic=str(result["topic"]),
+                correct=bool(result["correct"]),
+                saved_at=datetime.fromisoformat(str(result["saved_at"])),
+                statement=str(content["statement"]),
+                child_answer=str(content["child_answer"]),
+                correct_answer=str(content["correct_answer"]),
+                strokes=list(content["strokes"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def delete_student_sheet(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> str:
+        result = await self._rpc(
+            "delete_student_sheet",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_sheet_id": str(sheet_id),
+            },
+        )
+        if not isinstance(result, str):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def delete_student_sheets(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
+        result = await self._rpc(
+            "delete_student_sheets",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def student_has_sheet_link(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        result = await self._rpc(
+            "student_has_sheet_link",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def teacher_student_sheets(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> SheetPage | None:
+        result = await self._rpc(
+            "teacher_student_sheets",
+            {
+                "p_teacher_id": str(teacher_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return SheetPage(
+                items=[
+                    SheetSummary(
+                        id=uuid.UUID(str(i["id"])),
+                        topic=str(i["topic"]),
+                        correct=bool(i["correct"]),
+                        day=str(i["day"]),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_sheet(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> SheetDetail | None:
+        result = await self._rpc(
+            "teacher_student_sheet",
+            {
+                "p_teacher_id": str(teacher_id),
+                "p_student_id": str(student_id),
+                "p_sheet_id": str(sheet_id),
+            },
+        )
+        if result is None:
+            return None
+        try:
+            content = result["content"]
+            return SheetDetail(
+                id=uuid.UUID(str(result["id"])),
+                topic=str(result["topic"]),
+                correct=bool(result["correct"]),
+                day=str(result["day"]),
+                statement=str(content["statement"]),
+                child_answer=str(content["child_answer"]),
+                correct_answer=str(content["correct_answer"]),
+                strokes=list(content["strokes"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def list_student_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorHistoryPage | None:
+        result = await self._rpc(
+            "list_student_attempts",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return TutorHistoryPage(
+                items=[
+                    TutorAttempt(
+                        topic=str(i["topic"]),
+                        correct=bool(i["correct"]),
+                        level=int(i["level"]),
+                        answered_at=datetime.fromisoformat(str(i["answered_at"])),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None

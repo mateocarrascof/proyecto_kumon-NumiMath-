@@ -1,0 +1,57 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-title>Docentes</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="signOut()" data-testid="teacher-signout">Salir</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 40rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error) {
+      <p class="error" role="alert" data-testid="teacher-home-error">{{ error }}</p>
+    } @else if (profile) {
+      <h1 data-testid="teacher-greeting">Hola, {{ profile.name }}</h1>
+
+      <section aria-labelledby="code-title">
+        <h2 id="code-title">Tu código de vínculo</h2>
+        <p class="code" style="font-size: 2rem; letter-spacing: 0.2em; font-weight: 700" data-testid="teacher-code">
+          {{ profile.linkCode }}
+        </p>
+        <ion-button fill="outline" (click)="copy()" data-testid="teacher-copy">Copiar</ion-button>
+        @if (copied) {
+          <span role="status"> Copiado.</span>
+        }
+        <p>
+          Entrégaselo al tutor de cada niño. Con este código el tutor te vincula a su hijo o hija y
+          decide si compartir su progreso contigo. Tu código no cambia y, por sí solo, no da acceso
+          a ningún niño.
+        </p>
+      </section>
+
+      <section aria-labelledby="menu-title">
+        <h2 id="menu-title">Tus alumnos</h2>
+        <ion-button expand="block" (click)="openStudents()" data-testid="open-students">Mis alumnos</ion-button>
+        <ion-button expand="block" fill="outline" (click)="openStudents()" data-testid="open-sheets">
+          Hojas de cálculo
+        </ion-button>
+        <p>
+          Solo verás a los niños cuyos tutores te hayan vinculado. Las hojas de cálculo se abren desde
+          cada alumno y solo muestran lo guardado desde el vínculo.
+        </p>
+        <h3>Lo que viene</h3>
+        <ion-list>
+          @for (item of upcoming; track item) {
+            <ion-item [disabled]="true">
+              <ion-label>{{ item }}</ion-label>
+              <ion-note slot="end">Próximamente</ion-note>
+            </ion-item>
+          }
+        </ion-list>
+      </section>
+    }
+  </main>
+</ion-content>

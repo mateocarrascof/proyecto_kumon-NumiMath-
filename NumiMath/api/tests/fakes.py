@@ -108,6 +108,11 @@ class FakeGateway:
         self.offline_batches[student_id] = used + 1
         return "ok"
 
+    # CU-A21: actividad y juego de cada intento (imita activity y game_kind)
+    activities: dict[tuple[uuid.UUID, uuid.UUID], tuple[str, str | None]] = field(
+        default_factory=dict
+    )
+
     # CU-A9: preferencia de recordatorio de racha por perfil
     streak_reminders: dict[uuid.UUID, bool] = field(default_factory=dict)
     streak_reminder_error: Exception | None = None
@@ -219,6 +224,8 @@ class FakeGateway:
         local_day: date | None = None,
         level: int = 1,
         duration_s: int | None = None,
+        activity: str = "practice",
+        game_kind: str | None = None,
     ) -> str:
         if self.record_error is not None:
             raise self.record_error
@@ -228,10 +235,15 @@ class FakeGateway:
         if key in self.attempts:
             return "duplicate"
         self.attempts[key] = (topic, exercise, correct)
+        self.activities[key] = (activity, game_kind)
         self.local_days.append(local_day)
         self.levels.append((student_id, topic, level, correct))
-        self.exercises.append((student_id, topic, exercise))
-        if SKILL_CODE.fullmatch(topic):
+        # Como la base: los enunciados recientes y la precondición del diagnóstico solo miran
+        # práctica (los juegos no cuentan, CU-A21).
+        if activity == "practice":
+            self.exercises.append((student_id, topic, exercise))
+        # Como la base: los juegos no tocan el bloque ni el nivel (CU-A21).
+        if activity == "practice" and SKILL_CODE.fullmatch(topic):
             skills = self.progress.setdefault(student_id, {})
             skills[topic] = apply_answer(skills.get(topic, SkillProgress()), level, correct)
         self.durations.append(duration_s)

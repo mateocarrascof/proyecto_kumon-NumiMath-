@@ -128,10 +128,10 @@ select throws_ok(
 
 -- ===== 7b. record_attempt con hora del intento (corrección de la revisión) =====
 select ok(not has_function_privilege('authenticated',
-  'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz)',
+  'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz, text, text)',
   'execute'), 'authenticated no puede ejecutar record_attempt (firma nueva)');
 select ok(has_function_privilege('service_role',
-  'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz)',
+  'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz, text, text)',
   'execute'), 'service_role sí puede');
 select is(public.record_attempt('eeeeeeee-0000-0000-0000-000000000001'::uuid,
   'ffffffff-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000500'::uuid,

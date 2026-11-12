@@ -168,6 +168,8 @@ class Gateway(Protocol):
         local_day: date | None = None,
         level: int = 1,
         duration_s: int | None = None,
+        activity: str = "practice",
+        game_kind: str | None = None,
     ) -> str:
         """Registra el intento de un ejercicio. Devuelve `ok`, `duplicate` o `student_not_found`.
 
@@ -176,6 +178,9 @@ class Gateway(Protocol):
         Cada ejercicio se registra UNA sola vez por perfil (restricción única en la base).
         Si el intento es nuevo y `local_day` es válida, la base actualiza la racha diaria en la
         misma transacción.
+
+        `activity = "game"` (CU-A21, con `game_kind` = id del juego): solo registra el intento y
+        suma a la racha; NO toca el bloque de 10 ni el nivel de la habilidad.
         """
         ...
 

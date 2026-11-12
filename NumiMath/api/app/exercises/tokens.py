@@ -33,6 +33,7 @@ import time
 import uuid
 from dataclasses import dataclass
 
+from app.exercises.games import GAMES, Game, GameExercise
 from app.exercises.generators import Exercise, generate
 from app.exercises.levels import MAX_LEVEL, MIN_LEVEL
 
@@ -78,8 +79,12 @@ def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def _sign(key: bytes, payload: bytes, diagnostic: bool = False, offline: bool = False) -> bytes:
-    if offline:
+def _sign(
+    key: bytes, payload: bytes, diagnostic: bool = False, offline: bool = False, game: bool = False
+) -> bytes:
+    if game:
+        domain = b"game-token|"
+    elif offline:
         domain = b"offline-token|"
     elif diagnostic:
         domain = b"diagnostic-token|"
@@ -180,3 +185,88 @@ def verify(
     if exercise is None:
         raise InvalidExercise
     return VerifiedExercise(exercise_id, topic, level, exercise, issued_at, step, expires_at)
+
+
+# ---- Juegos de refuerzo (CU-A21) -------------------------------------------------------------
+
+# Dominio y versión propios: un token de juego no sirve para la práctica, el diagnóstico ni el
+# lote sin conexión, y al revés.
+_GAME_VERSION = 6
+
+
+@dataclass(frozen=True)
+class IssuedGame:
+    token: str
+    exercise_id: uuid.UUID
+    exercise: GameExercise
+    expires_at: int
+
+
+@dataclass(frozen=True)
+class VerifiedGame:
+    exercise_id: uuid.UUID
+    game: Game
+    exercise: GameExercise
+    issued_at: int
+    expires_at: int
+
+
+def issue_game(
+    key: bytes, student_id: uuid.UUID, game: Game, ttl_seconds: int, now: float | None = None
+) -> IssuedGame:
+    """Crea un ejercicio de juego. El token firma el juego, la habilidad, el tipo y las opciones en
+    el orden en que se muestran; NUNCA la solución (el servidor la regenera desde la semilla)."""
+    exercise_id = uuid.uuid4()
+    exercise = game.make(_rng(key, exercise_id))
+    issued_at = int(time.time() if now is None else now)
+    expires_at = issued_at + ttl_seconds
+    data: dict[str, object] = {
+        "v": _GAME_VERSION,
+        "j": str(exercise_id),
+        "s": str(student_id),
+        "g": game.id,
+        "t": game.skill,
+        "k": exercise.kind,
+        "o": [o.id for o in exercise.options],
+        "i": issued_at,
+        "e": expires_at,
+    }
+    payload = json.dumps(data, separators=(",", ":"), sort_keys=True).encode()
+    token = f"{_b64(payload)}.{_b64(_sign(key, payload, game=True))}"
+    return IssuedGame(token, exercise_id, exercise, expires_at)
+
+
+def verify_game(
+    key: bytes, token: str, student_id: uuid.UUID, now: float | None = None
+) -> VerifiedGame:
+    """Comprueba un token de juego: firma (dominio de juegos), versión, dueño, vigencia y que el
+    juego, el tipo y las opciones coincidan con lo que el servidor regenera."""
+    try:
+        payload_b64, signature_b64 = token.split(".")
+        payload = _unb64(payload_b64)
+        signature = _unb64(signature_b64)
+    except (ValueError, TypeError):
+        raise InvalidExercise from None
+    if not hmac.compare_digest(signature, _sign(key, payload, game=True)):
+        raise InvalidExercise
+    try:
+        data = json.loads(payload)
+        exercise_id = uuid.UUID(data["j"])
+        owner = uuid.UUID(data["s"])
+        game = GAMES[str(data["g"])]
+        skill = str(data["t"])
+        kind = str(data["k"])
+        option_ids = [str(o) for o in data["o"]]
+        issued_at = int(data["i"])
+        expires_at = int(data["e"])
+        version = int(data["v"])
+    except (ValueError, KeyError, TypeError):
+        raise InvalidExercise from None
+    if version != _GAME_VERSION or owner != student_id or skill != game.skill:
+        raise InvalidExercise
+    if (time.time() if now is None else now) >= expires_at:
+        raise InvalidExercise
+    exercise = game.make(_rng(key, exercise_id))
+    if kind != exercise.kind or option_ids != [o.id for o in exercise.options]:
+        raise InvalidExercise
+    return VerifiedGame(exercise_id, game, exercise, issued_at, expires_at)

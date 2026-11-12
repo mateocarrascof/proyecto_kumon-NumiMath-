@@ -174,8 +174,8 @@ insert into public.usage_tutor_daily (tutor_id, day, requests, cost_units) value
   ('cccc3333-0000-0000-0000-000000000004', (now() at time zone 'America/Santiago')::date - 10, 1, 1);
 set local role service_role;
 select is(public.purge_old_usage(), 1, 'la limpieza elimina solo el consumo de hace más de 35 días');
-select is((select count(*) from public.privacy_job_warnings()), 4::bigint,
-  'privacy_job_warnings vigila también el trabajo de limpieza del consumo');
+select is((select count(*) from public.privacy_job_warnings()), 5::bigint,
+  'privacy_job_warnings vigila también el trabajo de limpieza del consumo (y la de juegos, CU-A21)');
 reset role;
 select is((select count(*) from cron.job where jobname = 'privacy-purge-usage'), 1::bigint,
   'la limpieza del consumo está programada en pg_cron');

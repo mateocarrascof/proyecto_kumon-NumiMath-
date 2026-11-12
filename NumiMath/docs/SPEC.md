@@ -961,3 +961,99 @@ activa por perfil en el panel (con PIN vigente). No hay servidor de notificacion
 - App: `streak-reminder.service.spec.ts` (hora, un aviso, texto, quién practicó, pausa, web,
   cancelaciones, copia vencida, toque, activar con y sin permiso, PIN vencido) y
   `streak-reminder-toggle.component.spec.ts`.
+
+## Jugar un juego de refuerzo (CU-A21), parte 1: base en el servidor
+
+RF-41. Juegos para **1° y 2° básico**, generados por código determinista y corregidos en el
+servidor como la práctica (la IA no participa). Esta parte es solo el servidor; la app es la parte 2
+y las figuras SVG propias, la parte 3.
+
+### Reglas
+| Tema | Regla |
+|---|---|
+| Tipos | `choice` (de 2 a 4 opciones; el niño toca una) y `order` (tarjetas que el niño deja en el orden pedido) |
+| Opciones | Identificadores de texto estables con su tipo: `n:7` (número), `e:manzana-3` (emoji), `s:mayor` (símbolo). La app muestra `label`; el servidor compara ids. En la parte 3 se agregan figuras SVG propias con otro prefijo sin cambiar el formato |
+| Catálogo | Registro en código (`api/app/exercises/games.py`): id, nombre, eje, curso, tipo y habilidad del catálogo curricular (no se inventan códigos). Hoy 9 juegos: ejes "Números y operaciones" y "Patrones y álgebra" |
+| Firma | Token con dominio y versión propios (`game-token|`, v6): no sirve para la práctica, el diagnóstico ni el lote sin conexión, y al revés. Firma juego, habilidad, tipo y opciones en el orden en que se muestran. **La solución nunca viaja antes de responder**: el servidor la regenera desde la semilla |
+| Respuesta | `choice`: un id de las opciones. `order`: todas las tarjetas, cada una una vez. Otra forma: 422. Se responde una sola vez (`jti` único, 409). Firma alterada o vencido: 422 |
+| Mensajes | Sin culpa: "¡Muy bien!", "Casi. Esta era la respuesta.", "Casi. Así quedaba el orden." La respuesta correcta se devuelve **solo después** de responder |
+| Quién juega | Perfil del tutor, no pausado, con consentimiento (`AuthorizedStudentDep`) y de **1° o 2°** (curso leído de la base; si no, 403 `game_grade_not_allowed`) |
+| Registro | `student_attempts` con `activity = 'game'` y `game_kind` = id del juego |
+| Racha y medallas | Suma a la racha diaria. Las medallas las cuenta la app (aciertos seguidos) |
+| Bloque y nivel | **No**: los juegos no aplican la regla del bloque de 10 ni cambian el nivel (decisión del dueño: las opciones se aciertan al azar con facilidad e inflarían el progreso) |
+| Progreso, informe, gráfico | No incluyen juegos (leen solo `activity = 'practice'`) |
+
+### Endpoints
+- `GET /v1/students/{id}/games`: juegos del curso, agrupados por eje.
+- `POST /v1/students/{id}/games/{game_id}/exercise`: un ejercicio (sin la solución).
+- `POST /v1/students/{id}/games/answer`: corrige y registra el intento.
+
+### Base de datos
+Migración `20261115100000_game_attempts` (idempotente): `student_attempts_activity_check` admite
+`game`; columna `game_kind` (obligatoria en juegos, nula en lo demás, formato `^[a-z0-9-]{1,40}$`);
+`record_attempt` recibe `p_activity` ('practice' por defecto) y `p_game_kind` (se borra y recrea por
+el cambio de firma; solo `service_role`). La siguen usando igual la práctica en línea y
+`record_offline_attempts` (CU-A13); el diagnóstico no la usa.
+
+### Coordinación con Adolfo (pendiente)
+1. **"Cierre del esquema" de Adolfo:** esta rama NO crea tablas de docentes ni de hojas de cálculo.
+   Adolfo debe quitar esa parte de su cierre del esquema (son suyas y van en su rama), y considerar
+   que `activity` ahora admite `game` y existe `game_kind`.
+2. **Historial del tutor (CU-T5, rama de Adolfo):** debe mostrar los intentos de juego **rotulados
+   como juego** (con el nombre del juego según `game_kind`). Hoy las lecturas filtran
+   `activity = 'practice'`; coordinar con él cómo incluirlos sin que entren al progreso ni al informe.
+
+### Revisión antes del PR
+Revisores `code-reviewer`, `security-reviewer` y `scalability-reviewer` sobre `main..e98fb18`.
+Corregido en `fix(cu-a21)`:
+- (alta) Jugar ya no impide el diagnóstico inicial: `save_diagnostic` no cuenta los intentos de
+  juego (migración `20261115110000_game_diagnostic_fix`, con pgTAP).
+- (media) La migración toma menos bloqueo: `lock_timeout` de 5 s y CHECK `not valid`, validados en
+  la migración siguiente.
+- (media) Índices parciales `where activity = 'practice'` para las lecturas frecuentes de práctica.
+- (media) La respuesta verifica el token antes de leer el curso (un token inválido no va a la base).
+- (media) Pruebas: invariantes de los 9 juegos con 500 semillas, cada juego en una habilidad del
+  catálogo con su curso y eje, lo sincronizado sin conexión queda `practice`, otro tutor no puede
+  insertar intentos.
+
+### Decisiones del dueño (de la revisión, 2026-11-12)
+1. **Volumen de intentos de juego:** plazo propio de **90 días** para `activity = 'game'` en la
+   purga programada (`purge_old_game_attempts`, pg_cron `privacy-purge-games`, migración
+   `20261115120000_game_attempts_retention`). No toca práctica ni diagnóstico. **Sin tope diario**
+   (pendiente). ADR 0004.
+2. **Leer el curso al responder:** se deja como está.
+3. **Varios ejercicios por petición:** no se agrega.
+4. **ADR 0004:** plazo de 90 días, estabilidad de generadores (un juego publicado no se edita: id o
+   versión nueva) y orden de despliegue. `api/tests/test_games_golden.py` guarda las salidas de los
+   9 juegos y detecta si un generador cambia.
+
+### Pendientes
+1. App de los juegos (parte 2) y figuras SVG propias (parte 3, con su crédito en
+   `docs/creditos-recursos.md`).
+2. Los juegos no tienen nivel propio: todos usan rangos fijos por curso.
+3. **Tope diario de intentos de juego por perfil** (no implementado; hoy rige solo el plazo de 90
+   días).
+4. **Optimizaciones no adoptadas:** no leer el curso al responder (el token ya fija el juego);
+   pedir varios ejercicios por petición (p. ej. 5 tokens) en la parte 2.
+5. **Bajos de la revisión (no implementados):** validación y corrección de la respuesta en
+   `games.py` (probables sin HTTP); constante para el nivel 1 de los juegos; `GAME_GRADES`, eje y
+   curso derivados del catálogo curricular; tipos `Literal` duplicados entre `games.py` y la ruta;
+   `_sign` con tres banderas excluyentes (mejor pasar el dominio); límites `token ≤ 1000` y
+   `answer ≤ 6` a revisar en la parte 3; el upsert de la racha y `touch_student_activity` escriben
+   en cada respuesta; sin interruptor para apagar juegos ni métrica de volumen; `GET /games` sin
+   `Cache-Control`.
+6. **Para CU-T5 (Adolfo):** en los juegos de opción, `exercise` guarda el enunciado genérico sin las
+   opciones; el nombre del juego vive en Python (si el historial lee por RLS, tendría que duplicar
+   la tabla id → nombre). Si su cierre del esquema recrea `student_attempts_activity_check` sin
+   `'game'`, rompe los juegos (lo detecta `game_attempts.test.sql`).
+
+### Pruebas
+- Servidor: `api/tests/test_games.py` (catálogo por eje y curso, curso no permitido, perfil en
+  pausa, sin solución en el ejercicio ni en el token, por tipo: correcta, incorrecta, repetida,
+  vencida, firma alterada y opciones cambiadas; token de práctica y de juego no intercambiables;
+  forma inválida; registro como `game` con su juego; suma a la racha sin tocar bloque ni nivel;
+  falla de la base; el gateway solo agrega los parámetros nuevos en juegos).
+- Base: `supabase/tests/database/game_attempts.test.sql` (restricciones, juego sin `game_kind`,
+  `record_attempt` solo practice/game, racha sí y bloque/nivel no, práctica igual, CU-A13 sigue
+  funcionando y queda `practice`, jugar no impide el diagnóstico, índices parciales, permisos, RLS
+  de lectura y escritura). Concurrencia (`run.sh`) sin cambios, en verde.

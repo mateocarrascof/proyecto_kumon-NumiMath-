@@ -685,7 +685,7 @@ firmados**. Sin internet, el niño practica con ese lote: la app corrige con la 
 | Vigencia | 7 días para responder; 14 días más de margen para sincronizar (CU-A13) |
 | Descarga | Sola, al abrir la práctica con conexión, si no hay lote, quedan menos de la mitad o vence en menos de 2 días. Máximo 5 por perfil y día (429). El lote nuevo reemplaza al anterior |
 | Sin conexión | Se detecta por `navigator.onLine` **o** porque una petición falló por red. Aviso: "Estás sin internet. Puedes practicar con los ejercicios guardados." |
-| Disponible sin conexión | Inicio, "¿Quién practica?" (copia local de apodo y curso) y la práctica de las habilidades del lote. Sin tareas del tutor, diagnóstico, repaso, racha, progreso ni explicación de Numi |
+| Disponible sin conexión | Inicio, "¿Quién practica?" (copia local de apodo y curso) y la práctica de las habilidades del lote. Sin diagnóstico, repaso, racha ni explicación de Numi. "Tareas de tu tutor" y "Mi progreso" se ven, pero al tocarlos dicen "Esto necesita internet. Cuando vuelva, aquí estará." |
 | Corrección | Provisional, con la solución en hash. Correcto: "¡Correcto!" (y la forma simple de una fracción). Incorrecto: **solo "Casi."**, porque el dispositivo no conoce la solución |
 | Nivel y bloque | Se calculan en el dispositivo con la misma regla de bloques de 10, solo para mostrar estrellas y "¡Subiste de nivel!". El nivel real lo recalcula el servidor al sincronizar (CU-A13) |
 | Lote agotado (excepción de la ficha) | La baldosa dice "Ya hiciste los ejercicios guardados" y al tocarla: "Ya hiciste todos los ejercicios guardados de este tema. Para traer más hace falta conectarse a internet." |
@@ -714,20 +714,25 @@ resultado se muestra recién cuando la transacción terminó. Se borra todo al c
 el consentimiento; lo de un perfil, al borrarlo o si el servidor responde 403. Ver
 `docs/privacy/inventario-datos.md`.
 
+### Decisiones confirmadas (2026-11-12)
+- Incorrecto sin conexión: **solo "Casi."**; la solución no se guarda de forma reversible.
+- Racha sin conexión: **oculta**.
+- Tareas y "Mi progreso" sin conexión: **"Esto necesita internet"** al tocarlos.
+- Límite de descargas: **solo por perfil**.
+- Lote viejo sin sincronizar: **aceptado hasta CU-A13** (ver pendiente 7).
+
 ### Pendientes (no implementados; revisar)
 1. **Revocación sin red (decisión 8 del ADR):** un dispositivo sin red sigue practicando con su lote
    hasta conectarse (máx. 7 días). **Revisión pendiente de Adolfo y `privacy-cl-auditor`.**
-2. **"Casi." sin la solución:** para mostrar "La respuesta era X" habría que guardar la solución de
-   forma reversible. Decidir.
-3. **Racha sin conexión:** no se muestra (el ADR decía "estimada"). Decidir.
-4. **Tareas y "Mi progreso"** se ocultan sin red en vez de decir "Esto necesita internet". Confirmar.
-5. **Manifiesto PWA:** falta, porque se necesitan íconos de 192 y 512 px (recurso gráfico nuevo).
-   Sin él no se puede "instalar" la app y Safari/iOS puede borrar los datos de un sitio tras 7 días
-   sin uso.
-6. **Límite de descargas solo por perfil** (comentario inline en la migración): ¿hace falta un tope
-   por tutor?
-7. **Antes de CU-A13:** renovar el lote con intentos en cola muestra el nivel del servidor (sin esos
-   intentos). Cerrar sesión con intentos sin enviar los pierde (el aviso es parte de CU-A13).
+2. *(Resuelto: solo "Casi.")*
+3. *(Resuelto: racha oculta.)*
+4. *(Resuelto: "Esto necesita internet".)*
+5. **Manifiesto PWA:** no se agrega por ahora; se necesitan íconos de 192 y 512 px (recurso gráfico
+   nuevo, con su crédito en `docs/creditos-recursos.md`). Sin él no se puede "instalar" la app y
+   Safari/iOS puede borrar los datos de un sitio tras 7 días sin uso.
+6. **Tope por tutor:** la duda queda comentada en la migración para Adolfo.
+7. **Antes de CU-A13 (aceptado):** renovar el lote con intentos en cola muestra el nivel del servidor
+   (sin esos intentos). Cerrar sesión con intentos sin enviar los pierde (el aviso es parte de CU-A13).
 8. **Copia de perfiles cuando la base no responde:** si `list()` falla por cualquier motivo (no solo
    red) y hay copia local, se muestra la copia con el aviso de sin conexión.
 9. **Presupuestos de estilos:** `practice.page.scss` (7,95 de 8 kB) y `profiles.page.scss` siguen
@@ -745,7 +750,8 @@ el consentimiento; lo de un perfil, al borrarlo o si el servidor responde 403. V
 - App: `offline-grading.spec.ts` (hash igual al de Python, fracciones, regla de bloques con los casos
   de `test_levels.py`), `offline-practice.service.spec.ts` (lote agotado, guardado antes de mostrar,
   fallo al guardar, manipulación del lote local, renovación, 403, purga), `http-offline-batch.service.spec.ts`,
-  `practice.page.spec.ts` y `profiles.page.spec.ts` (modo sin conexión simulado), y guards.
+  `practice.page.spec.ts` y `profiles.page.spec.ts` (modo sin conexión simulado; tareas y "Mi progreso"
+  avisan "Esto necesita internet"), y guards.
 - Manual (2026-11-12, Chromium con Playwright, compilación con service worker): sin red la app abre,
   muestra el aviso y las habilidades del lote; tras responder y **cerrar la pestaña a la fuerza**, el
   intento sigue en la cola de IndexedDB (RNF-06).

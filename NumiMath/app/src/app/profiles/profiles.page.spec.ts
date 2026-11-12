@@ -6,7 +6,7 @@ import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { ConnectivityService } from '../core/offline/connectivity.service';
 import { MemoryOfflineStore } from '../core/offline/memory-offline-store';
-import { OfflineNoticeComponent } from '../core/offline/offline-notice.component';
+import { OFFLINE_MESSAGES, OfflineNoticeComponent } from '../core/offline/offline-notice.component';
 import { OfflineStore } from '../core/offline/offline-store.port';
 import { avatarFor } from '../core/profiles/avatar';
 import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
@@ -199,7 +199,7 @@ describe('ProfilesPage (¿Quién practica?)', () => {
       expect(el(fixture).querySelector('[data-testid="offline-banner"]')).toBeNull();
     });
 
-    it('sin red muestra la copia local, el aviso y sin racha ni "Mi progreso"', async () => {
+    it('sin red muestra la copia local y el aviso, sin racha; "Mi progreso" avisa que necesita internet', async () => {
       const store = new MemoryOfflineStore();
       await store.saveProfiles([ANA, BETO]);
       const { fixture, profiles, progress } = setup(undefined, undefined, store);
@@ -213,7 +213,15 @@ describe('ProfilesPage (¿Quién practica?)', () => {
       );
       expect(root.querySelector('[data-testid="kid-Ana"]')).not.toBeNull();
       expect(root.querySelector('[data-testid="practice-btn"]')).not.toBeNull();
-      expect(root.querySelector('.progress-btn')).toBeNull();
+      // El botón sigue visible, pero no navega: avisa en lenguaje simple.
+      const progressBtn = root.querySelector('[data-testid="progress-btn"]') as HTMLElement;
+      expect(progressBtn).not.toBeNull();
+      progressBtn.click();
+      fixture.detectChanges();
+      expect(TestBed.inject(NavController).navigateForward).not.toHaveBeenCalled();
+      expect(root.querySelector('[data-testid="offline-needs-internet"]')?.textContent).toContain(
+        OFFLINE_MESSAGES.needsInternet,
+      );
     });
 
     it('si la base no responde pero hay copia local, se usa la copia', async () => {

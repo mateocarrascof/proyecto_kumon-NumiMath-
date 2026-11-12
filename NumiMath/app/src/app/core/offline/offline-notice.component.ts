@@ -12,6 +12,8 @@ export const OFFLINE_MESSAGES = {
   exhaustedTile: 'Ya hiciste los ejercicios guardados',
   storage: 'No pude guardar tu respuesta. Intenta otra vez.',
   profiles: 'Estás sin internet. Puedes practicar con los ejercicios guardados.',
+  // Tareas y "Mi progreso" los calcula el servidor (decisión 4 del ADR 0002).
+  needsInternet: 'Esto necesita internet. Cuando vuelva, aquí estará.',
 } as const;
 
 /**

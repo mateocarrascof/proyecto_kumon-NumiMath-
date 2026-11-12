@@ -279,29 +279,33 @@ debe marcarse como parcial en el resumen de avance (la postcondición no se cump
 
 ## Lo que cambió al implementar (2026-11-12)
 
-- **Límite de descargas:** se reutilizó `usage_student_daily` (columna `offline_batches`) y la
-  función `consume_offline_batch` (solo `service_role`), en la migración
-  `20261112120000_offline_batch_limit.sql`. No suma a la cuota de la IA.
-- **Ante una respuesta incorrecta sin conexión se muestra solo "Casi."**, sin la solución: el lote
-  la guarda en hash (sección 1), así que el dispositivo sabe si acertó pero no cuál era la
-  respuesta. Para mostrarla habría que guardarla de forma reversible: **decisión pendiente**.
-- **Racha de días sin conexión:** no se muestra (la sección 4 decía "estimada"); se comporta como
-  cuando la racha no se puede leer. **Decisión pendiente** si se quiere una estimación.
-- **Sin conexión se ocultan** "Tareas de tu tutor" y "Mi progreso", en vez de mostrar "Esto
-  necesita internet". El repaso y el diagnóstico no se ofrecen. **Confirmar.**
-- **Manifiesto PWA: no se agregó.** Solo hay un ícono de 64×64 y un manifiesto instalable necesita
-  íconos de 192 y 512 px (recursos gráficos nuevos que hay que registrar en
-  `docs/creditos-recursos.md`). Sin él, la mitigación de Safari ("instalar la app") no está
-  disponible. **Pendiente.**
+Decisiones confirmadas el 2026-11-12 sobre lo que surgió al implementar:
+
+- **Límite de descargas: solo por perfil** (5 por día). Se reutilizó `usage_student_daily`
+  (columna `offline_batches`) y la función `consume_offline_batch` (solo `service_role`), en la
+  migración `20261112120000_offline_batch_limit.sql`. No suma a la cuota de la IA. La duda de un
+  tope adicional por tutor queda **comentada en la migración para Adolfo**.
+- **Ante una respuesta incorrecta sin conexión se muestra solo "Casi."**, sin la solución
+  (decidido): el lote la guarda en hash (sección 1), así que el dispositivo sabe si acertó pero no
+  cuál era la respuesta. **No** se guarda la solución de forma reversible.
+- **Racha de días sin conexión: oculta** (decidido; la sección 4 decía "estimada"). Se comporta
+  como cuando la racha no se puede leer.
+- **"Tareas de tu tutor" y "Mi progreso" sin conexión** siguen visibles; al tocarlos muestran
+  "Esto necesita internet. Cuando vuelva, aquí estará." (decidido, como proponía la sección 6) y no
+  navegan. El repaso y el diagnóstico no se ofrecen.
+- **Manifiesto PWA: no se agregó** (decidido para esta etapa). **Pendiente:** un manifiesto
+  instalable necesita íconos de 192 y 512 px (hoy solo hay uno de 64×64), recursos gráficos nuevos
+  que hay que registrar en `docs/creditos-recursos.md`. Sin él, la mitigación de Safari ("instalar
+  la app") no está disponible.
 - **Guards:** sin red, `authGuard` y `consentGuard` aceptan solo las rutas marcadas
   `data: { offline: true }` (Inicio, "¿Quién practica?" y la práctica) y solo si existe la copia
   local de perfiles (señal de que un tutor entró con sesión y consentimiento en ese equipo y no
   cerró sesión). Las demás rutas no se abren sin red.
 - **Datos locales que se borran:** al cerrar sesión, al revocar el consentimiento, al borrar un
   perfil y cuando el servidor responde 403 al pedir el lote.
-- **Mientras no exista CU-A13:** al renovar el lote con conexión, el nivel que se muestra vuelve al
-  del servidor, aunque haya intentos en cola sin enviar. Se resuelve sincronizando antes de
-  renovar (CU-A13).
+- **Lote viejo sin sincronizar (aceptado hasta que exista CU-A13):** al renovar el lote con
+  conexión, el nivel que se muestra vuelve al del servidor, aunque haya intentos en cola sin
+  enviar. Se resuelve sincronizando antes de renovar (CU-A13).
 
 ## Consecuencias
 

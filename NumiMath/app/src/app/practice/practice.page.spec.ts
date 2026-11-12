@@ -1239,8 +1239,19 @@ describe('PracticePage: sin conexión (CU-A12)', () => {
     expect(query(fixture, '[data-testid="offline-banner"]')?.textContent).toContain(
       OFFLINE_MESSAGES.banner,
     );
-    expect(query(fixture, '[data-testid="tasks-card"]')).toBeNull();
     expect(page.topics.map((t) => t.id)).toEqual(['2-06']);
+  });
+
+  it('la tarjeta de tareas sigue visible, pero sin red avisa "Esto necesita internet"', async () => {
+    const { fixture } = await offlineSetup();
+    const card = query(fixture, '[data-testid="tasks-card"]') as HTMLElement;
+    expect(card).not.toBeNull();
+    card.click();
+    fixture.detectChanges();
+    expect(TestBed.inject(NavController).navigateForward).not.toHaveBeenCalled();
+    expect(query(fixture, '[data-testid="offline-notice"]')?.textContent).toContain(
+      OFFLINE_MESSAGES.needsInternet,
+    );
   });
 
   it('practica con el lote: corrige en el dispositivo y guarda el intento en la cola', async () => {

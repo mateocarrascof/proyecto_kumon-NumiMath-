@@ -16,6 +16,9 @@
     @if (offlineMode) {
       <!-- CU-A12: sin conexión se practica con los ejercicios guardados. -->
       <app-offline-notice [text]="offlineMessages.profiles" testId="offline-banner"></app-offline-notice>
+      @if (offlineNotice) {
+        <app-offline-notice [text]="offlineNotice" testId="offline-needs-internet"></app-offline-notice>
+      }
     }
 
     @if (loading) {
@@ -60,12 +63,10 @@
                 @if (i === active && !c.profile.blocked) {
                   <button type="button" class="go-btn" (click)="practice(c); $event.stopPropagation()"
                     data-testid="practice-btn">¡A practicar!</button>
-                  <!-- Sin conexión no hay progreso: lo calcula el servidor. -->
-                  @if (!offlineMode) {
-                  <button type="button" class="progress-btn" (click)="progress(c, $event)">
+                  <!-- Sin conexión sigue visible, pero al tocarlo avisa "Esto necesita internet". -->
+                  <button type="button" class="progress-btn" (click)="progress(c, $event)" data-testid="progress-btn">
                     <span aria-hidden="true">⭐</span> Mi progreso
                   </button>
-                  }
                 }
               </div>
             </li>

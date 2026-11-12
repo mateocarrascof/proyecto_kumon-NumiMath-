@@ -50,6 +50,8 @@ export class ProfilesPage implements OnInit {
   /** CU-A12: sin conexión se muestra la copia local de los perfiles (solo apodo y curso). */
   offlineMode = false;
   protected readonly offlineMessages = OFFLINE_MESSAGES;
+  /** Aviso puntual sin conexión (por ejemplo, al tocar "Mi progreso"). */
+  offlineNotice = '';
   /** Tarjeta al centro del carrusel: la única que entra a practicar. */
   active = 0;
   private scrollFrame = 0;
@@ -202,6 +204,11 @@ export class ProfilesPage implements OnInit {
   progress(card: KidCard, event?: Event): Promise<boolean> {
     // El botón está dentro de la tarjeta: que no abra también la práctica.
     event?.stopPropagation();
+    // Sin conexión el progreso no se puede calcular (lo hace el servidor): se avisa.
+    if (this.offlineMode) {
+      this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+      return Promise.resolve(false);
+    }
     return this.nav.navigateForward(['/progreso', card.profile.id]);
   }
 

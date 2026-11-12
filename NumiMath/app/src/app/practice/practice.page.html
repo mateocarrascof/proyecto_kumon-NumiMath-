@@ -38,8 +38,7 @@
           @if (dailyHint) { <span class="daily-hint">{{ dailyHint }}</span> }
         </p>
       }
-      <!-- Sin conexión no hay tareas del tutor: las corrige el servidor. -->
-      @if (!offlineMode) {
+      <!-- Sin conexión la tarjeta sigue visible, pero al tocarla avisa "Esto necesita internet". -->
       <button type="button" class="topic-card tasks-card" data-tone="yellow" (click)="openTasks()" data-testid="tasks-card">
         <span class="topic-icon" aria-hidden="true">📌</span>
         <span class="topic-label">Tareas de tu tutor</span>
@@ -48,7 +47,6 @@
         }
         <span class="topic-go" aria-hidden="true">›</span>
       </button>
-      }
       @if (offlineNotice) {
         <app-offline-notice [text]="offlineNotice"></app-offline-notice>
       }

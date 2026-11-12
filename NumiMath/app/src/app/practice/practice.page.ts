@@ -413,6 +413,12 @@ export class PracticePage implements OnInit {
 
   /** Pantalla con las tareas del tutor (pendientes y hechas). */
   openTasks(): Promise<boolean> {
+    // Sin conexión las tareas no se pueden corregir (las corrige el servidor): se avisa en vez de
+    // navegar a una pantalla que no cargaría.
+    if (this.offlineMode) {
+      this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+      return Promise.resolve(false);
+    }
     return this.nav.navigateForward(['/tareas', this.studentId]);
   }
 

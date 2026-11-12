@@ -8,6 +8,7 @@ import { CoreModule } from '../core/core.module';
 import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { RevokeConsentComponent } from './revoke-consent.component';
+import { StudentExportComponent } from './student-export.component';
 import { StudentHistoryComponent } from './student-history.component';
 import { StudentSheetsComponent } from './student-sheets.component';
 import { TeacherLinksComponent } from './teacher-links.component';
@@ -29,6 +30,7 @@ import { TutorPanelPage } from './tutor-panel.page';
     TeacherLinksComponent,
     StudentHistoryComponent,
     StudentSheetsComponent,
+    StudentExportComponent,
   ],
 })
 export class TutorPanelPageModule {}

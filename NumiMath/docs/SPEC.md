@@ -372,6 +372,14 @@ SVG propio (`app/src/app/core/charts/`), sin librerías: una barra por semana (a
 tramo de aciertos destacado) y el % encima. Accesible: `role="img"`, `aria-label` con resumen y una
 tabla oculta para lectores de pantalla. Colores del tema (claro/oscuro).
 
+## Exportar historial y estadísticas (T22)
+`GET /v1/students/{id}/export.csv` (zona del tutor, con PIN). CSV con las estadísticas por habilidad y el
+historial (`fecha_hora_utc`, habilidad, resultado, segundos); **nunca enunciados ni respuestas** y las tareas del
+tutor salen como "Tarea del tutor". Toda celda de texto que empiece con `=`, `+`, `-`, `@`, tab o CR (también tras espacios o tabs) se antecede con
+`'` (inyección de fórmulas). Se arma en memoria y se devuelve como descarga (`no-store`): **no se guarda en el
+servidor**. Hasta 5 000 intentos (los más recientes); si hay más, una línea final lo avisa. Sin datos: 404 `no_data` y la app lo informa. La app pide el archivo por HTTP (lleva la
+sesión y el PIN en cabeceras) y lo ofrece con un `Blob`; solo CSV (el PDF de la ficha no se hace).
+
 ## Tiempo por ejercicio
 
 Decidido el 2026-10-27. Migración: `supabase/migrations/20261027130000_attempt_duration.sql`.

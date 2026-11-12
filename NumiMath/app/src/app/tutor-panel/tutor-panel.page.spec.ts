@@ -21,6 +21,8 @@ import { HistoryPort } from '../core/history/history.port';
 import { StudentHistoryComponent } from './student-history.component';
 import { TutorSheetsPort } from '../core/sheets/tutor-sheets.port';
 import { StudentSheetsComponent } from './student-sheets.component';
+import { StudentExportComponent } from './student-export.component';
+import { ExportPort } from '../core/export/export.port';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
 const REPORT: Report = {
@@ -90,6 +92,7 @@ function setup(
       TeacherLinksComponent,
       StudentHistoryComponent,
       StudentSheetsComponent,
+      StudentExportComponent,
     ],
     imports: [IonicModule.forRoot(), StreakReminderToggleComponent],
     providers: [
@@ -97,6 +100,7 @@ function setup(
       { provide: ReportPort, useValue: reports },
       { provide: ProfilesPort, useValue: profiles },
       { provide: ParentalPort, useValue: parental },
+      { provide: ExportPort, useValue: { downloadCsv: vi.fn(async () => ({ ok: true })) } },
       { provide: AccountPort, useValue: { delete: vi.fn(async () => 'ok') } },
       { provide: ConsentRevocationPort, useValue: { revoke: vi.fn() } },
       { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },

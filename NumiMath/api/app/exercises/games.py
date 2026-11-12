@@ -25,7 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-GameKind = Literal["choice", "order"]
+GameKind = Literal["choice", "order", "fill"]
 OptionKind = Literal["number", "emoji", "symbol"]
 
 NUMBERS = "Números y operaciones"
@@ -45,8 +45,30 @@ class GameExercise:
     text: str
     # En el orden en que se muestran (barajadas).
     options: tuple[GameOption, ...]
-    # Ids de la respuesta correcta: una sola en `choice`; la secuencia completa en `order`.
+    # Ids de la respuesta correcta: una sola en `choice`; la secuencia completa en `order` y `fill`.
     solution: tuple[str, ...]
+    # Solo `fill` (completar, CU-A21 parte 3): la secuencia con las tarjetas FIJAS en su lugar y
+    # `None` en los huecos. No revela nada: las fijas se ven igual en la pantalla.
+    slots: tuple[str | None, ...] | None = None
+
+
+def valid_answer(exercise: GameExercise, answer: list[str]) -> bool:
+    """Forma de la respuesta (no si es correcta). `choice`: un id de las opciones. `order`: todas
+    las tarjetas, una vez cada una. `fill`: la secuencia completa, con las fijas en su lugar y en
+    cada hueco una tarjeta de las que no son fijas (sin repetir)."""
+    shown = [o.id for o in exercise.options]
+    if exercise.kind == "choice":
+        return len(answer) == 1 and answer[0] in shown
+    if exercise.kind == "order":
+        return len(answer) == len(shown) and sorted(answer) == sorted(shown)
+    slots = exercise.slots or ()
+    if len(answer) != len(slots):
+        return False
+    fixed = {s for s in slots if s is not None}
+    placed = [a for a, s in zip(answer, slots, strict=True) if s is None]
+    if any(s is not None and a != s for a, s in zip(answer, slots, strict=True)):
+        return False  # una tarjeta fija se movió o falta
+    return len(set(placed)) == len(placed) and all(a in shown and a not in fixed for a in placed)
 
 
 @dataclass(frozen=True)
@@ -164,6 +186,61 @@ def _what_next(steps: tuple[int, ...], high: int) -> Callable[[random.Random], G
     return make
 
 
+def _fill_steps(rng: random.Random) -> GameExercise:
+    """Completa el camino (tema 1): 6 números contando de 1, 2, 5 o 10 hasta 100, con 2 huecos.
+    Los dos primeros siempre se ven (para descubrir de cuánto en cuánto se cuenta)."""
+    step = rng.choice((1, 2, 5, 10))
+    start = rng.randint(0, (100 - 5 * step) // step) * step
+    values = [start + i * step for i in range(6)]
+    gaps = sorted(rng.sample(range(2, 6), 2))
+    # Dos tarjetas que no van: cerca del camino (±3), distintas de todo el camino y dentro de 0 a
+    # 100 (con pasos de 1 los vecinos de un hueco ya están en el camino: por eso un rango).
+    near = [
+        v for v in range(max(0, values[0] - 3), min(100, values[-1] + 3) + 1) if v not in values
+    ]
+    wrong = rng.sample(near, 2)
+    fixed = [_number(v) for i, v in enumerate(values) if i not in gaps]
+    candidates = _shuffled(rng, [*(_number(values[g]) for g in gaps), *(_number(v) for v in wrong)])
+    slots = tuple(None if i in gaps else f"n:{v}" for i, v in enumerate(values))
+    return GameExercise(
+        "fill",
+        f"Completa el camino: de {step} en {step}.",
+        (*fixed, *candidates),
+        tuple(f"n:{v}" for v in values),
+        slots,
+    )
+
+
+def _decompose(rng: random.Random) -> GameExercise:
+    """Componer y descomponer (tema 4): "5 = 3 + ?" con los objetos que ya hay."""
+    obj = rng.choice(sorted(_OBJECTS))
+    total = rng.randint(3, 10)
+    have = rng.randint(1, total - 1)
+    missing = total - have
+    values = [missing, *_distractors(rng, missing, 0, 10, 2)]
+    return GameExercise(
+        "choice",
+        f"{total} = {have} + ? {_OBJECTS[obj][0] * have}",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{missing}",),
+    )
+
+
+def _join(rng: random.Random) -> GameExercise:
+    """Sumas hasta 20 juntando objetos (tema 5): dos grupos y "¿cuántas hay?"."""
+    obj = rng.choice(sorted(_OBJECTS))
+    a = rng.randint(1, 9)
+    b = rng.randint(1, 9)
+    glyph, plural = _OBJECTS[obj]
+    values = [a + b, *_distractors(rng, a + b, 2, 20, 2)]
+    return GameExercise(
+        "choice",
+        f"Junta las {plural}. ¿Cuántas hay? {glyph * a} {glyph * b}",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{a + b}",),
+    )
+
+
 def _which_sign(rng: random.Random) -> GameExercise:
     a = rng.randint(0, 100)
     # Uno de cada cinco, iguales: que "=" también sea respuesta posible.
@@ -193,6 +270,10 @@ GAMES: dict[str, Game] = {
             "1-13",
             _what_next((1, 2), 20),
         ),
+        # CU-A21, parte 3 (1° básico, un juego por tema). Ids nuevos; los anteriores no se editan.
+        Game("completa-camino-1", "Completa el camino", NUMBERS, 1, "fill", "1-01", _fill_steps),
+        Game("descompone-1", "¿Cuántos faltan?", NUMBERS, 1, "choice", "1-04", _decompose),
+        Game("junta-1", "Junta y cuenta", NUMBERS, 1, "choice", "1-08", _join),
         Game("mayor-2", "¿Cuál es mayor?", NUMBERS, 2, "choice", "2-03", _biggest(100)),
         Game("ordena-2", "Ordena los números", NUMBERS, 2, "order", "2-03", _sort_ascending(100)),
         Game(
@@ -216,6 +297,7 @@ GAME_MESSAGES = {
     "correct": "¡Muy bien!",
     "choice_wrong": "Casi. Esta era la respuesta.",
     "order_wrong": "Casi. Así quedaba el orden.",
+    "fill_wrong": "Casi. Así quedaba el camino.",
 }
 
 

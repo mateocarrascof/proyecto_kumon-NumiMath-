@@ -1251,3 +1251,35 @@ tiendas. Medios corregidos en `fix(cu-a21)`:
   progreso de la habilidad. La prueba encontró que el arrastre no detectaba el lugar (la tarjeta
   arrastrada tapaba el punto); corregido con `elementsFromPoint`.
 
+
+## Jugar un juego de refuerzo (CU-A21), parte 3: juegos de 1° básico
+
+Al menos un juego por cada uno de los 10 temas de 1°. Generadores deterministas en
+`api/app/exercises/games.py` (la IA no genera nada), con su prueba de salidas guardadas por
+semilla (`api/tests/test_games_golden.py`). Los juegos publicados no se editan (ADR 0004): todos
+los de esta parte tienen ids nuevos.
+
+### Temas y juegos
+| Tema | Juego | Habilidad |
+|---|---|---|
+| 1. Conteo hasta 100, completar secuencias | `completa-camino-1` "Completa el camino" (tipo `fill`) | 1-01 |
+| 2. Números de 0 a 20 | `cuantos-1` (ya existía, hasta 10) | — |
+| 3. Comparar y ordenar de 0 a 20 | `mayor-1` y `ordena-1` (ya existían) | — |
+| 4. Componer y descomponer | `descompone-1` "¿Cuántos faltan?" ("5 = 3 + ?" con objetos) | 1-04 |
+| 5. Sumas y restas hasta 20 | `junta-1` "Junta y cuenta" (dos grupos de objetos) | 1-08 |
+
+### Tipo `fill` (completar)
+- El ejercicio trae `slots`: la secuencia con las tarjetas fijas en su lugar y `null` en los
+  huecos. No revela nada: las fijas se ven igual en la pantalla.
+- Camino de 6 números contando de 1, 2, 5 o 10 (0 a 100), 2 huecos (nunca en los dos primeros,
+  para descubrir de cuánto en cuánto se cuenta) y 2 tarjetas que no van (cercanas al camino).
+- El servidor rechaza (422) si una tarjeta fija se mueve o falta, si se repite una tarjeta o si
+  se pone una que no es de las opciones. Mensaje al fallar: "Casi. Así quedaba el camino."
+- En la app usa `app-order-cards` con lugares fijos; con 5 o más lugares las tarjetas se achican
+  para caber en 360 px.
+- En "Junta y cuenta" el resumen accesible dice cada grupo ("3 manzanas y 5 manzanas"), no el
+  total, que sería la respuesta.
+
+### Pendientes
+1. `cuantos-20-1`: contar de 11 a 20, con dos filas de 10 para que quepa en 360 px (hoy el tema 2
+   queda cubierto por `cuantos-1`, hasta 10).

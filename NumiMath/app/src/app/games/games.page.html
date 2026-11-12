@@ -86,6 +86,7 @@
           } @else {
             <app-order-cards
               [cards]="exercise.options"
+              [slots]="exercise.kind === 'fill' ? exercise.slots ?? null : null"
               [disabled]="busy || !!result"
               [correct]="result?.correctAnswer ?? null"
               (ready)="onOrderReady($event)"

@@ -40,7 +40,15 @@ describe('HttpGamesService (CU-A21)', () => {
     http.expectOne(`${BASE}/games/ordena-1/exercise`).flush({
       token: 'tok', game_id: 'ordena-1', kind: 'order', text: 'Ordena', options: [{ id: 'n:3', kind: 'number', label: '3' }],
     });
-    expect(await ex).toMatchObject({ token: 'tok', gameId: 'ordena-1', kind: 'order' });
+    expect(await ex).toMatchObject({ token: 'tok', gameId: 'ordena-1', kind: 'order', slots: null });
+
+    const fill = service.exercise('p1', 'completa-camino-1');
+    await tick();
+    http.expectOne(`${BASE}/games/completa-camino-1/exercise`).flush({
+      token: 'tf', game_id: 'completa-camino-1', kind: 'fill', text: 'Completa',
+      options: [{ id: 'n:2', kind: 'number', label: '2' }], slots: ['n:2', null],
+    });
+    expect(await fill).toMatchObject({ kind: 'fill', slots: ['n:2', null] });
 
     const ans = service.answer('p1', 'tok', ['n:3']);
     await tick();
@@ -99,6 +107,14 @@ describe('Textos accesibles de los juegos', () => {
     expect(optionLabel({ id: 'e:manzana-3', kind: 'emoji', label: '🍎🍎🍎' })).toBe('3 manzanas');
     expect(optionLabel({ id: 'e:flor-1', kind: 'emoji', label: '🌸' })).toBe('1 flor');
     expect(optionLabel({ id: 's:mayor', kind: 'symbol', label: '>' })).toBe('mayor que');
+  });
+
+  it('dos grupos de emoji se resumen por separado (no se dice el total, que sería la respuesta)', () => {
+    expect(splitEmojiRun('Junta las flores. ¿Cuántas hay? 🌸🌸🌸 🌸🌸')).toEqual({
+      before: 'Junta las flores. ¿Cuántas hay? ',
+      glyphs: '🌸🌸🌸 🌸🌸',
+      spoken: '3 flores y 2 flores',
+    });
   });
 
   it('separa los emoji repetidos del enunciado y los resume', () => {

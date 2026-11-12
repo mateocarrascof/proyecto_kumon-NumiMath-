@@ -16,7 +16,7 @@ import respx
 from app.config import Settings
 from app.db.gateway import GatewayError
 from app.db.supabase_gateway import SupabaseGateway
-from app.exercises.games import GAME_MESSAGES, GAMES
+from app.exercises.games import GAME_MESSAGES, GAMES, valid_answer
 from app.exercises.levels import SkillProgress
 from app.exercises.tokens import InvalidExercise, issue, issue_game, verify_game
 from tests.test_offline_batch import KEY, PERFIL, TUTOR, URL, _client, _gateway, _jwt
@@ -99,7 +99,8 @@ def test_juego_de_otro_curso_o_inexistente_404() -> None:
 @pytest.mark.parametrize("game_id", [CHOICE, ORDER])
 def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
     body = _new(_client(_gateway()), game_id).json()
-    assert set(body) == {"token", "game_id", "kind", "text", "options"}
+    assert set(body) == {"token", "game_id", "kind", "text", "options", "slots"}
+    assert body["slots"] is None  # solo los juegos de completar traen lugares fijos
     assert body["kind"] == GAMES[game_id].kind
     assert all(set(o) == {"id", "kind", "label"} for o in body["options"])
     payload = json.loads(base64.urlsafe_b64decode(body["token"].split(".")[0] + "=="))
@@ -309,12 +310,18 @@ def test_cada_juego_cumple_sus_invariantes_con_muchas_semillas(game_id: str) -> 
         issued = issue_game(KEY, PERFIL, game, 600)
         exercise = issued.exercise
         ids = [o.id for o in exercise.options]
-        assert 2 <= len(ids) <= 4 and len(set(ids)) == len(ids)
-        assert all(o.id.split(":")[0] in {"n", "e", "s"} for o in exercise.options)
+        assert len(set(ids)) == len(ids)
+        assert all(o.id.split(":")[0] in {"n", "e", "s", "f"} for o in exercise.options)
         if game.kind == "choice":
+            assert 2 <= len(ids) <= 4
             assert len(exercise.solution) == 1 and exercise.solution[0] in ids
-        else:
+        elif game.kind == "order":
+            assert 2 <= len(ids) <= 4
             assert sorted(exercise.solution) == sorted(ids) and tuple(ids) != exercise.solution
+        else:  # fill: la solución completa cabe en las tarjetas y respeta las fijas
+            assert exercise.slots is not None and len(exercise.slots) == len(exercise.solution)
+            assert set(exercise.solution) <= set(ids)
+            assert valid_answer(exercise, list(exercise.solution))
         assert verify_game(KEY, issued.token, PERFIL).exercise == exercise
 
 
@@ -346,3 +353,93 @@ def test_un_juego_no_cuenta_como_practica_para_el_diagnostico() -> None:
     _answer(client, token, _solution(token))
     result = asyncio.run(gateway.save_diagnostic(TUTOR, PERFIL, "1-03", 1, []))
     assert result == "ok"
+
+
+# ---- CU-A21, parte 3: juegos de 1° básico (tanda 1: temas 1 a 5) --------------------------------
+
+
+def _many(game_id: str, n: int = 3000):
+    for _ in range(n):
+        yield issue_game(KEY, PERFIL, GAMES[game_id], 600).exercise
+
+
+def _num(option_id: str) -> int:
+    return int(option_id.split(":")[1])
+
+
+def test_completa_el_camino_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("completa-camino-1"):
+        values = [_num(i) for i in e.solution]
+        step = values[1] - values[0]
+        assert step in (1, 2, 5, 10)
+        assert all(b - a == step for a, b in zip(values, values[1:], strict=False))
+        assert values[0] >= 0 and values[-1] <= 100 and len(values) == 6
+        assert e.slots is not None
+        gaps = [i for i, s in enumerate(e.slots) if s is None]
+        assert len(gaps) == 2 and e.slots[0] is not None and e.slots[1] is not None
+        loose = {o.id for o in e.options} - {s for s in e.slots if s is not None}
+        assert {e.solution[g] for g in gaps} < loose  # los que faltan, y además 2 que no van
+        assert len(loose) == 4 and all(_num(i) not in values for i in loose - set(e.solution))
+
+
+def test_descompone_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("descompone-1"):
+        total, rest = e.text.split(" = ")
+        have = int(rest.split(" + ")[0])
+        assert 3 <= int(total) <= 10 and 1 <= have < int(total)
+        assert _num(e.solution[0]) == int(total) - have
+
+
+def test_junta_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("junta-1"):
+        groups = e.text.rsplit("? ", 1)[1].split(" ")
+        assert len(groups) == 2
+        count = sum(len(g) // len(g[0]) for g in groups)  # mismo emoji repetido
+        assert _num(e.solution[0]) == count <= 18
+
+
+def _fill_token(client: Any) -> tuple[str, Any]:
+    token = _new(client, "completa-camino-1").json()["token"]
+    return token, verify_game(KEY, token, PERFIL).exercise
+
+
+def test_completar_respuesta_correcta_e_incorrecta() -> None:
+    client = _client(_gateway())
+    token, e = _fill_token(client)
+    body = _answer(client, token, list(e.solution)).json()
+    assert body["correct"] is True
+    token, e = _fill_token(client)
+    gaps = [i for i, s in enumerate(e.slots) if s is None]
+    wrong = list(e.solution)
+    wrong[gaps[0]], wrong[gaps[1]] = wrong[gaps[1]], wrong[gaps[0]]  # huecos intercambiados
+    body = _answer(client, token, wrong).json()
+    assert body["correct"] is False
+    assert body["message"] == GAME_MESSAGES["fill_wrong"]
+    assert body["correct_answer"] == list(e.solution)
+
+
+def test_completar_el_ejercicio_trae_los_lugares_fijos_sin_la_solucion() -> None:
+    body = _new(_client(_gateway()), "completa-camino-1").json()
+    assert body["kind"] == "fill"
+    assert body["slots"].count(None) == 2
+    e = verify_game(KEY, body["token"], PERFIL).exercise
+    assert [s for s in body["slots"] if s is not None] == [s for s in e.slots if s is not None]
+
+
+@pytest.mark.parametrize("break_it", ["mover", "faltar", "repetir", "ajena"])
+def test_completar_rechaza_si_una_tarjeta_fija_se_mueve_o_falta(break_it: str) -> None:
+    client = _client(_gateway())
+    token, e = _fill_token(client)
+    answer = list(e.solution)
+    fixed_i = next(i for i, s in enumerate(e.slots) if s is not None)
+    gap_i = next(i for i, s in enumerate(e.slots) if s is None)
+    if break_it == "mover":
+        answer[fixed_i], answer[gap_i] = answer[gap_i], answer[fixed_i]
+    elif break_it == "faltar":
+        answer = answer[:-1]
+    elif break_it == "repetir":
+        other = next(i for i, s in enumerate(e.slots) if s is None and i != gap_i)
+        answer[other] = answer[gap_i]
+    else:
+        answer[gap_i] = "n:999"
+    assert _answer(client, token, answer).status_code == 422

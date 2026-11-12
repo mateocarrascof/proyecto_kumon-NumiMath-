@@ -127,6 +127,36 @@ describe('GamesPage (CU-A21)', () => {
     expect(q('game-result')?.textContent).toContain('¡Muy bien!');
   });
 
+  it('completar el camino: las tarjetas fijas no se mueven y "Listo" manda la secuencia completa', async () => {
+    const FILL: GameExercise = {
+      token: 'tok-f',
+      gameId: 'completa-camino-1',
+      kind: 'fill',
+      text: 'Completa el camino: de 2 en 2.',
+      options: [
+        { id: 'n:2', kind: 'number', label: '2' },
+        { id: 'n:4', kind: 'number', label: '4' },
+        { id: 'n:6', kind: 'number', label: '6' },
+        { id: 'n:7', kind: 'number', label: '7' },
+      ],
+      slots: ['n:2', 'n:4', null],
+    };
+    const answer = vi.fn(async () => ({ correct: true, correctAnswer: ['n:2', 'n:4', 'n:6'], message: '¡Muy bien!' }));
+    const { page, q, render } = setup({ exercise: vi.fn(async () => FILL), answer });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame({ id: 'completa-camino-1', name: 'Completa el camino', kind: 'fill' });
+    await page.start();
+    await render();
+    expect((q('slot-card-0') as HTMLButtonElement).disabled).toBe(true); // fija
+    expect(q('pool-n:2')).toBeNull(); // las fijas no están en el montón
+    q('pool-n:6')!.click();
+    await render();
+    q('order-ready')!.click();
+    await render();
+    expect(answer).toHaveBeenCalledWith('p1', 'tok-f', ['n:2', 'n:4', 'n:6']);
+    expect(q('game-result')?.textContent).toContain('¡Muy bien!');
+  });
+
   it('5 rondas y resumen con jugar de nuevo, otro juego o volver a practicar; medalla a los 5 seguidos', async () => {
     const { page, nav, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit

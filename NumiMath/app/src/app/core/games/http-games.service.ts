@@ -25,6 +25,7 @@ interface ExerciseDto {
   kind: GameKind;
   text: string;
   options: GameOption[];
+  slots?: (string | null)[] | null;
 }
 
 interface AnswerDto {
@@ -98,6 +99,7 @@ export class HttpGamesService extends GamesPort {
         kind: dto.kind,
         text: dto.text,
         options: dto.options.map((o) => ({ id: o.id, kind: o.kind, label: o.label })),
+        slots: Array.isArray(dto.slots) ? [...dto.slots] : null,
       };
     });
   }

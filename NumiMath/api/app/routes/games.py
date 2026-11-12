@@ -16,7 +16,7 @@ aciertan al azar con facilidad). Tampoco entra al progreso, informe ni gráfico 
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,7 +24,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.db.gateway import Gateway, GatewayError
 from app.deps import AuthorizedStudentDep
 from app.errors import ApiError
-from app.exercises.games import GAME_GRADES, GAME_MESSAGES, GAMES, games_for_grade
+from app.exercises.games import (
+    GAME_GRADES,
+    GAME_MESSAGES,
+    GAMES,
+    GameKind,
+    OptionKind,
+    games_for_grade,
+    valid_answer,
+)
 from app.exercises.tickets import duration_since
 from app.exercises.tokens import InvalidExercise, issue_game, verify_game
 from app.logging import get_logger, log_event
@@ -42,7 +50,7 @@ _ALREADY = "Ya respondiste este ejercicio."
 class GameOut(BaseModel):
     id: str
     name: str
-    kind: Literal["choice", "order"]
+    kind: GameKind
 
 
 class GameGroupOut(BaseModel):
@@ -57,17 +65,19 @@ class GameListOut(BaseModel):
 
 class GameOptionOut(BaseModel):
     id: str
-    kind: Literal["number", "emoji", "symbol"]
+    kind: OptionKind
     label: str
 
 
 class GameExerciseOut(BaseModel):
     token: str
     game_id: str
-    kind: Literal["choice", "order"]
+    kind: GameKind
     text: str
     # En el orden en que se muestran. Sin marcar cuál es la correcta.
     options: list[GameOptionOut]
+    # Solo `fill`: la secuencia con las tarjetas fijas y `None` en los huecos.
+    slots: list[str | None] | None = None
 
 
 class GameAnswerIn(BaseModel):
@@ -128,6 +138,7 @@ async def new_game_exercise(
         options=[
             GameOptionOut(id=o.id, kind=o.kind, label=o.label) for o in issued.exercise.options
         ],
+        slots=list(issued.exercise.slots) if issued.exercise.slots is not None else None,
     )
 
 
@@ -145,13 +156,8 @@ async def answer_game(
     await _game_grade(request, student)
 
     exercise = verified.exercise
-    shown = [o.id for o in exercise.options]
-    if exercise.kind == "choice":
-        valid = len(body.answer) == 1 and body.answer[0] in shown
-    else:
-        # Orden: todas las tarjetas, cada una una vez.
-        valid = len(body.answer) == len(shown) and sorted(body.answer) == sorted(shown)
-    if not valid:
+    # Forma de la respuesta por tipo (en `fill`, las tarjetas fijas no se pueden mover ni faltar).
+    if not valid_answer(exercise, body.answer):
         raise ApiError(422, "invalid_request")
     correct = tuple(body.answer) == exercise.solution
 
@@ -182,8 +188,5 @@ async def answer_game(
         await gateway.touch_student_activity(student.tutor_id, student.student_id)
     except GatewayError as exc:
         log_event(logger, "game.touch_failed", code=f"gateway_{exc.reason}")
-    if correct:
-        message = GAME_MESSAGES["correct"]
-    else:
-        message = GAME_MESSAGES["choice_wrong" if exercise.kind == "choice" else "order_wrong"]
+    message = GAME_MESSAGES["correct" if correct else f"{exercise.kind}_wrong"]
     return GameAnswerOut(correct=correct, correct_answer=list(exercise.solution), message=message)

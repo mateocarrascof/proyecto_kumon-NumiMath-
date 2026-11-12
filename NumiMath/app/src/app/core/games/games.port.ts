@@ -3,7 +3,7 @@
  * y los corrige el servidor; la solución NUNCA llega antes de responder.
  */
 
-export type GameKind = 'choice' | 'order';
+export type GameKind = 'choice' | 'order' | 'fill';
 
 /**
  * Opción o tarjeta. `id` es estable y lleva su tipo (`n:7`, `e:manzana-3`, `s:mayor`); la app
@@ -34,6 +34,8 @@ export interface GameExercise {
   text: string;
   /** En el orden en que se muestran. */
   options: GameOption[];
+  /** Solo `fill` (completar): la secuencia con las tarjetas fijas y `null` en los huecos. */
+  slots?: (string | null)[] | null;
 }
 
 export interface GameResult {

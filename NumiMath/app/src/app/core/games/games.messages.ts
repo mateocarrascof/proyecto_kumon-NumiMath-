@@ -49,6 +49,10 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
   'que-sigue-1': 'Mira la fila y toca el número que sigue.',
   'que-sigue-2': 'Mira la fila y toca el número que sigue.',
   'compara-signo-2': 'Toca el signo que va en el medio.',
+  // CU-A21, parte 3 (1° básico).
+  'completa-camino-1': 'Pon los números que faltan en el camino.',
+  'descompone-1': 'Mira cuántas hay y toca cuántas faltan.',
+  'junta-1': 'Junta los dos grupos y cuenta.',
 };
 export const DEFAULT_INSTRUCTION = 'Mira bien y elige.';
 
@@ -90,13 +94,18 @@ export function splitEmojiRun(text: string): { before: string; glyphs: string; s
     const start = text.indexOf(names.glyph);
     if (start < 0) continue;
     const glyphs = text.slice(start);
-    const count = glyphs.split(names.glyph).length - 1;
     if (glyphs.replaceAll(names.glyph, '').trim() !== '') continue;
-    return {
-      before: text.slice(0, start),
-      glyphs,
-      spoken: `${count} ${count === 1 ? names.singular : names.plural}`,
-    };
+    // Cada grupo (separado por un espacio) se resume por separado: "3 manzanas y 5 manzanas". Si
+    // se dijera el total, el lector de pantalla diría la respuesta del juego de juntar.
+    const spoken = glyphs
+      .trim()
+      .split(/\s+/)
+      .map((group) => {
+        const n = group.split(names.glyph).length - 1;
+        return `${n} ${n === 1 ? names.singular : names.plural}`;
+      })
+      .join(' y ');
+    return { before: text.slice(0, start), glyphs, spoken };
   }
   return { before: text, glyphs: '', spoken: '' };
 }

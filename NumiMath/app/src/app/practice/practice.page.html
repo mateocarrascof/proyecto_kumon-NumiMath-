@@ -298,6 +298,12 @@
             <p class="ion-text-center ion-no-margin" data-testid="paper-teacher-note"><small>Tu profe puede ver este papel</small></p>
           }
         }
+        <!-- "Aprender jugando": el juego de este tema (1° y 2°, con conexión, si el tema tiene). -->
+        @if (topicGames.length) {
+          <ion-button class="paper-toggle" fill="outline" expand="block" (click)="learnPlaying()" data-testid="learn-playing">
+            <span aria-hidden="true">🧩</span>&nbsp;Aprender jugando
+          </ion-button>
+        }
       }
 
 

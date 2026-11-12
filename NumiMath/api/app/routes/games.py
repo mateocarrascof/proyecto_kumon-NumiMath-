@@ -51,6 +51,8 @@ class GameOut(BaseModel):
     id: str
     name: str
     kind: GameKind
+    # Habilidad del catálogo: la práctica de ese tema muestra "Aprender jugando".
+    skill: str
 
 
 class GameGroupOut(BaseModel):
@@ -141,7 +143,9 @@ async def list_games(student: AuthorizedStudentDep, request: Request) -> GameLis
     grade = await _game_grade(request, student)
     groups: dict[str, list[GameOut]] = {}
     for g in games_for_grade(grade):
-        groups.setdefault(g.module, []).append(GameOut(id=g.id, name=g.name, kind=g.kind))
+        groups.setdefault(g.module, []).append(
+            GameOut(id=g.id, name=g.name, kind=g.kind, skill=g.skill)
+        )
     return GameListOut(
         grade=grade,
         groups=[GameGroupOut(module=m, games=games) for m, games in groups.items()],

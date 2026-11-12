@@ -11,6 +11,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
+import { GameInfo, GamesPort } from '../core/games/games.port';
+
 import {
   AssignmentsPort,
   PendingAssignment,
@@ -218,6 +220,10 @@ export class PracticePage implements OnInit {
   private readonly assignments = inject(AssignmentsPort);
   private readonly route = inject(ActivatedRoute);
   private readonly nav = inject(NavController);
+  private readonly games = inject(GamesPort);
+  /** Juegos por habilidad (null: aún no se piden o no se pudieron leer). */
+  private gamesBySkill: Map<string, GameInfo[]> | null = null;
+  private gamesLoading = false;
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly explainer = inject(ExplanationPort);
@@ -501,6 +507,39 @@ export class PracticePage implements OnInit {
     return this.nav.navigateForward(['/juegos', this.studentId]);
   }
 
+  /**
+   * "Aprender jugando": juegos del tema actual. Solo 1° y 2°, con conexión y si el tema tiene
+   * juego (la lista se pide una vez, al entrar al primer tema; si falla, no se muestra).
+   */
+  get topicGames(): GameInfo[] {
+    if (!this.topic || !this.canPlay || !this.gamesBySkill) return [];
+    return this.gamesBySkill.get(this.topic.id) ?? [];
+  }
+
+  /** Un juego: directo a su introducción. Varios: la lista con solo los de este tema. */
+  learnPlaying(): Promise<boolean> {
+    const games = this.topicGames;
+    const queryParams = games.length === 1 ? { juego: games[0].id } : { tema: this.topic?.id };
+    return this.nav.navigateForward(['/juegos', this.studentId], { queryParams });
+  }
+
+  private async loadTopicGames(): Promise<void> {
+    if (this.gamesBySkill || this.gamesLoading || !this.canPlay) return;
+    this.gamesLoading = true;
+    try {
+      const bySkill = new Map<string, GameInfo[]>();
+      for (const game of (await this.games.list(this.studentId)).flatMap((g) => g.games)) {
+        if (game.skill) bySkill.set(game.skill, [...(bySkill.get(game.skill) ?? []), game]);
+      }
+      this.gamesBySkill = bySkill;
+    } catch {
+      // Mejor esfuerzo: sin la lista, el botón no aparece (la tarjeta "Jugar" sigue igual).
+    } finally {
+      this.gamesLoading = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   async openTasks(): Promise<boolean> {
     // Las tareas las corrige el servidor. Sin red se avisa sin intentar; si el navegador cree que
     // hay red se intenta, y si el guard no deja pasar por falta de conexión, también se avisa.
@@ -518,6 +557,7 @@ export class PracticePage implements OnInit {
 
   async choose(topic: Topic): Promise<void> {
     this.topic = topic;
+    void this.loadTopicGames();
     this.correctCount = 0;
     this.total = 0;
     this.streak = 0;

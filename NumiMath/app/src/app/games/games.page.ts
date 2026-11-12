@@ -117,10 +117,34 @@ export class GamesPage implements OnInit {
       this.groups = await this.port.list(this.studentId);
       this.step = 'axes';
       this.notice = '';
+      this.openFromTopic();
     } catch (error) {
       this.fail(error, () => this.loadList());
     }
     this.cdr.markForCheck();
+  }
+
+  /**
+   * "Aprender jugando" desde la práctica de un tema: `?juego=` abre directo su introducción y
+   * `?tema=` la lista con solo los juegos de esa habilidad (sin pasar por la elección de eje).
+   */
+  private openFromTopic(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const gameId = params?.get('juego');
+    const skill = params?.get('tema');
+    const game = gameId ? this.groups.flatMap((g) => g.games).find((g) => g.id === gameId) : null;
+    if (game) {
+      this.chooseGame(game);
+      return;
+    }
+    if (!skill) return;
+    for (const group of this.groups) {
+      const games = group.games.filter((g) => g.skill === skill);
+      if (games.length) {
+        this.chooseAxis({ module: group.module, games });
+        return;
+      }
+    }
   }
 
   chooseAxis(group: GameGroup): void {

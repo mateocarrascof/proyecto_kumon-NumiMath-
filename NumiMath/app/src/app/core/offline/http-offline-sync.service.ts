@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
@@ -8,6 +8,12 @@ import { QueuedAttempt } from './offline.model';
 import { OfflineSyncError, OfflineSyncPort, SyncResult, SyncStatus } from './offline-sync.port';
 
 const STATUSES: readonly SyncStatus[] = ['accepted', 'duplicate', 'rejected'];
+/**
+ * Tiempo máximo por petición. Con red móvil una conexión puede quedar colgada por minutos y
+ * retendría el candado del perfil. Al vencer cuenta como "sin red" y se reintenta: el envío es
+ * idempotente (el servidor descarta duplicados por el jti).
+ */
+export const SYNC_REQUEST_TIMEOUT_MS = 15_000;
 
 @Injectable({ providedIn: 'root' })
 export class HttpOfflineSyncService extends OfflineSyncPort {
@@ -38,7 +44,7 @@ export class HttpOfflineSyncService extends OfflineSyncPort {
           `${environment.apiUrl}/v1/students/${encodeURIComponent(studentId)}/offline-sync`,
           body,
           { headers: { Authorization: `Bearer ${token}` } },
-        ),
+        ).pipe(timeout(SYNC_REQUEST_TIMEOUT_MS)),
       );
     } catch (error) {
       throw this.translate(error);

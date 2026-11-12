@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
-import { HttpOfflineSyncService } from './http-offline-sync.service';
+import { HttpOfflineSyncService, SYNC_REQUEST_TIMEOUT_MS } from './http-offline-sync.service';
 import { QueuedAttempt } from './offline.model';
 import { OfflineSyncError } from './offline-sync.port';
 
@@ -79,6 +79,21 @@ describe('HttpOfflineSyncService (CU-A13)', () => {
     await tick();
     http.expectOne(URL).error(new ProgressEvent('error'));
     await expect(pending).rejects.toEqual(new OfflineSyncError('network'));
+  });
+
+  it('una petición colgada vence a los 15 s y cuenta como sin red (se reintenta)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { service, http } = setup();
+      const pending = service.send('perfil-1', [ATTEMPT]);
+      const assertion = expect(pending).rejects.toEqual(new OfflineSyncError('network'));
+      await vi.advanceTimersByTimeAsync(0);
+      http.expectOne(URL); // queda sin responder
+      await vi.advanceTimersByTimeAsync(SYNC_REQUEST_TIMEOUT_MS);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('sin sesión no llama a la API (temporal)', async () => {

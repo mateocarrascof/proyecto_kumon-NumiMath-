@@ -37,6 +37,9 @@ import { OfflineError, OfflinePracticeService } from '../core/offline/offline-pr
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
 import { ProgressPort } from '../core/progress/progress.port';
 
+/** Espera máxima a la sincronización antes de mostrar los temas (CU-A13). */
+export const SYNC_WAIT_MS = 3000;
+
 const ERRORS: Record<string, string> = {
   ...KID_ERRORS,
   expired: 'Ese ejercicio se cerró. Aquí va otro.',
@@ -353,8 +356,9 @@ export class PracticePage implements OnInit {
     // Las tareas del tutor no dependen de la cola sin conexión: se piden de inmediato.
     const tasks = this.loadTasks();
     // CU-A13: antes de leer nivel, bloque y racha se envían los intentos hechos sin conexión, así
-    // lo que se muestra ya los incluye. No bloquea: si falla, se sigue en línea con un aviso.
-    const synced = await this.sync.sync(this.studentId);
+    // lo que se muestra ya los incluye. Se espera como máximo 3 s (decisión del dueño): con una
+    // cola larga o red lenta se sigue en línea con un aviso y el envío continúa en segundo plano.
+    const synced = await this.sync.syncWithin(this.studentId, SYNC_WAIT_MS);
     const daily = this.loadDaily();
     let online = true;
     try {

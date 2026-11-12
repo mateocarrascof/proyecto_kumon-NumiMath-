@@ -829,6 +829,23 @@ en la migración para Adolfo: ¿se acepta así o se quiere rehacer el historial 
   primero se envía la cola y después se purga lo vencido. Sin red, la purga sigue la política
   (`privacidad-prov-2`) sin cambios.
 
+### Revisión antes del PR (2026-11-13)
+Revisores: `code-reviewer`, `security-reviewer`, `scalability-reviewer` y `privacy-cl-auditor`
+sobre `13834dd..604b2f2`. Corregido (decisiones del dueño en **negrita**):
+- **Un intento fuera de rango ya no hace fallar el lote (422):** el endpoint acepta los mismos
+  topes que el teclado de la app (respuesta de 7 dígitos, denominador de 4) y decide por intento
+  (denominador 0 → `rejected` solo ese). La app sigue tratando todo 4xx como temporal.
+- **La práctica espera la sincronización como máximo 3 s:** si no alcanza, muestra los temas con el
+  aviso "se enviarán más tarde" y el envío sigue en segundo plano (`syncWithin`).
+- Tiempo máximo de 15 s por petición de sincronización (vence = sin red, se reintenta).
+- La purga espera la sincronización previa como máximo 20 s: con la red colgada, lo vencido se
+  borra igual (lo que dice la política).
+- Reintentos repartidos al azar entre la mitad y el total de la espera (sigue 2 s…5 min) y 0–2 s
+  al azar al volver la red, para que muchos equipos no lleguen juntos.
+- `record_attempt` recibe la hora del intento (una sola escritura, sin UPDATE posterior) y la
+  sincronización bloquea primero la racha y luego la habilidad, como en línea (sin deadlock).
+- Inventario (tiempos y hora del dispositivo, historial) y EIPD 0.4.
+
 ### Pendientes (no implementados; revisar)
 1. **(5) Aviso al cerrar sesión con intentos sin enviar:** hoy "Cerrar sesión" con red borra la cola
    sin avisar (sin red ni se ofrece). La ficha no lo pide.
@@ -844,6 +861,24 @@ en la migración para Adolfo: ¿se acepta así o se quiere rehacer el historial 
    la cola se envía al servidor.
 7. **Reintentos solo con la app abierta:** sin plugin de tareas en segundo plano (no se agregaron
    dependencias); se retoma al abrir la app o al volver a primer plano.
+8. **Hallazgos bajos de la revisión (no implementados):**
+   - Un log por intento rechazado (hasta 15 por petición): podría pasar a un solo evento por
+     petición con un contador (hoy `ALLOWED_FIELDS` no tiene un campo numérico).
+   - `touch_student_activity` es una llamada más a la base por petición; podría ir dentro de
+     `record_offline_attempts`.
+   - `queuedStudents()` (IndexedDB) lee los intentos completos para sacar los perfiles; podría
+     recorrer solo el índice (`openKeyCursor`). La variable se llama `keys` aunque son filas.
+   - Los reintentos no respetan `Retry-After` (importará con el pendiente 2).
+   - La función de la base no vuelve a comprobar bloqueo y consentimiento en la misma
+     transacción (lo hace FastAPI justo antes, igual que la práctica en línea).
+   - **Requiere decisión del dueño / Legal:** si el tutor pausa un perfil y lo reactiva antes de
+     que un equipo sin red se conecte, los intentos hechos durante la pausa se guardan al
+     sincronizar (pendientes-legales, 29). Lo mismo si algún día se permite reactivar tras revocar.
+   - La política `privacidad-prov-2` no dice qué guarda el servidor al recibir la cola (tema, si
+     acertó, hora y tiempo; la respuesta no): agregarlo en la próxima versión, sin versión solo por
+     esto.
+   - Mismo token dos veces en una petición (punto 5) y la duda para Adolfo solo en la migración
+     (punto 3 la repite aquí).
 
 ### Pruebas
 - Servidor: `api/tests/test_offline_sync.py` (corrección en el servidor, valores manipulados, hora y

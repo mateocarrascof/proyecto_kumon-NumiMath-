@@ -12,6 +12,8 @@ export const SYNC_PAUSE_MS = 300;
 /** Espera creciente tras una falla temporal: 2 s, 4 s, 8 s… hasta 5 minutos. */
 export const RETRY_BASE_MS = 2000;
 export const RETRY_MAX_MS = 5 * 60 * 1000;
+/** Al volver la red se espera entre 0 y 2 s antes de enviar (ver `listenForReconnect`). */
+export const RECONNECT_SPREAD_MS = 2000;
 
 /**
  * `done`: la cola del perfil quedó vacía. `pending`: falló algo temporal; lo que no se confirmó
@@ -51,6 +53,21 @@ export class OfflineSyncService {
 
   /** Pausa entre lotes (las pruebas la cambian). */
   wait: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms));
+  /** Azar para repartir los reintentos (las pruebas lo fijan). */
+  random: () => number = Math.random;
+
+  /**
+   * Sincroniza, pero espera como máximo `ms`. Si no alcanza, devuelve `pending` y la
+   * sincronización SIGUE en segundo plano. Para que la práctica no quede esperando una cola larga
+   * o una red lenta (decisión del dueño: máx. 3 s antes de mostrar los temas).
+   */
+  syncWithin(studentId: string, ms: number): Promise<SyncOutcome> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const limit = new Promise<SyncOutcome>((resolve) => {
+      timer = setTimeout(() => resolve('pending'), ms);
+    });
+    return Promise.race([this.sync(studentId), limit]).finally(() => clearTimeout(timer));
+  }
 
   /** Sincroniza un perfil. Si ya hay una sincronización de ese perfil en curso, la comparte. */
   sync(studentId: string): Promise<SyncOutcome> {
@@ -71,7 +88,11 @@ export class OfflineSyncService {
   listenForReconnect(target: Window | undefined = typeof window === 'undefined' ? undefined : window): void {
     if (this.listening || !target) return;
     this.listening = true;
-    target.addEventListener('online', () => void this.syncAll());
+    // Entre 0 y 2 s al azar: si muchos equipos recuperan la red a la vez (un colegio entero), no
+    // llegan todos al servidor en el mismo instante.
+    target.addEventListener('online', () => {
+      setTimeout(() => void this.syncAll(), this.random() * RECONNECT_SPREAD_MS);
+    });
   }
 
   /** ¿Hay un reintento programado para el perfil? (para pruebas y diagnóstico). */
@@ -127,7 +148,10 @@ export class OfflineSyncService {
     const previous = this.retries.get(studentId);
     if (previous) clearTimeout(previous.timer);
     const failures = (previous?.failures ?? 0) + 1;
-    const timer = setTimeout(() => void this.sync(studentId), retryDelayMs(failures));
+    // Entre la mitad y el total de la espera creciente, al azar: tras una caída del servidor los
+    // equipos no reintentan todos juntos (sigue dentro del rango acordado de 2 s a 5 min).
+    const delay = retryDelayMs(failures) * (0.5 + 0.5 * this.random());
+    const timer = setTimeout(() => void this.sync(studentId), delay);
     this.retries.set(studentId, { failures, timer });
     return 'pending';
   }

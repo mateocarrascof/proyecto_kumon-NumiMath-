@@ -1,5 +1,10 @@
 import { OfflineStore } from './offline-store.port';
 
+/** Máximo que la purga espera a la sincronización previa. */
+export const SYNC_BEFORE_PURGE_MAX_MS = 20_000;
+
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 /**
  * Purga de lo guardado sin conexión (CU-A12): lotes vencidos, intentos cuyo plazo para
  * sincronizar pasó y la copia de perfiles de más de 7 días. NO depende de la red.
@@ -20,7 +25,12 @@ export function startOfflinePurge(
   online: () => boolean = () => typeof navigator === 'undefined' || navigator.onLine,
 ): () => void {
   const purge = () => {
-    const before = syncFirst && online() ? syncFirst().catch(() => undefined) : Promise.resolve();
+    // Con tope: si la red está colgada, la purga corre igual (la política dice que lo vencido se
+    // borra la próxima vez que se abre la app).
+    const before =
+      syncFirst && online()
+        ? Promise.race([syncFirst().catch(() => undefined), delay(SYNC_BEFORE_PURGE_MAX_MS)])
+        : Promise.resolve();
     // Mejor esfuerzo: si el almacén falla ahora, se reintenta la próxima vez.
     void before
       .then(() => store.purgeExpired(Math.floor(now() / 1000)))

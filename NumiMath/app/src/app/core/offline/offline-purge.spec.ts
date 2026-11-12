@@ -1,6 +1,6 @@
 import { MemoryOfflineStore } from './memory-offline-store';
 import { PROFILES_TTL_SECONDS } from './offline.model';
-import { startOfflinePurge } from './offline-purge';
+import { SYNC_BEFORE_PURGE_MAX_MS, startOfflinePurge } from './offline-purge';
 
 const NOW_S = 1_800_000_000;
 const ANA = { id: 'p-ana', nickname: 'Ana', grade: 2 as const, blocked: false };
@@ -90,6 +90,19 @@ describe('startOfflinePurge (CU-A12)', () => {
     await settle();
     expect(sync).not.toHaveBeenCalled();
     expect(purge).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('CU-A13: si la sincronización queda colgada (red mala), purga igual al vencer el tope', async () => {
+    vi.useFakeTimers();
+    const store = new MemoryOfflineStore();
+    const purge = vi.spyOn(store, 'purgeExpired');
+    startOfflinePurge(store, () => NOW_S * 1000, undefined, () => new Promise(() => undefined), () => true)();
+    await vi.advanceTimersByTimeAsync(SYNC_BEFORE_PURGE_MAX_MS - 1);
+    expect(purge).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(purge).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

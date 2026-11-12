@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(24);
 update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- CU-A13: record_offline_attempts. Permisos, orden cronológico, duplicados (mismo lote o token ya
@@ -125,6 +125,20 @@ select throws_ok(
   $$ select pg_temp.sync('eeeeeeee-0000-0000-0000-000000000001', 'ffffffff-0000-0000-0000-000000000001',
        (select jsonb_agg(pg_temp.item(1000 + g, 1, true)) from generate_series(1, 101) g)) $$,
   '22023', 'offline_batch_too_large', 'más de 100 intentos: se rechaza');
+
+-- ===== 7b. record_attempt con hora del intento (corrección de la revisión) =====
+select ok(not has_function_privilege('authenticated',
+  'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz)',
+  'execute'), 'authenticated no puede ejecutar record_attempt (firma nueva)');
+select ok(has_function_privilege('service_role',
+  'public.record_attempt(uuid, uuid, uuid, text, text, boolean, date, integer, integer, timestamptz)',
+  'execute'), 'service_role sí puede');
+select is(public.record_attempt('eeeeeeee-0000-0000-0000-000000000001'::uuid,
+  'ffffffff-0000-0000-0000-000000000001'::uuid, 'aaaaaaaa-0000-0000-0000-000000000500'::uuid,
+  '2-06', '5 + 1 = ?', true, null, 2, 10), 'ok', 'sin hora (práctica en línea) sigue funcionando');
+select ok((select answered_at = now() from public.student_attempts
+           where exercise_id = 'aaaaaaaa-0000-0000-0000-000000000500'),
+  'sin hora usa now(), como antes');
 
 -- ===== 8. RLS: lo registrado sin conexión sigue siendo solo del tutor =====
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-000000000002","role":"authenticated"}', true);

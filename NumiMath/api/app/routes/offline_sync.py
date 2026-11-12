@@ -48,8 +48,11 @@ class SyncAttemptIn(BaseModel):
     # Id generado en el dispositivo: solo para decirle a la app qué pasó con cada intento.
     id: uuid.UUID
     token: Annotated[str, Field(min_length=10, max_length=600)]
-    answer: Annotated[int, Field(ge=0, le=1_000_000)]
-    answer_den: Annotated[int, Field(ge=1, le=1000)] | None = None
+    # Mismos topes que el teclado de la app (7 dígitos; denominador de 4): un intento fuera de los
+    # topes del servidor en línea NO debe hacer fallar el lote entero (422) y atascar la cola. Lo
+    # raro se decide por intento en `_prepare` (un denominador 0 se rechaza solo ese intento).
+    answer: Annotated[int, Field(ge=0, le=9_999_999)]
+    answer_den: Annotated[int, Field(ge=0, le=9999)] | None = None
     answered_at: datetime
     local_date: date | None = None
     duration_s: Annotated[int, Field(ge=0)] | None = None
@@ -103,7 +106,7 @@ def _prepare(
             rejected.append((item.id, "token_invalid"))
             continue
         exercise = verified.exercise
-        if exercise.is_fraction != (item.answer_den is not None):
+        if exercise.is_fraction != (item.answer_den is not None) or item.answer_den == 0:
             rejected.append((item.id, "answer_shape"))
             continue
         if exercise.answer_den is not None and item.answer_den is not None:

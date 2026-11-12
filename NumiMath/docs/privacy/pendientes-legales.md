@@ -289,6 +289,12 @@ usarse a los 7 días y se borran la próxima vez que se abre la app.
    de seguridad suficiente? ¿La Ley 21.719 o la Ley 21.430 exigen cifrarlos?
 4. Cambiar la versión de la política borra en cada equipo los intentos hechos sin conexión que aún
    no se enviaron. ¿Tiene esto alguna implicancia frente al tutor?
+5. (CU-A13) Si el tutor pausa un perfil y lo reactiva antes de que un equipo sin internet se
+   conecte, los intentos hechos durante la pausa se guardan al sincronizar. ¿Es aceptable? ¿Y si en
+   el futuro se permite reactivar tras revocar el consentimiento?
+6. (CU-A13) En los intentos hechos sin conexión, la hora y la duración las informa el dispositivo
+   y el servidor solo las acota a la vida del ejercicio. ¿Basta para el principio de exactitud, o
+   hay que marcar esos intentos como "sin conexión" ante el tutor?
 **Estado actual.** Decisión 8 del ADR 0002 aceptada para esta etapa, pendiente de revisión.
 **Respuesta:** _pendiente_
 

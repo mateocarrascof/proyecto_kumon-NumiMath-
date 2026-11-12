@@ -222,6 +222,21 @@ def test_lote_parcial_los_validos_entran_y_los_invalidos_se_rechazan() -> None:
     assert len(gateway.attempts) == 1
 
 
+def test_respuesta_fuera_de_rango_no_hace_fallar_el_lote() -> None:
+    """Hallazgo de revisión: la app deja escribir hasta 7 dígitos (y denominador de 4). Un intento
+    así debe registrarse (incorrecto) o rechazarse solo, nunca dar 422 a todo el lote."""
+    gateway = _gateway()
+    grande = _item(_token().token) | {"answer": 9_999_999}
+    den_cero = _item(_token().token) | {"answer_den": 0}
+    normal = _item(_token().token)
+    assert _statuses(_sync(_client(gateway), [grande, den_cero, normal])) == [
+        "accepted",
+        "rejected",
+        "accepted",
+    ]
+    assert sorted(c for (_, _, c) in gateway.attempts.values()) == [False, True]
+
+
 def test_margen_de_14_dias_tras_la_caducidad() -> None:
     gateway = _gateway()
     vencido_hace_13 = _token(issued=time.time() - WEEK - 13 * DAY)

@@ -47,6 +47,8 @@ function setup(send: Send = accepted, store = new MemoryOfflineStore()) {
   });
   const service = TestBed.inject(OfflineSyncService);
   service.wait = vi.fn(async () => undefined);
+  // Sin azar en las pruebas: espera completa y sin demora al volver la red.
+  service.random = () => 1;
   return { service, store, port };
 }
 
@@ -210,9 +212,62 @@ describe('OfflineSyncService (CU-A13)', () => {
   it('al volver la red (evento online) sincroniza', async () => {
     const { service, store, port } = setup();
     store.attempts.push(attempt(1));
+    service.random = () => 0;
     const target = new EventTarget() as unknown as Window;
     service.listenForReconnect(target);
     target.dispatchEvent(new Event('online'));
     await vi.waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
+  });
+
+  it('al volver la red espera entre 0 y 2 s al azar (no todos los equipos a la vez)', async () => {
+    vi.useFakeTimers();
+    const { service, store, port } = setup();
+    store.attempts.push(attempt(1));
+    service.random = () => 0.5;
+    const target = new EventTarget() as unknown as Window;
+    service.listenForReconnect(target);
+    target.dispatchEvent(new Event('online'));
+    await vi.advanceTimersByTimeAsync(999);
+    expect(port.send).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(port.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('los reintentos se reparten al azar entre la mitad y el total de la espera', async () => {
+    vi.useFakeTimers();
+    const { service, store, port } = setup(async () => {
+      throw new OfflineSyncError('retry');
+    });
+    service.random = () => 0; // la mitad: 1 s en vez de 2 s
+    store.attempts.push(attempt(1));
+    await service.sync(ID);
+    await vi.advanceTimersByTimeAsync(RETRY_BASE_MS / 2 - 1);
+    expect(port.send).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(port.send).toHaveBeenCalledTimes(2);
+  });
+
+  it('syncWithin: si no termina a tiempo devuelve pending y la sincronización sigue', async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    const { service, store } = setup(
+      (_s, a) =>
+        new Promise((resolve) => {
+          release = () => resolve(a.map((x) => ({ id: x.id, status: 'accepted' as const })));
+        }),
+    );
+    store.attempts.push(attempt(1));
+    const outcome = service.syncWithin(ID, 3000);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await outcome).toBe('pending');
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await store.queue(ID)).toEqual([]);
+  });
+
+  it('syncWithin: si termina antes, devuelve el resultado real', async () => {
+    const { service, store } = setup();
+    store.attempts.push(attempt(1));
+    expect(await service.syncWithin(ID, 3000)).toBe('done');
   });
 });

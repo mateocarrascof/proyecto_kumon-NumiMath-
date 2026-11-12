@@ -44,6 +44,7 @@ import { HttpAssignmentsService } from './core/assignments/http-assignments.serv
 import { HttpReportService } from './core/report/http-report.service';
 import { ReportPort } from './core/report/report.port';
 import { HttpParentalService } from './core/parental/http-parental.service';
+import { ParentalZoneWatcher } from './core/parental/parental-zone';
 import { ParentalPort } from './core/parental/parental.port';
 import { ExplanationPort } from './core/explanation/explanation.port';
 import { HttpExplanationService } from './core/explanation/http-explanation.service';
@@ -76,6 +77,8 @@ import { StreakReminderService } from './core/reminders/streak-reminder.service'
       // CU-A9: recordatorio de racha local. Al tocar el aviso se abre "¿Quién practica?".
       const router = inject(Router);
       inject(StreakReminderService).start(() => void router.navigateByUrl('/perfiles'));
+      // Zona del tutor: al salir por cualquier camino (o pasar a segundo plano) se pide el PIN otra vez.
+      inject(ParentalZoneWatcher).start();
     }),
     { provide: ReminderNotifier, useExisting: CapacitorReminderNotifier },
     { provide: OfflineSyncPort, useExisting: HttpOfflineSyncService },

@@ -34,7 +34,7 @@ const EXERCISE: Exercise = {
 const BADGE = '[data-testid="streak-badge"]';
 
 const PROGRESS: Progress = {
-  total: 0, correct: 0, streak: 0, dailyStreak: 0, practicedToday: false, byTopic: [], recent: [],
+  total: 0, correct: 0, streak: 0, dailyStreak: 0, practicedToday: false, byTopic: [], recent: [], weeks: [],
 };
 
 function setup(

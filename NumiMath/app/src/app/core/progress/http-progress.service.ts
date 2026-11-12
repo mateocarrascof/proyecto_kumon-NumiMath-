@@ -16,6 +16,7 @@ interface ProgressDto {
   practiced_today: boolean;
   by_topic: { topic: string; label: string; total: number; correct: number }[];
   recent: { topic: string; label: string; correct: boolean; answered_at: string }[];
+  weeks?: { start: string; total: number; correct: number }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -46,6 +47,8 @@ export class HttpProgressService extends ProgressPort {
           correct: r.correct,
           answeredAt: r.answered_at,
         })),
+        // Si la API aún no envía la evolución, la pantalla muestra "aún hay pocos ejercicios".
+        weeks: (dto.weeks ?? []).map((w) => ({ start: w.start, total: w.total, correct: w.correct })),
       };
     } catch (error) {
       if (error instanceof HttpErrorResponse) {

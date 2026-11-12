@@ -614,3 +614,41 @@ Los intentos de diagnóstico **no cuentan** para el bloque de 10, las medallas, 
 
 ### Pruebas
 `supabase/tests/database/diagnostic.test.sql`, `api/tests/test_diagnostic.py`, `api/tests/test_supabase_gateway.py` (filtro `activity` y `save_diagnostic`), `http-practice.service.spec.ts` y `practice.page.spec.ts`.
+
+## Evolución del progreso (CU-A23)
+
+Ficha CU-A23 de los Anexos ("Ver la evolución de mi progreso", RF-43, extiende CU-A11). Lo pidió el profesor guía. Decidido el 2026-11-11. **Sin migración y sin datos nuevos**: es otra forma de mostrar los intentos de práctica que ya se guardan.
+
+### Qué es
+En "Mi progreso", el niño ve un gráfico de barras de las **últimas 8 semanas**. Cada barra muestra los ejercicios de esa semana y los aciertos de esos ejercicios. Así puede notar cómo avanza, sin compararse con otros niños.
+
+### Reglas
+| Situación | Resultado |
+|---|---|
+| Sin intentos | Se muestra lo de siempre ("Todavía no hay intentos…"); no aparece la sección |
+| Menos de 5 ejercicios en las 8 semanas | "Aún hay pocos ejercicios para ver tu avance", sin gráfico. Es la misma regla de "pocos datos" del informe del tutor |
+| 5 o más | Gráfico con la frase "¡Cada semana que practicas, aprendes más!" |
+
+- **Semanas:** 8 periodos de 7 días que terminan "hoy", la fecha local del dispositivo validada a ±1 día como en la racha. Las semanas sin práctica aparecen con 0, como un hueco.
+- **Intentos:** cuentan los de práctica y las tareas del tutor. **El diagnóstico inicial no cuenta**, porque `list_attempts` solo lee `activity = 'practice'`. La fecha de cada intento es la UTC.
+
+### Cómo está hecho
+- `GET /v1/students/{id}/progress` (solo lectura, `AuthorizedStudentDep`, sin PIN porque es la vista del niño) agrega `weeks: [{start, total, correct}]`.
+- La agrupación es `weekly()`, la misma del informe del tutor. Se movió a `api/app/weekly.py` para que la usen las dos rutas sin un import circular.
+- La vista `student_daily_progress` que proponía el encargo **no existía**. Se decidió reutilizar `weekly()` en vez de crearla.
+- La app reutiliza el gráfico SVG propio del panel del tutor (`core/charts/weekly-chart.component.ts`), sin librerías. Ya trae:
+  - `role="img"` con un resumen;
+  - la leyenda;
+  - el % escrito sobre cada barra, para no depender solo del color;
+  - una tabla oculta para el lector de pantalla.
+
+### Pendientes
+1. **Textos del gráfico:** el componente que se reutiliza está pensado para adultos ("Ejercicios respondidos" y la fecha en formato 2026-10-20 en la tabla). Para usar textos de niño habría que modificar el componente compartido.
+2. **Ventana de 500 intentos** (la misma del informe): un niño con más de 500 intentos en 8 semanas vería incompletas las semanas más antiguas.
+3. **Revisión de CU-A2:** las correcciones que propusieron los revisores siguen sin aplicar.
+
+### Pruebas
+- `api/tests/test_progress.py`: agrupación en 3 semanas, semanas vacías, límites de la ventana, fecha no creíble y aislamiento.
+- `api/tests/test_integration_progress_evolution.py`: cuenta real con diagnóstico y 2 prácticas; la evolución cuenta solo las 2.
+- `progress.page.spec.ts`: barras, tabla y ánimo; mensaje con 2 ejercicios; umbral de 5; sin comparaciones.
+- `http-progress.service.spec.ts`.

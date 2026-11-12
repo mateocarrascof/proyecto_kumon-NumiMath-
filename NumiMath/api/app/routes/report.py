@@ -8,7 +8,7 @@ UTC. Reglas: docs/SPEC.md ("Informe y feedback para el adulto").
 
 from __future__ import annotations
 
-from datetime import UTC, date, timedelta
+from datetime import date, timedelta
 from statistics import median
 
 from fastapi import APIRouter, Request
@@ -21,11 +21,11 @@ from app.logging import get_logger, log_event
 from app.report_feedback import TopicStat, WeekStat, build_feedback, percent
 from app.routes.progress import WINDOW, summarize
 from app.streaks import effective_streak, parse_local_day, utc_today
+from app.weekly import WeekOut, attempt_day, weekly
 
 router = APIRouter(prefix="/v1/students", tags=["report"])
 logger = get_logger("mathtutor.report")
 
-WEEKS = 8
 MIN_TIMED = 3  # intentos con tiempo necesarios para mostrar el tiempo típico
 
 
@@ -33,12 +33,6 @@ def typical_seconds(attempts: list[AttemptRow]) -> int | None:
     """Mediana de los segundos: no la distorsiona un ejercicio que quedó abierto mucho rato."""
     times = [a.duration_s for a in attempts if a.duration_s is not None]
     return int(round(median(times))) if len(times) >= MIN_TIMED else None
-
-
-class WeekOut(BaseModel):
-    start: date
-    total: int
-    correct: int
 
 
 class TopicOut(BaseModel):
@@ -68,30 +62,9 @@ class ReportOut(BaseModel):
     feedback: list[FeedbackOut]
 
 
-def _day(attempt: AttemptRow) -> date:
-    at = attempt.answered_at
-    return (at.astimezone(UTC) if at.tzinfo else at).date()
-
-
-def weekly(attempts: list[AttemptRow], today: date, weeks: int = WEEKS) -> list[WeekOut]:
-    """`weeks` periodos de 7 días que terminan `today`, del más antiguo al más reciente."""
-    first = today - timedelta(days=7 * weeks - 1)
-    buckets = [[0, 0] for _ in range(weeks)]
-    for a in attempts:
-        day = _day(a)
-        if first <= day <= today:
-            bucket = buckets[(day - first).days // 7]
-            bucket[0] += 1
-            bucket[1] += 1 if a.correct else 0
-    return [
-        WeekOut(start=first + timedelta(days=7 * i), total=t, correct=c)
-        for i, (t, c) in enumerate(buckets)
-    ]
-
-
 def practice_days(attempts: list[AttemptRow], today: date) -> int:
     since = today - timedelta(days=6)
-    return len({d for d in map(_day, attempts) if since <= d <= today})
+    return len({d for d in map(attempt_day, attempts) if since <= d <= today})
 
 
 @router.get("/{student_id}/report")

@@ -65,7 +65,7 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
   'compara-signo-2': 'Toca el signo que va en el medio.',
   // CU-A21, parte 3 (1° básico).
   'completa-camino-1': 'Pon los números que faltan en el camino.',
-  'descompone-1': 'Mira cuántas hay y toca cuántas faltan.',
+  'descompone-1': 'Mira el grupo y toca el número que falta.',
   'junta-1': 'Junta los dos grupos y cuenta.',
   'figura-sigue-1': 'Mira la fila de figuras y toca la que sigue.',
   'toca-figura-1': 'Toca la figura que te pido.',
@@ -76,11 +76,14 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
 export const DEFAULT_INSTRUCTION = 'Mira bien y elige.';
 
 /** Emoji del servidor → nombre en plural, para que el lector de pantalla diga "7 manzanas". */
-const EMOJI_NAMES: Record<string, { glyph: string; plural: string; singular: string }> = {
-  manzana: { glyph: '🍎', plural: 'manzanas', singular: 'manzana' },
-  estrella: { glyph: '⭐', plural: 'estrellas', singular: 'estrella' },
-  pelota: { glyph: '⚽', plural: 'pelotas', singular: 'pelota' },
-  flor: { glyph: '🌸', plural: 'flores', singular: 'flor' },
+const EMOJI_NAMES: Record<
+  string,
+  { glyph: string; plural: string; singular: string; feminine: boolean }
+> = {
+  manzana: { glyph: '🍎', plural: 'manzanas', singular: 'manzana', feminine: true },
+  estrella: { glyph: '⭐', plural: 'estrellas', singular: 'estrella', feminine: true },
+  pelota: { glyph: '⚽', plural: 'pelotas', singular: 'pelota', feminine: true },
+  flor: { glyph: '🌸', plural: 'flores', singular: 'flor', feminine: true },
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
@@ -108,6 +111,23 @@ export function optionLabel(option: GameOption): string {
   }
   if (prefix === 's' && SYMBOL_NAMES[value]) return SYMBOL_NAMES[value];
   return option.label;
+}
+
+/**
+ * Enunciado con un "?" suelto como hueco ("5 = 3 + ?"): el lector de pantalla no lee ese "?" (y no
+ * siempre lee los signos). Devuelve la versión hablada, que concuerda con el objeto de los emoji:
+ * "5 es igual a 3 más ¿cuántas manzanas?". Sin hueco, null (se lee el enunciado tal cual).
+ */
+export function spokenEquation(before: string, glyphs: string): string | null {
+  if (!/(^|\s)\?(?=\s|$)/.test(before)) return null;
+  const names = Object.values(EMOJI_NAMES).find((n) => glyphs.includes(n.glyph));
+  const blank = names ? `¿${names.feminine ? 'cuántas' : 'cuántos'} ${names.plural}?` : '¿cuántos?';
+  return before
+    .trim()
+    .replace(/\s=\s/g, ' es igual a ')
+    .replace(/\s\+\s/g, ' más ')
+    .replace(/\s[−-]\s/g, ' menos ')
+    .replace(/(^|\s)\?(?=\s|$)/g, `$1${blank}`);
 }
 
 /**

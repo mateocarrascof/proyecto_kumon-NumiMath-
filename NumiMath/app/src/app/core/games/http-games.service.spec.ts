@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
-import { optionLabel, splitEmojiRun } from './games.messages';
+import { optionLabel, splitEmojiRun, spokenEquation } from './games.messages';
 import { GameError } from './games.port';
 import { HttpGamesService } from './http-games.service';
 
@@ -138,7 +138,15 @@ describe('Textos accesibles de los juegos', () => {
     expect(optionLabel({ id: 's:mayor', kind: 'symbol', label: '>' })).toBe('mayor que');
   });
 
+  it('el "?" suelto de "5 = 3 + ?" se dice, concordando con el objeto', () => {
+    expect(spokenEquation('5 = 3 + ? ', '🍎🍎🍎')).toBe('5 es igual a 3 más ¿cuántas manzanas?');
+    expect(spokenEquation('9 = 4 + ? ', '⚽⚽⚽⚽')).toBe('9 es igual a 4 más ¿cuántas pelotas?');
+    expect(spokenEquation('7 − ? = 2 ', '')).toBe('7 menos ¿cuántos? es igual a 2');
+    expect(spokenEquation('¿Cuál es mayor?', '')).toBeNull(); // un "?" pegado a la palabra se lee
+  });
+
   it('dos grupos de emoji se resumen por separado (no se dice el total, que sería la respuesta)', () => {
+    expect(spokenEquation('Junta las flores. ¿Cuántas hay? ', '🌸🌸🌸 🌸🌸')).toBeNull(); // sin hueco
     expect(splitEmojiRun('Junta las flores. ¿Cuántas hay? 🌸🌸🌸 🌸🌸')).toEqual({
       before: 'Junta las flores. ¿Cuántas hay? ',
       glyphs: '🌸🌸🌸 🌸🌸',

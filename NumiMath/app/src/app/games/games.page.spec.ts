@@ -416,6 +416,20 @@ describe('GamesPage (CU-A21)', () => {
     expect(prompt.querySelector('[data-testid="glyph-group"]')!.classList).not.toContain('boxed');
   });
 
+  it('"5 = 3 + ?": el lector de pantalla oye la pregunta completa (el "?" se dice)', async () => {
+    const { page, q, el, render } = setup({
+      exercise: vi.fn(async () => ({ ...CHOICE, text: '5 = 3 + ? 🍎🍎🍎' })),
+    });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame(GROUPS[0].games[0]);
+    await page.start();
+    await render();
+    expect(q('prompt-spoken')?.textContent).toBe('5 es igual a 3 más ¿cuántas manzanas?');
+    expect(el().querySelector('[role="group"]')?.getAttribute('aria-label')).toBe(
+      '5 es igual a 3 más ¿cuántas manzanas? 3 manzanas',
+    );
+  });
+
   it('juntar: cada grupo de emoji va en su recuadro (a 360 px no se mezclan)', async () => {
     const { page, q, render } = setup({
       exercise: vi.fn(async () => ({ ...CHOICE, text: 'Junta las flores. ¿Cuántas hay? 🌸🌸🌸🌸🌸🌸🌸🌸🌸 🌸🌸🌸🌸🌸🌸🌸🌸🌸' })),

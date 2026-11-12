@@ -67,7 +67,12 @@
         <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
         @if (exercise) {
           <h1 class="prompt" data-testid="game-prompt">
-            {{ prompt.before }}
+            @if (spokenBefore) {
+              <span aria-hidden="true">{{ prompt.before }}</span>
+              <span class="sr-only" data-testid="prompt-spoken">{{ spokenBefore }}</span>
+            } @else {
+              {{ prompt.before }}
+            }
             @if (prompt.glyphs) {
               <span class="glyphs" aria-hidden="true">
                 @for (group of glyphGroups; track $index) {
@@ -84,7 +89,7 @@
             <app-choice-options
               [options]="exercise.options"
               [scene]="exercise.scene ?? null"
-              [label]="prompt.before + prompt.spoken"
+              [label]="(spokenBefore ? spokenBefore + ' ' : prompt.before) + prompt.spoken"
               [disabled]="busy || !!result"
               [chosen]="chosen"
               [correct]="result?.correctAnswer ?? null"

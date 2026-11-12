@@ -248,6 +248,19 @@ def _fill_steps(rng: random.Random) -> GameExercise:
     )
 
 
+# Objetos con nombre masculino (hoy ninguno: "las manzanas", "las pelotas"). Los textos de los
+# juegos nuevos concuerdan con el objeto ("los"/"las", "cuántos"/"cuántas").
+_MASCULINE_OBJECTS: frozenset[str] = frozenset()
+
+
+def _the(obj: str) -> str:
+    return "los" if obj in _MASCULINE_OBJECTS else "las"
+
+
+def _how_many_word(obj: str) -> str:
+    return "Cuántos" if obj in _MASCULINE_OBJECTS else "Cuántas"
+
+
 def _decompose(rng: random.Random) -> GameExercise:
     """Componer y descomponer (tema 4): "5 = 3 + ?" con los objetos que ya hay."""
     obj = rng.choice(sorted(_OBJECTS))
@@ -272,7 +285,7 @@ def _join(rng: random.Random) -> GameExercise:
     values = [a + b, *_distractors(rng, a + b, 2, 20, 2)]
     return GameExercise(
         "choice",
-        f"Junta las {plural}. ¿Cuántas hay? {glyph * a} {glyph * b}",
+        f"Junta {_the(obj)} {plural}. ¿{_how_many_word(obj)} hay? {glyph * a} {glyph * b}",
         _shuffled(rng, [_number(v) for v in values]),
         (f"n:{a + b}",),
     )
@@ -421,7 +434,7 @@ def _pictogram(rng: random.Random) -> GameExercise:
     values = [right, *others, *rng.sample(near, 2 - len(others))]
     return GameExercise(
         "choice",
-        f"Mira el pictograma. ¿Cuántas {rows[asked].name} hay?",
+        f"Mira el pictograma. ¿{_how_many_word(objects[asked])} {rows[asked].name} hay?",
         _shuffled(rng, [_number(v) for v in values]),
         (f"n:{right}",),
         picto=rows,

@@ -1317,14 +1317,29 @@ es la única forma accesible de describirlas y se acepta.
    "Junta y cuenta"; relacionar 3D con 2D.
 3. **Bajos de la revisión (no implementados):** en `fill` las tarjetas fijas son botones
    desactivados con el mismo estilo (el lector dice "atenuado") y al corregir también llevan ✓;
-   tarjetas de 47 × 52 px con 6 lugares (sobre el mínimo de 44, bajo los 64 del proyecto); "5 = 3 +
-   ?" sin texto para lector de pantalla ("5 es igual a 3 más ¿cuántas?"); "las…" y "¿Cuántas…" fijos
-   en femenino (falla si se agrega un objeto masculino) y "¿Cuántos faltan?" no concuerda con
-   "cuántas faltan"; ícono 👆 en vez de 🔢 para `fill` en la lista; comentario viejo en
-   `order-cards` ("solo ordenar"); `max_length=6` de la respuesta es justo el largo del camino;
-   la prueba de "dibujo distinto" compara el SVG como texto, no lo que se ve; **confirmar con el
-   dueño** si medir con clips calza mejor con 2B-OA19 que con 1-19 (por ahora 1-19, decisión 7).
-4. Prueba manual a 360 px de los 10 temas (no se pudo hacer en esta sesión).
+   tarjetas de 47 × 52 px con 6 lugares (sobre el mínimo de 44, bajo los 64 del proyecto); ícono
+   👆 en vez de 🔢 para `fill` en la lista; comentario viejo en `order-cards` ("solo ordenar");
+   `max_length=6` de la respuesta es justo el largo del camino; la prueba de "dibujo distinto"
+   compara el SVG como texto, no lo que se ve.
+
+### Decisiones posteriores a la revisión (dueño, 2026-11-12)
+- **Textos:** "5 = 3 + ?" se dice completo al lector de pantalla ("5 es igual a 3 más ¿cuántas
+  manzanas?", `spokenEquation`), concordando con el objeto. "Junta y cuenta" y el pictograma
+  concuerdan con el objeto ("las"/"los", "¿Cuántas…?"/"¿Cuántos…?"; hoy todos son femeninos, así
+  que sus salidas no cambian). La instrucción de "¿Cuántos faltan?" queda sin género ("Mira el
+  grupo y toca el número que falta.").
+- **Habilidad de medir con clips: queda `1-19`.** 2B-OA19 es `2-22` "Longitud en cm y m", de 2°
+  y con unidades estandarizadas; la única habilidad de longitud de 1° es `1-19` (1B-OA18,
+  "Comparar longitudes"). Ese vínculo es el que usará "Aprender jugando" en cada tema.
+
+### Prueba manual (2026-11-12, Chromium a 360 px, base y API locales de la rama)
+Selección con los 5 ejes de 1°. Un juego por tema jugado de punta a punta (5 rondas y resumen):
+`completa-camino-1`, `cuantos-1`, `ordena-1`, `descompone-1`, `junta-1`, `figura-sigue-1`,
+`toca-figura-1`, `donde-esta-1`, `mide-clips-1` y `pictograma-1`. Sin desplazamiento horizontal
+(todo dentro de 344 px). Figuras distinguibles por la forma; la escena arma la cruz con botones de
+88 px y etiquetas "flor, arriba"; el pictograma de 8 pasa a dos líneas en grupos de 5 y 3 sin
+cortarse; el patrón y su "?" caben en una línea; lo medido mide lo mismo que la fila de clips. La
+base quedó restaurada con la semilla (`supabase db reset`).
 
 ### Revisión antes del PR
 `code-reviewer` y `child-safety-ai-reviewer` sobre `03bb270..6b44d4f`. Sin bloqueantes de

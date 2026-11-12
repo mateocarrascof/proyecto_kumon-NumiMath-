@@ -423,6 +423,22 @@ def _shape(option_id: str) -> str:
     return option_id.split(":")[1].split("-")[0]
 
 
+def test_los_textos_concuerdan_con_un_objeto_masculino(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Hoy todos los objetos son femeninos; si se agrega uno masculino, "Junta y cuenta" y el
+    pictograma dicen "los" y "¿Cuántos…?"."""
+    from app.exercises import games
+
+    monkeypatch.setattr(games, "_MASCULINE_OBJECTS", frozenset(games._OBJECTS))
+    for _ in range(50):
+        assert "Junta los " in _many_one("junta-1").text
+        text = _many_one("pictograma-1").text
+        assert "¿Cuántos " in text and "¿Cuántas " not in text
+
+
+def _many_one(game_id: str):
+    return next(_many(game_id, 1))
+
+
 def test_figura_que_sigue_es_valida_en_miles_de_ejercicios() -> None:
     for e in _many("figura-sigue-1"):
         assert e.pattern is not None

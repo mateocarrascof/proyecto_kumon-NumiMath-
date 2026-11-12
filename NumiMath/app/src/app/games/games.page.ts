@@ -7,6 +7,7 @@ import {
   GAME_INSTRUCTIONS,
   GAME_TEXT,
   splitEmojiRun,
+  spokenEquation,
 } from '../core/games/games.messages';
 import {
   GameError,
@@ -83,12 +84,18 @@ export class GamesPage implements OnInit {
     return (this.game && GAME_INSTRUCTIONS[this.game.id]) ?? DEFAULT_INSTRUCTION;
   }
 
-  /** Enunciado separado: los emoji repetidos se resumen para el lector de pantalla. */
   /** Grupos de emoji del enunciado ("Junta y cuenta" trae dos): cada uno se dibuja en su recuadro. */
   get glyphGroups(): string[] {
     return this.prompt.glyphs.trim().split(/\s+/).filter(Boolean);
   }
 
+  /** "5 = 3 + ?" dicho en voz alta: "5 es igual a 3 más ¿cuántas manzanas?" (o null). */
+  get spokenBefore(): string | null {
+    const { before, glyphs } = this.prompt;
+    return spokenEquation(before, glyphs);
+  }
+
+  /** Enunciado separado: los emoji repetidos se resumen para el lector de pantalla. */
   get prompt(): { before: string; glyphs: string; spoken: string } {
     return splitEmojiRun(this.exercise?.text ?? '');
   }

@@ -37,6 +37,13 @@ export abstract class OfflineStore {
   /** Perfiles con intentos en cola (para sincronizar todos al volver la red). */
   abstract queuedStudents(): Promise<string[]>;
   abstract profiles(): Promise<CachedProfile[]>;
+  /**
+   * CU-A9: perfiles con el recordatorio activado EN ESTE EQUIPO (por el adulto, desde el panel y
+   * con permiso del sistema). Ligado al tutor dueño de la copia: se borra con `clear`, si entra
+   * otro tutor o si vence la copia. Sin esto el equipo no programa avisos aunque el servidor diga sí.
+   */
+  abstract deviceReminders(): Promise<string[]>;
+  abstract setDeviceReminder(studentId: string, enabled: boolean): Promise<void>;
   /** Tutor dueño de la copia local y cuándo se guardó (null si no hay copia). */
   abstract owner(): Promise<OfflineOwner | null>;
   /**

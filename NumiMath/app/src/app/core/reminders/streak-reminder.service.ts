@@ -7,6 +7,8 @@ import { AuthPort } from '../auth/auth.port';
 import { PROFILES_TTL_SECONDS } from '../offline/offline.model';
 import { OfflineStore } from '../offline/offline-store.port';
 import { ParentalSession } from '../parental/parental-session';
+import { ProfilesPort } from '../profiles/profiles.port';
+import { localDay } from '../time/local-day';
 import { ReminderNotifier } from './reminder-notifier.port';
 import { STREAK_REMINDER_NOTIFICATION } from './streak-reminder.messages';
 
@@ -32,6 +34,11 @@ export type ReminderChange = 'ok' | 'pin' | 'denied' | 'unsupported' | 'error';
  *   y cada vez que cambia lo guardado sin conexión (cerrar sesión, revocar, otro tutor, borrar o
  *   pausar un perfil, purga): si ya no hay perfiles con el recordatorio activo, se cancela.
  * - Si se sabe que TODOS los perfiles con recordatorio ya practicaron hoy, el aviso pasa a mañana.
+ *   Lo que dice el servidor (racha leída en "¿Quién practica?") y lo anotado en el equipo tras
+ *   responder se juntan: ninguna fuente borra a la otra.
+ * - ACTIVACIÓN POR EQUIPO: además del sí del servidor, el adulto tiene que haberlo activado desde el
+ *   panel de ESTE equipo (con el permiso del sistema). Así una tablet que usa el niño no empieza a
+ *   mostrar avisos solo porque el tutor lo activó en su teléfono.
  * - Nada sale del dispositivo: el servidor solo guarda el sí o no de cada perfil.
  */
 @Injectable({ providedIn: 'root' })
@@ -52,11 +59,20 @@ export class StreakReminderService {
     return this.notifier.supported();
   }
 
-  /** Una sola vez al iniciar la app: escucha cambios de la copia local y el toque del aviso. */
-  start(openProfiles: () => void): void {
+  /**
+   * Una sola vez al iniciar la app: escucha cambios de la copia local, la vuelta a primer plano
+   * (sin depender de que la purga avise) y el toque del aviso.
+   */
+  start(
+    openProfiles: () => void,
+    doc: Document | undefined = typeof document === 'undefined' ? undefined : document,
+  ): void {
     if (this.started) return;
     this.started = true;
     this.store.onChange(() => void this.reschedule());
+    doc?.addEventListener('visibilitychange', () => {
+      if (doc.visibilityState === 'visible') void this.reschedule();
+    });
     if (this.notifier.supported()) this.notifier.onTap(openProfiles);
     void this.reschedule();
   }
@@ -67,7 +83,11 @@ export class StreakReminderService {
    * Las llamadas van en fila: dos a la vez no programan dos avisos.
    */
   reschedule(practicedToday?: ReadonlySet<string>): Promise<void> {
-    const run = () => this.run(practicedToday).catch(() => undefined);
+    // Lo que llega se suma a lo ya sabido hoy (no lo reemplaza).
+    const day = this.today();
+    for (const id of practicedToday ?? []) this.practiced.add(`${day}|${id}`);
+    const fresh = practicedToday !== undefined;
+    const run = () => this.run(fresh).catch(() => undefined);
     this.chain = this.chain.then(run, run);
     return this.chain;
   }
@@ -78,7 +98,7 @@ export class StreakReminderService {
     const key = `${day}|${studentId}`;
     if (this.practiced.has(key)) return Promise.resolve();
     this.practiced.add(key);
-    return this.reschedule(this.practicedOn(day));
+    return this.reschedule(new Set([studentId]));
   }
 
   /**
@@ -109,49 +129,73 @@ export class StreakReminderService {
         error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403);
       return denied && !parental.isUnlocked() ? 'pin' : 'error';
     }
-    await this.updateLocalCopy(studentId, enabled);
-    await this.reschedule();
+    await this.refreshLocalCopy();
+    // Activación por equipo: solo este equipo queda marcado (los demás, cuando el adulto lo active
+    // en su panel). Desactivar lo apaga en el servidor, y cada equipo lo cancela al recargar.
+    await this.store.setDeviceReminder(studentId, enabled).catch(() => undefined);
+    // Con información nueva: si el perfil recién activado no practicó hoy, el aviso vuelve a hoy.
+    await this.reschedule(new Set());
     return 'ok';
   }
 
-  private async run(practicedToday?: ReadonlySet<string>): Promise<void> {
+  private async run(fresh: boolean): Promise<void> {
     if (!this.notifier.supported()) return;
     const now = this.now();
     const nowS = Math.floor(now.getTime() / 1000);
-    const [owner, profiles] = await Promise.all([
+    const [owner, profiles, here] = await Promise.all([
       this.store.owner().catch(() => null),
       this.store.profiles().catch(() => []),
+      this.store.deviceReminders().catch(() => [] as string[]),
     ]);
     // Copia vencida o sin dueño: como si no hubiera perfiles (no quedan avisos huérfanos).
     const valid = owner !== null && owner.savedAt + PROFILES_TTL_SECONDS > nowS;
-    const enabled = valid ? profiles.filter((p) => p.streakReminder === true && !p.blocked) : [];
+    const activeHere = new Set(here);
+    const enabled = valid
+      ? profiles.filter((p) => p.streakReminder === true && !p.blocked && activeHere.has(p.id))
+      : [];
     if (enabled.length === 0) {
       await this.notifier.cancel();
       return;
     }
-    const known = practicedToday ?? this.practicedOn(this.today());
-    const allPracticed = enabled.every((p) => known.has(p.id));
-    if (!practicedToday && !allPracticed) {
-      // Sin información nueva: si ya hay un aviso futuro, se deja como está.
-      const pending = await this.notifier.pending().catch(() => null);
-      if (pending && pending > now) return;
+    const known = this.practicedOn(this.today());
+    // También cuenta lo practicado sin red que sigue en la cola de hoy: sobrevive a que el sistema
+    // cierre la app (lo anotado en memoria se pierde, la cola no).
+    const today = localDay(now);
+    for (const p of enabled) {
+      if (known.has(p.id)) continue;
+      const queued = await this.store.queue(p.id).catch(() => []);
+      if (queued.some((a) => a.localDate === today)) known.add(p.id);
     }
+    const allPracticed = enabled.every((p) => known.has(p.id));
+    const next = nextReminderAt(now, allPracticed);
+    const pending = await this.notifier.pending().catch(() => null);
+    // Ya está a esa hora (con un minuto de tolerancia por redondeos del sistema): no se toca.
+    if (pending && Math.abs(pending.getTime() - next.getTime()) < 60_000) return;
+    // Sin información nueva y con un aviso futuro: se respeta (salvo que todos ya practicaron).
+    if (!fresh && !allPracticed && pending && pending > now) return;
     await this.notifier.schedule(
-      nextReminderAt(now, allPracticed),
+      next,
       STREAK_REMINDER_NOTIFICATION.title,
       STREAK_REMINDER_NOTIFICATION.body,
     );
   }
 
   /** Copia local: solo el sí o no del perfil (para reprogramar sin internet). */
-  private async updateLocalCopy(studentId: string, enabled: boolean): Promise<void> {
-    const [owner, profiles] = await Promise.all([
-      this.store.owner().catch(() => null),
-      this.store.profiles().catch(() => []),
-    ]);
-    if (!owner) return;
-    const updated = profiles.map((p) => (p.id === studentId ? { ...p, streakReminder: enabled } : p));
-    await this.store.saveProfiles(updated, owner).catch(() => undefined);
+  /**
+   * Tras guardar en el servidor, la copia local se rehace con la lista del servidor (fuente de
+   * verdad) y con fecha nueva, en UNA escritura: así no se pisa un cambio hecho entre medio y,
+   * aunque la copia no existiera o estuviera vencida, el equipo puede programar el aviso.
+   */
+  private async refreshLocalCopy(): Promise<void> {
+    const tutorId = this.injector.get(AuthPort).user()?.id;
+    if (!tutorId) return;
+    try {
+      const profiles = await this.injector.get(ProfilesPort).list();
+      const savedAt = Math.floor(this.now().getTime() / 1000);
+      await this.store.saveProfiles(profiles, { tutorId, savedAt });
+    } catch {
+      // Sin la lista no se toca la copia: el aviso se ajusta al cargar "¿Quién practica?".
+    }
   }
 
   private today(): string {
@@ -159,12 +203,19 @@ export class StreakReminderService {
     return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
   }
 
+  /** Quién practicó `day`. De paso olvida los días anteriores (no crece sin límite). */
   private practicedOn(day: string): Set<string> {
     const ids = new Set<string>();
-    for (const key of this.practiced) {
+    for (const key of [...this.practiced]) {
       const [d, id] = key.split('|');
       if (d === day) ids.add(id);
+      else this.practiced.delete(key);
     }
     return ids;
+  }
+
+  /** ¿El recordatorio de este perfil está activo en este equipo? (para el panel). */
+  async activeHere(studentId: string): Promise<boolean> {
+    return (await this.store.deviceReminders().catch(() => [] as string[])).includes(studentId);
   }
 }

@@ -13,7 +13,8 @@ export const STREAK_REMINDER_NOTIFICATION = {
 /** Textos para el ADULTO en el panel del tutor. */
 export const STREAK_REMINDER_PANEL = {
   label: 'Recordatorio de racha',
-  help: 'Un aviso al día a las 18:00 en este teléfono o tablet, sin el apodo. Apagado por defecto.',
+  help: 'Un aviso al día a las 18:00, sin el apodo, solo en los equipos donde lo actives. Apagado por defecto.',
+  otherDevice: 'Activado en otro equipo. Actívalo aquí para recibir el aviso en este equipo.',
   unsupported: 'Disponible en la app del teléfono o tablet.',
   denied:
     'El teléfono no permite avisos de NumiMath. Puedes activarlos en los ajustes del teléfono.',

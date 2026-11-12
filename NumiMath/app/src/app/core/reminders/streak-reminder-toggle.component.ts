@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  Input,
+  OnChanges,
+  inject,
+} from '@angular/core';
 
 import { Profile } from '../profiles/profiles.port';
 import { STREAK_REMINDER_PANEL } from './streak-reminder.messages';
@@ -6,7 +13,8 @@ import { StreakReminderService } from './streak-reminder.service';
 
 /**
  * CU-A9: interruptor "Recordatorio de racha" de un perfil, SOLO en el panel del tutor (con PIN
- * vigente). Apagado por defecto. En la web no se ofrece (solo en la app del teléfono o tablet).
+ * vigente). Apagado por defecto. Se ve encendido solo si está activo en el servidor Y en este
+ * equipo (activación por equipo). En la web no se ofrece (solo en la app del teléfono o tablet).
  * Componente aparte para no sumar estilos a la hoja del panel.
  */
 @Component({
@@ -19,18 +27,21 @@ import { StreakReminderService } from './streak-reminder.service';
       } @else {
         <label class="row">
           <input
+            #box
             type="checkbox"
             role="switch"
             [checked]="enabled"
             [disabled]="busy || profile.blocked"
+            [attr.aria-busy]="busy"
+            [attr.aria-label]="text.label + ' de ' + profile.nickname"
             [attr.aria-describedby]="'reminder-help-' + profile.id"
-            (change)="toggle($any($event.target).checked)"
+            (change)="toggle(box.checked, box)"
             data-testid="reminder-switch"
           />
-          <span>{{ text.label }}</span>
+          <span aria-hidden="true">{{ text.label }}</span>
         </label>
         <p class="note" [id]="'reminder-help-' + profile.id">
-          {{ profile.blocked ? text.paused : text.help }}
+          {{ profile.blocked ? text.paused : otherDevice ? text.otherDevice : text.help }}
         </p>
       }
       @if (message) {
@@ -62,7 +73,7 @@ import { StreakReminderService } from './streak-reminder.service';
     `,
   ],
 })
-export class StreakReminderToggleComponent {
+export class StreakReminderToggleComponent implements OnChanges {
   @Input({ required: true }) profile!: Profile;
 
   private readonly reminders = inject(StreakReminderService);
@@ -71,22 +82,42 @@ export class StreakReminderToggleComponent {
   protected readonly supported = this.reminders.supported();
   protected busy = false;
   protected message = '';
+  private here = false;
   private override: boolean | null = null;
 
+  /** Encendido = activo en el servidor y en este equipo. */
   protected get enabled(): boolean {
-    return this.override ?? this.profile.streakReminder === true;
+    return this.override ?? (this.profile.streakReminder === true && this.here);
   }
 
-  async toggle(enabled: boolean): Promise<void> {
+  /** Activo en otro equipo del tutor, pero no en este. */
+  protected get otherDevice(): boolean {
+    return this.override === null && this.profile.streakReminder === true && !this.here;
+  }
+
+  ngOnChanges(): void {
+    // Perfil recargado: manda lo que diga el servidor (se olvida el último cambio local).
+    this.override = null;
+    if (!this.supported) return;
+    void this.reminders.activeHere(this.profile.id).then((here) => {
+      this.here = here;
+      this.cdr.markForCheck();
+    });
+  }
+
+  async toggle(enabled: boolean, box?: HTMLInputElement): Promise<void> {
     this.busy = true;
     this.message = '';
     this.cdr.markForCheck();
     const result = await this.reminders.setEnabled(this.profile.id, enabled);
     if (result === 'ok') {
       this.override = enabled;
+      this.here = enabled;
     } else {
-      // No quedó guardado: el interruptor vuelve a como estaba.
+      // No quedó guardado: el interruptor vuelve a como estaba. Se corrige también el DOM, porque
+      // si el valor enlazado no cambió Angular no reescribe `checked` (quedaría encendido).
       this.override = !enabled;
+      if (box) box.checked = !enabled;
       this.message =
         result === 'denied'
           ? this.text.denied

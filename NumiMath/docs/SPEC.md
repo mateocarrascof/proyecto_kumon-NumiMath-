@@ -904,22 +904,23 @@ activa por perfil en el panel (con PIN vigente). No hay servidor de notificacion
 ### Reglas
 | Tema | Regla |
 |---|---|
-| Activar | Panel del tutor → "Recordatorio de racha" por perfil. Al activarlo se pide el permiso del sistema ahí mismo; si el adulto lo niega, no se guarda y se le explica. Un perfil en pausa no se puede cambiar |
+| Activar | Panel del tutor → "Recordatorio de racha" por perfil **y por equipo**. Al activarlo se pide el permiso del sistema ahí mismo; si el adulto lo niega, no se guarda y se le explica. El equipo guarda "activado aquí" (ligado al tutor de la copia local); sin eso no programa avisos aunque el servidor diga sí. Si está activo en otro equipo, el panel lo dice. Un perfil en pausa no se puede cambiar |
 | Guardar | `PUT /v1/students/{id}/streak-reminder` con el token del PIN (`ParentalStudentDep`) → `set_streak_reminder` (solo `service_role`). El cliente no puede escribir `students.streak_reminder`. La copia local de perfiles guarda el sí o no para reprogramar sin internet |
 | Aviso | **Uno por dispositivo y por día**, a las **18:00** (hora fija). Texto: "Numi tiene ejercicios listos para practicar un ratito." (título "NumiMath"). Sin apodo, sin decir quién no practicó, sin culpa, sin emoji. Textos en `core/reminders/streak-reminder.messages.ts` |
 | Cuándo | 18:00 de hoy si aún no pasa; si ya pasó, o si se sabe que todos los perfiles con recordatorio ya practicaron hoy, 18:00 de mañana. Se programa **solo el próximo aviso** (nunca una serie) |
 | Reprogramar | Al abrir la app, al volver a primer plano, al cargar "¿Quién practica?" (con la racha del servidor), tras cada respuesta (con o sin red) y cuando cambia lo guardado sin conexión |
-| Cancelar | Si se desactiva en todos los perfiles, al cerrar sesión, si entra otro tutor, al revocar el consentimiento, si el perfil se borra o se pausa, o si la purga elimina la copia local (vencida a los 7 días) |
+| Cancelar | Si se desactiva en todos los perfiles (desactivar lo apaga en el servidor y en cada equipo al recargar), al cerrar sesión, si entra otro tutor, al revocar el consentimiento, si el perfil se borra o se pausa, o si la purga elimina la copia local (vencida a los 7 días) |
 | Al tocarlo | Abre "¿Quién practica?" |
 | Web/PWA | No se ofrece: "Disponible en la app del teléfono o tablet" |
-| Sistema | Respeta "no molestar". Android: canal de importancia normal, alarma inexacta (sin `SCHEDULE_EXACT_ALARM`), permiso `POST_NOTIFICATIONS` (13+). iOS: autorización del sistema |
+| Sistema | Respeta "no molestar". Android: canal de importancia normal, alarma inexacta (`isExactNotification: false`), permiso `POST_NOTIFICATIONS` (13+); quitar `SCHEDULE_EXACT_ALARM` del manifiesto al crear el proyecto Android. iOS: autorización del sistema (alerta, sonido y número sobre el ícono) |
 
 ### Limitaciones conocidas
-- En Android el aviso puede llegar **unos minutos tarde** (alarma inexacta).
-- Al **reiniciar el teléfono** el aviso programado puede perderse hasta que se abra la app.
+- En Android el aviso puede llegar **tarde** (alarma inexacta; en reposo profundo, más que unos
+  minutos).
+- Al **reiniciar el teléfono** el plugin restaura el aviso y, si su hora ya pasó, lo muestra de
+  inmediato (podría verse tarde, incluso de noche). Comprobar en un equipo real.
 - Con varios perfiles, el aviso es uno para el equipo: si un niño practicó y otro no, igual llega.
-- Si el tutor activa el recordatorio en un equipo, otro equipo lo programa recién cuando carga los
-  perfiles con conexión.
+- La activación es por equipo: en otro equipo del tutor hay que activarlo también desde su panel.
 
 ### Pendientes (no implementados; revisar)
 1. Elegir la hora del aviso en el panel (hoy 18:00 fija).
@@ -933,6 +934,24 @@ activa por perfil en el panel (con PIN vigente). No hay servidor de notificacion
    por equipo, sin envío de datos del niño, texto genérico, preferencia sí/no guardada en el servidor
    por perfil) y (2) lo que el servidor guarda al recibir la cola de CU-A13. Pregunta a Adolfo y
    Legal: ¿es un cambio sustancial que exige nuevo consentimiento? (pendientes-legales, 30).
+5. **Decisiones pendientes del dueño:** usar `allowWhileIdle` o descartar avisos vencidos (aviso
+   tardío tras reposo o reinicio); cambiar el nombre visible a "Recordatorio para practicar" (la
+   revisión de privacidad y de seguridad infantil lo sugiere por ser "racha" una mecánica de
+   enganche).
+6. **Bajos de la revisión (no implementados):** apagar `streak_reminder` al bloquear o revocar (hoy,
+   al desbloquear, vuelve solo); ver y desactivar desde la web; que `set_streak_reminder` compruebe
+   también en SQL que el perfil no esté en pausa; el arreglo de oyentes de `onChange` no permite
+   darse de baja; la migración no anota cómo revertirse.
+7. **Bajos de la segunda revisión (no implementados):** el mensaje de permiso negado dice
+   "teléfono" (debería decir "equipo"); `aria-busy` está en el `<input>` (mejor en el contenedor);
+   al tocar el aviso con la sesión del PIN abierta no se cierra (ya ocurría antes); "¿Quién
+   practica?" reprograma como información nueva aunque falle la lectura de algún perfil; al
+   activar se reprograma tres veces seguidas (en fila, sin efecto visible); `cancel()` se llama
+   aunque nadie lo haya activado; `schedule` cancela antes de reemplazar; cada interruptor lee la
+   lista local por su cuenta; comprobar en equipo real si la navegación desde el aviso corre fuera
+   de NgZone.
+8. **Antes de publicar (fuera de CU-A9):** `capacitor.config.ts` tiene el `appId` y `appName` de la
+   plantilla; ícono de silueta para el aviso en Android (ADR 0003).
 
 ### Pruebas
 - Servidor: `api/tests/test_streak_reminder.py` (con y sin PIN, perfil ajeno, en pausa, sin

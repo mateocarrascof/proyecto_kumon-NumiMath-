@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
@@ -8,6 +9,7 @@ import { MemoryOfflineStore } from '../offline/memory-offline-store';
 import { CachedProfile, PROFILES_TTL_SECONDS } from '../offline/offline.model';
 import { OfflineStore } from '../offline/offline-store.port';
 import { ParentalSession } from '../parental/parental-session';
+import { ProfilesPort } from '../profiles/profiles.port';
 import { ReminderNotifier } from './reminder-notifier.port';
 import { STREAK_REMINDER_NOTIFICATION } from './streak-reminder.messages';
 import { StreakReminderService, nextReminderAt } from './streak-reminder.service';
@@ -47,20 +49,25 @@ async function setup(profiles: CachedProfile[] = [ANA], now = MORNING, savedAt?:
   const store = new MemoryOfflineStore();
   const nowS = Math.floor(now.getTime() / 1000);
   await store.saveProfiles(profiles, { tutorId: 't', savedAt: savedAt ?? nowS });
+  // Activados también en ESTE equipo (activación por equipo).
+  store.reminderIds = profiles.filter((p) => p.streakReminder).map((p) => p.id);
   const notifier = new FakeNotifier();
+  const server: CachedProfile[] = profiles.map((p) => ({ ...p }));
   TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: OfflineStore, useValue: store },
       { provide: ReminderNotifier, useValue: notifier },
-      { provide: AuthPort, useValue: { accessToken: async () => 'jwt' } },
+      { provide: AuthPort, useValue: { accessToken: async () => 'jwt', user: signal({ id: 't', email: '' }) } },
+      // Lista del servidor tras guardar (fuente de verdad para rehacer la copia local).
+      { provide: ProfilesPort, useValue: { list: async () => server.map((p) => ({ ...p })) } },
     ],
   });
   const service = TestBed.inject(StreakReminderService);
   let clock = now;
   service.now = () => clock;
-  return { service, store, notifier, setNow: (d: Date) => (clock = d) };
+  return { service, store, notifier, server, setNow: (d: Date) => (clock = d) };
 }
 
 describe('nextReminderAt (CU-A9)', () => {
@@ -205,6 +212,69 @@ describe('StreakReminderService (CU-A9)', () => {
     expect(notifier.scheduled).toBeNull();
   });
 
+  it('activación por equipo: si el servidor dice sí pero no se activó en ESTE equipo, no avisa', async () => {
+    const { service, store, notifier } = await setup([ANA]);
+    store.reminderIds = [];
+    await service.reschedule();
+    expect(notifier.schedule).not.toHaveBeenCalled();
+    expect(notifier.scheduled).toBeNull();
+  });
+
+  it('desactivado desde otro equipo y reactivado allá: este equipo NO vuelve a avisar', async () => {
+    const { service, store, notifier } = await setup([ANA]); // activado aquí
+    const owner = { tutorId: 't', savedAt: Math.floor(MORNING.getTime() / 1000) };
+    await store.saveProfiles([{ ...ANA, streakReminder: false }], owner); // apagado en otro equipo
+    await store.saveProfiles([ANA], owner); // reactivado solo en el otro equipo
+    expect(await store.deviceReminders()).toEqual([]);
+    await service.reschedule();
+    expect(notifier.scheduled).toBeNull();
+  });
+
+  it('si el sistema cerró la app, lo practicado sin red hoy (en la cola) sigue contando', async () => {
+    const { service, store, notifier } = await setup([ANA]);
+    store.attempts.push({
+      id: 'a1', studentId: 'p-ana', token: 't', topic: '2-06', level: 1, answer: 1, correct: true,
+      answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: 0,
+    });
+    // Nada en memoria (app recién abierta) y el servidor aún no sabe del intento.
+    await service.reschedule(new Set());
+    expect(notifier.scheduled?.at).toEqual(TOMORROW_18);
+  });
+
+  it('lo del servidor y lo anotado en el equipo se juntan: si ambos practicaron, pasa a mañana', async () => {
+    const { service, notifier } = await setup([ANA, BETO]);
+    await service.reschedule(new Set(['p-ana'])); // el servidor: Ana ya practicó
+    expect(notifier.scheduled?.at).toEqual(TODAY_18);
+    await service.notePractice('p-beto'); // Beto practica en este equipo
+    expect(notifier.scheduled?.at).toEqual(TOMORROW_18);
+  });
+
+  it('un set vacío del servidor no borra lo que el equipo ya sabe', async () => {
+    const { service, notifier } = await setup([ANA]);
+    await service.notePractice('p-ana');
+    await service.reschedule(new Set());
+    expect(notifier.scheduled?.at).toEqual(TOMORROW_18);
+  });
+
+  it('al volver a primer plano reprograma (sin depender de la purga)', async () => {
+    const { service, notifier } = await setup([ANA]);
+    service.start(() => undefined);
+    await service.reschedule();
+    notifier.scheduled = null;
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.waitFor(() => expect(notifier.scheduled?.at).toEqual(TODAY_18));
+    vi.restoreAllMocks();
+  });
+
+  it('si el aviso ya está a esa hora, no lo vuelve a programar', async () => {
+    const { service, notifier } = await setup([ANA]);
+    await service.reschedule(new Set());
+    notifier.schedule.mockClear();
+    await service.reschedule(new Set());
+    expect(notifier.schedule).not.toHaveBeenCalled();
+  });
+
   it('al tocar el aviso abre "¿Quién practica?"', async () => {
     const { service, notifier } = await setup([ANA]);
     const open = vi.fn();
@@ -223,8 +293,39 @@ describe('StreakReminderService (CU-A9)', () => {
       TestBed.inject(HttpTestingController).expectNone(URL);
     });
 
+    it('activar un perfil que no practicó adelanta a hoy un aviso que estaba para mañana', async () => {
+      const { service, store, notifier, server } = await setup([ANA, { ...BETO, streakReminder: false }]);
+      server[1].streakReminder = true; // lo que quedará en el servidor tras el PUT
+      await service.reschedule(new Set(['p-ana'])); // solo Ana activa y ya practicó: mañana
+      expect(notifier.scheduled?.at).toEqual(TOMORROW_18);
+      const pending = service.setEnabled('p-beto', true);
+      const http = TestBed.inject(HttpTestingController);
+      await tick();
+      http.expectOne(`${environment.apiUrl}/v1/students/p-beto/streak-reminder`).flush({ enabled: true });
+      expect(await pending).toBe('ok');
+      expect(await store.deviceReminders()).toContain('p-beto');
+      expect(notifier.scheduled?.at).toEqual(TODAY_18);
+    });
+
+    it('con la copia local vencida, al activar la rehace y programa el aviso', async () => {
+      const nowS = Math.floor(MORNING.getTime() / 1000);
+      const { service, notifier, server } = await setup(
+        [{ ...ANA, streakReminder: false }],
+        MORNING,
+        nowS - PROFILES_TTL_SECONDS,
+      );
+      server[0].streakReminder = true;
+      const pending = service.setEnabled('p-ana', true);
+      const http = TestBed.inject(HttpTestingController);
+      await tick();
+      http.expectOne(URL).flush({ enabled: true });
+      expect(await pending).toBe('ok');
+      expect(notifier.scheduled?.at).toEqual(TODAY_18);
+    });
+
     it('con permiso: guarda con el token del PIN, actualiza la copia local y programa', async () => {
-      const { service, store, notifier } = await setup([{ ...ANA, streakReminder: false }]);
+      const { service, store, notifier, server } = await setup([{ ...ANA, streakReminder: false }]);
+      server[0].streakReminder = true;
       vi.spyOn(TestBed.inject(ParentalSession), 'header').mockReturnValue({ 'X-Parental-Token': 'pin-tok' });
       const pending = service.setEnabled('p-ana', true);
       const http = TestBed.inject(HttpTestingController);
@@ -236,11 +337,13 @@ describe('StreakReminderService (CU-A9)', () => {
       req.flush({ enabled: true });
       expect(await pending).toBe('ok');
       expect((await store.profiles())[0].streakReminder).toBe(true);
+      expect(await store.deviceReminders()).toEqual(['p-ana']);
       expect(notifier.scheduled?.at).toEqual(TODAY_18);
     });
 
     it('al desactivar no pide permiso y cancela el aviso', async () => {
-      const { service, notifier } = await setup([ANA]);
+      const { service, notifier, server } = await setup([ANA]);
+      server[0].streakReminder = false;
       await service.reschedule();
       const pending = service.setEnabled('p-ana', false);
       const http = TestBed.inject(HttpTestingController);

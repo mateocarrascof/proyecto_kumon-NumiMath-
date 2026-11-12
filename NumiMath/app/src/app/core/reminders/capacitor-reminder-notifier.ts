@@ -12,14 +12,17 @@ const CHANNEL_ID = 'recordatorio-racha';
  * Plugin oficial de notificaciones locales. Sin servidor de push ni tokens: el aviso se arma y se
  * muestra en el propio dispositivo, y no sale ningún dato.
  *
- * - Android: canal de importancia normal (3), sin saltarse "no molestar". Alarma INEXACTA (sin
- *   `allowWhileIdle`): no hace falta el permiso de alarmas exactas, a cambio de que el aviso pueda
- *   llegar unos minutos tarde. Desde Android 13 el sistema pide permiso para mostrar avisos.
+ * - Android: canal de importancia normal (3), sin saltarse "no molestar". Alarma INEXACTA
+ *   (`isExactNotification: false`): no se usa el permiso de alarmas exactas, que el plugin agrega a
+ *   su manifiesto y hay que quitar al crear el proyecto Android (`tools:node="remove"`). El aviso
+ *   puede llegar tarde (reposo profundo) y el plugin lo restaura al reiniciar el teléfono. Desde
+ *   Android 13 el sistema pide permiso para mostrar avisos.
  * - iOS: el sistema pide autorización; respeta "no molestar" y los modos de concentración.
  */
 @Injectable({ providedIn: 'root' })
 export class CapacitorReminderNotifier extends ReminderNotifier {
   private channelReady = false;
+  private lastScheduled: Date | null = null;
 
   supported(): boolean {
     return Capacitor.isNativePlatform();
@@ -34,8 +37,12 @@ export class CapacitorReminderNotifier extends ReminderNotifier {
 
   async pending(): Promise<Date | null> {
     const { notifications } = await LocalNotifications.getPending();
-    const at = notifications.find((n) => n.id === NOTIFICATION_ID)?.schedule?.at;
-    return at ? new Date(at) : null;
+    const found = notifications.find((n) => n.id === NOTIFICATION_ID);
+    if (!found) return null;
+    const at = found.schedule?.at;
+    // Si el sistema no informa la hora (depende de la plataforma), se usa la última programada
+    // aquí: el aviso existe, y sin esto se reprogramaría en cada ejecución.
+    return at ? new Date(at) : this.lastScheduled;
   }
 
   async schedule(at: Date, title: string, body: string): Promise<void> {
@@ -43,9 +50,19 @@ export class CapacitorReminderNotifier extends ReminderNotifier {
     await this.cancel();
     await LocalNotifications.schedule({
       notifications: [
-        { id: NOTIFICATION_ID, title, body, channelId: CHANNEL_ID, schedule: { at } },
+        {
+          id: NOTIFICATION_ID,
+          title,
+          body,
+          channelId: CHANNEL_ID,
+          // INEXACTA a propósito: el plugin usa alarma exacta por defecto, y sin ese permiso puede
+          // llevar al usuario a "Alarmas y recordatorios" de Android (fuera de la zona del tutor).
+          schedule: { at },
+          isExactNotification: false,
+        },
       ],
     });
+    this.lastScheduled = at;
   }
 
   async cancel(): Promise<void> {

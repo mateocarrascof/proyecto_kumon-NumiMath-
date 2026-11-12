@@ -7,8 +7,12 @@ import { ReminderChange, StreakReminderService } from './streak-reminder.service
 
 const ANA: Profile = { id: 'p-ana', nickname: 'Ana', grade: 2, blocked: false };
 
-function render(profile: Profile, supported = true, result: ReminderChange = 'ok') {
-  const service = { supported: () => supported, setEnabled: vi.fn(async () => result) };
+function render(profile: Profile, supported = true, result: ReminderChange = 'ok', here = false) {
+  const service = {
+    supported: () => supported,
+    setEnabled: vi.fn(async () => result),
+    activeHere: async () => here,
+  };
   TestBed.configureTestingModule({
     imports: [StreakReminderToggleComponent],
     providers: [{ provide: StreakReminderService, useValue: service }],
@@ -32,12 +36,14 @@ describe('StreakReminderToggleComponent (CU-A9)', () => {
     expect(el.textContent).toContain(STREAK_REMINDER_PANEL.unsupported);
   });
 
-  it('si el sistema niega el permiso, vuelve a apagado y se lo explica al adulto', async () => {
-    const { fixture, el, service } = render(ANA, true, 'denied');
-    await fixture.componentInstance.toggle(true);
+  it('si el sistema niega el permiso, vuelve a apagado (también en pantalla) y se lo explica', async () => {
+    const { fixture, el, service, input } = render(ANA, true, 'denied');
+    // Clic real: el navegador marca el casillero antes de que responda el servicio.
+    input.click();
+    await vi.waitFor(() => expect(service.setEnabled).toHaveBeenCalledWith('p-ana', true));
+    await fixture.whenStable();
     fixture.detectChanges();
-    expect(service.setEnabled).toHaveBeenCalledWith('p-ana', true);
-    expect((el.querySelector('[data-testid="reminder-switch"]') as HTMLInputElement).checked).toBe(false);
+    expect(input.checked).toBe(false);
     expect(el.querySelector('[data-testid="reminder-message"]')?.textContent).toContain(
       STREAK_REMINDER_PANEL.denied,
     );
@@ -55,6 +61,19 @@ describe('StreakReminderToggleComponent (CU-A9)', () => {
     await fixture.componentInstance.toggle(true);
     fixture.detectChanges();
     expect((el.querySelector('[data-testid="reminder-switch"]') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('activado en otro equipo pero no en este: se ve apagado y lo explica', async () => {
+    const { fixture, el, input } = render({ ...ANA, streakReminder: true }, true, 'ok', false);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(input.checked).toBe(false);
+    expect(el.textContent).toContain(STREAK_REMINDER_PANEL.otherDevice);
+  });
+
+  it('el lector de pantalla oye de qué perfil es cada interruptor', () => {
+    const { input } = render(ANA);
+    expect(input.getAttribute('aria-label')).toBe(`${STREAK_REMINDER_PANEL.label} de Ana`);
   });
 
   it('un perfil en pausa no se puede cambiar', () => {

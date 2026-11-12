@@ -19,6 +19,7 @@ const QUEUE = 'queue';
 const PROFILES = 'profiles';
 const META = 'meta';
 const OWNER_KEY = 'owner';
+const REMINDERS_KEY = 'reminders';
 const ALL = [BATCHES, QUEUE, PROFILES, META];
 
 /**
@@ -127,6 +128,26 @@ export class IndexedDbOfflineStore extends OfflineStore {
     ) as Promise<CachedProfile[]>;
   }
 
+  deviceReminders(): Promise<string[]> {
+    return this.tx([META], 'readonly', async (tx) => {
+      const found = await IndexedDbOfflineStore.read(tx.objectStore(META).get(REMINDERS_KEY));
+      return Array.isArray(found) ? (found as string[]) : [];
+    });
+  }
+
+  async setDeviceReminder(studentId: string, enabled: boolean): Promise<void> {
+    await this.tx([META], 'readwrite', async (tx) => {
+      const meta = tx.objectStore(META);
+      // Sin copia con dueño no se guarda la marca (quedaría huérfana, sin tutor ni plazo).
+      const owner = await IndexedDbOfflineStore.read(meta.get(OWNER_KEY));
+      if (enabled && !owner) return;
+      const found = await IndexedDbOfflineStore.read(meta.get(REMINDERS_KEY));
+      const rest = (Array.isArray(found) ? (found as string[]) : []).filter((id) => id !== studentId);
+      meta.put(enabled ? [...rest, studentId] : rest, REMINDERS_KEY);
+    });
+    this.notifyChange();
+  }
+
   owner(): Promise<OfflineOwner | null> {
     return this.tx([META], 'readonly', async (tx) => {
       const found = await IndexedDbOfflineStore.read(tx.objectStore(META).get(OWNER_KEY));
@@ -146,6 +167,7 @@ export class IndexedDbOfflineStore extends OfflineStore {
       if (previous && previous.tutorId !== owner.tutorId) {
         batches.clear();
         queue.clear();
+        meta.delete(REMINDERS_KEY); // la activación por equipo era del tutor anterior
       }
       const store = tx.objectStore(PROFILES);
       // La lista reemplaza a la anterior: un perfil borrado en otro equipo desaparece también aquí.
@@ -161,6 +183,15 @@ export class IndexedDbOfflineStore extends OfflineStore {
         });
       }
       meta.put({ tutorId: owner.tutorId, savedAt: owner.savedAt }, OWNER_KEY);
+      // Activación por equipo: si el servidor ya dice no (o el perfil está en pausa o se borró), la
+      // marca de este equipo se borra; volver a activarlo en otro equipo no la revive aquí.
+      const stillOn = new Set(
+        profiles.filter((p) => p.streakReminder === true && !p.blocked).map((p) => p.id),
+      );
+      const marked = await IndexedDbOfflineStore.read(meta.get(REMINDERS_KEY));
+      if (Array.isArray(marked)) {
+        meta.put((marked as string[]).filter((id) => stillOn.has(id)), REMINDERS_KEY);
+      }
       // Perfiles borrados o en pausa: fuera su lote y su cola.
       const active = new Set(profiles.filter((p) => !p.blocked).map((p) => p.id));
       const batchKeys = await IndexedDbOfflineStore.read(batches.getAllKeys());
@@ -172,9 +203,14 @@ export class IndexedDbOfflineStore extends OfflineStore {
   }
 
   async forgetStudent(studentId: string): Promise<void> {
-    await this.tx([BATCHES, QUEUE, PROFILES], 'readwrite', async (tx) => {
+    await this.tx(ALL, 'readwrite', async (tx) => {
       tx.objectStore(BATCHES).delete(studentId);
       tx.objectStore(PROFILES).delete(studentId);
+      const meta = tx.objectStore(META);
+      const reminders = await IndexedDbOfflineStore.read(meta.get(REMINDERS_KEY));
+      if (Array.isArray(reminders)) {
+        meta.put((reminders as string[]).filter((id) => id !== studentId), REMINDERS_KEY);
+      }
       const queue = tx.objectStore(QUEUE);
       const keys = await IndexedDbOfflineStore.read(queue.index('studentId').getAllKeys(studentId));
       for (const key of keys) queue.delete(key);
@@ -183,7 +219,7 @@ export class IndexedDbOfflineStore extends OfflineStore {
   }
 
   async purgeExpired(nowS: number): Promise<void> {
-    await this.tx(ALL, 'readwrite', async (tx) => {
+    const removed = await this.tx(ALL, 'readwrite', async (tx) => {
       const batches = tx.objectStore(BATCHES);
       const allBatches = (await IndexedDbOfflineStore.read(batches.getAll())) as OfflineBatch[];
       for (const b of allBatches) if (b.expiresAt <= nowS) batches.delete(b.studentId);
@@ -195,12 +231,18 @@ export class IndexedDbOfflineStore extends OfflineStore {
         | OfflineOwner
         | undefined;
       // Sin dueño (copia de una versión anterior) o con más de 7 días: fuera.
-      if (!owner || owner.savedAt + PROFILES_TTL_SECONDS <= nowS) {
-        tx.objectStore(PROFILES).clear();
+      const profiles = tx.objectStore(PROFILES);
+      const count = await IndexedDbOfflineStore.read(profiles.count());
+      if ((owner && owner.savedAt + PROFILES_TTL_SECONDS <= nowS) || (!owner && count > 0)) {
+        profiles.clear();
         meta.delete(OWNER_KEY);
+        meta.delete(REMINDERS_KEY);
+        return true;
       }
+      return false;
     });
-    this.notifyChange();
+    // Solo si borró la copia: avisar siempre haría reprogramar el aviso sin necesidad.
+    if (removed) this.notifyChange();
   }
 
   async clear(): Promise<void> {

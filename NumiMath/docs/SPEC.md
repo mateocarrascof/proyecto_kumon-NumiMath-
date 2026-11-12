@@ -433,16 +433,30 @@ están implementados; el resto se construye en el orden de abajo.
 - Borrar un docente borra sus vínculos; no toca perfiles, progreso ni hojas de niños (las hojas solo
   dejan de verse para ese docente). Sin contraseñas, correos ni contenido en logs.
 
-### Hojas guardadas ("Guardar el papel")
-- Por defecto el papel para calcular no se guarda. Se guarda **solo si el niño tiene un docente
-  vinculado activo** y pulsa "Guardar el papel"; el docente la ve por ese mismo vínculo. No hay casilla
-  aparte de hojas.
-- **Las hojas pertenecen al niño.** Eliminar a un docente o quitar un vínculo **no borra las hojas**:
-  solo dejan de verse para ese docente. Se borran cuando el tutor las elimina (T27), al borrar el perfil
-  del niño (o la cuenta) y al revocar el consentimiento. Sin docente vinculado activo no se guardan
-  hojas nuevas. No llegan a la IA.
-- **Pendiente:** plazo máximo de conservación de las hojas (con purga programada).
-- Justificación: `docs/privacy/hojas-guardadas-justificacion.md`. **Pendiente de implementar**.
+### Hojas guardadas ("Guardar el papel", A22 y D8)
+- Por defecto el papel para calcular no se guarda. Se guarda **solo si el niño tiene un docente vinculado
+  activo**: **sola al responder** (si hay trazos) y a mano con "Guardar el papel" (aviso "Guardado" si resultó;
+  sin vínculo o sin red no guarda y no muestra error). Una hoja por ejercicio (upsert). No hay casilla aparte.
+- **Solo cuentan los vínculos cuyo texto de autorización describe las hojas** (`covers_sheets`, desde `autorizacion-docente-prov-5`):
+  los vínculos con textos anteriores no guardan ni muestran hojas (EIPD R35, solo para hojas; el historial y el progreso
+  no cambian). Para no subir trazos sin destinatario, el dispositivo consulta `GET /v1/students/{id}/sheets/enabled`.
+- **Límite por tutor:** 30 guardados por minuto y 500 por día (`sheet_saves_per_minute`, `sheet_saves_per_day`);
+  pasado el límite, `429 rate_limited` (el niño no ve error).
+- **Respuesta del niño:** se contrasta que acierte o no con el intento, no el valor exacto (aceptado: solo afecta a
+  datos propios del tutor).
+- **Datos:** trazos vectoriales en jsonb (tope de 300 KB, sin imágenes ni metadatos), el enunciado (de las
+  tareas del tutor solo "Tarea del tutor"), la respuesta del niño y la correcta, si acertó y la fecha. La
+  tabla es `student_sheets` (RLS por tutor, escribe solo el servidor); no hay columnas nuevas en `student_attempts`.
+- **API:** `POST /v1/students/{id}/exercises/sheet` y `/assignments/{id}/sheet` (después de responder; el cuerpo
+  admite hasta 256 KB solo en esas rutas) y, para el docente, `GET /v1/teacher/students/{id}/sheets[/{sheet_id}]`
+  (solo lectura, desde `accepted_at`, el mismo 404 sin acceso).
+- **Las hojas pertenecen al niño.** Eliminar a un docente o quitar un vínculo **no borra las hojas**: solo dejan
+  de verse para ese docente. Se borran al borrar el perfil o la cuenta y al revocar el consentimiento; el tutor
+  podrá eliminarlas (T27, pendiente). Sin docente vinculado activo no se guardan hojas nuevas. No llegan a la IA.
+- **Plazo máximo: 90 días desde que se guarda (provisional, `sheet_retention_days`, sin confirmar por Legal)**,
+  con purga diaria (pg_cron).
+- **Límite conocido:** las hojas no entran a la cola sin conexión de CU-A12/A13; sin red no se guardan.
+- Justificación: `docs/privacy/hojas-guardadas-justificacion.md`.
 
 ### Lecturas del docente (D4, D5, D7) y del tutor (T5)
 **El docente solo lee.** Toda lectura pasa por `teacher_can_view` dentro de la base (vínculo activo,

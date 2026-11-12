@@ -128,6 +128,16 @@ describe('TeacherHomePage (D3)', () => {
     expect(navigateForward).toHaveBeenCalledWith('/docente/alumnos');
   });
 
+  it('"Hojas de cálculo" ya no es "Próximamente": está activo y lleva a los alumnos', async () => {
+    const { fixture, navigateForward } = await setup(ok);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(UPCOMING).not.toContain('Hojas de cálculo');
+    const button = el.querySelector('[data-testid="open-sheets"]') as HTMLElement;
+    expect(button.textContent).toContain('Hojas de cálculo');
+    button.click();
+    expect(navigateForward).toHaveBeenCalledWith('/docente/alumnos');
+  });
+
   it('si la cuenta ya no existe (403) cierra la sesión y vuelve a la entrada', async () => {
     const { signOut, navigateRoot } = await setup({ ok: false, reason: 'forbidden' });
     expect(signOut).toHaveBeenCalledOnce();

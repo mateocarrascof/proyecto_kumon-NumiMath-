@@ -16,6 +16,7 @@
     } @else if (progress) {
       <h1 data-testid="student-name">{{ progress.nickname }} · {{ progress.grade }}° básico</h1>
       <ion-button fill="outline" (click)="openHistory()" data-testid="open-history">Ver historial</ion-button>
+      <ion-button fill="outline" (click)="openSheets()" data-testid="open-sheets">Ver hojas de cálculo</ion-button>
 
       @if (progress.skills.length === 0) {
         <p data-testid="progress-empty">Todavía no ha practicado ninguna habilidad.</p>

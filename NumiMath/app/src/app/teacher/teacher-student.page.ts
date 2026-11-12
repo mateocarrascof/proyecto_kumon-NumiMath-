@@ -43,4 +43,8 @@ export class TeacherStudentPage implements OnInit {
   async openHistory(): Promise<void> {
     await this.nav.navigateForward(`/docente/alumnos/${this.studentId}/historial`);
   }
+
+  async openSheets(): Promise<void> {
+    await this.nav.navigateForward(`/docente/alumnos/${this.studentId}/hojas`);
+  }
 }

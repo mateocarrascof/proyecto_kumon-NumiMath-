@@ -4,9 +4,12 @@ import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
+import { SheetStroke } from '../sheets/sheets.port';
 import {
   HistoryResult,
   ProgressResult,
+  SheetResult,
+  SheetsResult,
   StudentsResult,
   TeacherPort,
   TeacherProfileResult,
@@ -44,6 +47,21 @@ interface HistoryDto {
   }[];
   has_more: boolean;
   next_offset: number | null;
+}
+
+interface SheetItemDto {
+  id: string;
+  label: string;
+  tutor_task: boolean;
+  correct: boolean;
+  day: string;
+}
+
+interface SheetDto extends SheetItemDto {
+  statement: string;
+  child_answer: string;
+  correct_answer: string;
+  strokes: SheetStroke[];
 }
 
 const BASE = `${environment.apiUrl}/v1/teacher`;
@@ -152,6 +170,64 @@ export class HttpTeacherService extends TeacherPort {
           })),
           hasMore: dto.has_more,
           nextOffset: dto.next_offset,
+        },
+      };
+    } catch (error) {
+      return { ok: false, reason: failure(error) };
+    }
+  }
+
+  async listSheets(studentId: string, offset: number): Promise<SheetsResult> {
+    const headers = await this.headers();
+    if (!headers) return { ok: false, reason: 'forbidden' };
+    try {
+      const dto = await firstValueFrom(
+        this.http.get<{ items: SheetItemDto[]; has_more: boolean; next_offset: number | null }>(
+          `${BASE}/students/${encodeURIComponent(studentId)}/sheets`,
+          { headers, params: { offset: String(offset) } },
+        ),
+      );
+      return {
+        ok: true,
+        page: {
+          items: dto.items.map((i) => ({
+            id: i.id,
+            label: i.label,
+            tutorTask: i.tutor_task,
+            correct: i.correct,
+            day: i.day,
+          })),
+          hasMore: dto.has_more,
+          nextOffset: dto.next_offset,
+        },
+      };
+    } catch (error) {
+      return { ok: false, reason: failure(error) };
+    }
+  }
+
+  async getSheet(studentId: string, sheetId: string): Promise<SheetResult> {
+    const headers = await this.headers();
+    if (!headers) return { ok: false, reason: 'forbidden' };
+    try {
+      const dto = await firstValueFrom(
+        this.http.get<SheetDto>(
+          `${BASE}/students/${encodeURIComponent(studentId)}/sheets/${encodeURIComponent(sheetId)}`,
+          { headers },
+        ),
+      );
+      return {
+        ok: true,
+        sheet: {
+          id: dto.id,
+          label: dto.label,
+          tutorTask: dto.tutor_task,
+          correct: dto.correct,
+          day: dto.day,
+          statement: dto.statement,
+          childAnswer: dto.child_answer,
+          correctAnswer: dto.correct_answer,
+          strokes: dto.strokes,
         },
       };
     } catch (error) {

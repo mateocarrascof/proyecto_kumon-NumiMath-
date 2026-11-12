@@ -146,6 +146,59 @@ describe('ScratchpadComponent', () => {
     expect(ctx.clearRect).toHaveBeenCalledTimes(1);
   });
 
+  describe('snapshot para guardar la hoja (CU-A22)', () => {
+    it('sin nada dibujado, o solo con goma, no hay hoja que guardar', () => {
+      const { pad } = setup();
+      expect(pad.snapshot()).toBeNull();
+      pad.pickEraser();
+      pad.onDown(pointer(5, 5));
+      pad.onUp(pointer(5, 5));
+      expect(pad.snapshot()).toBeNull();
+    });
+
+    it('entrega solo trazos vectoriales con puntos enteros, en coordenadas de la hoja', () => {
+      const { pad } = setup();
+      pad.pickColor(PEN_COLORS[1].value);
+      pad.onDown(pointer(10, 10));
+      pad.onMove(pointer(30, 40));
+      pad.onUp(pointer(30, 40));
+      pad.pickEraser();
+      pad.onDown(pointer(12, 12));
+      pad.onUp(pointer(12, 12));
+      const strokes = pad.snapshot();
+      expect(strokes).toHaveLength(2);
+      expect(strokes?.[0]).toEqual({
+        eraser: false,
+        color: PEN_COLORS[1].value,
+        width: PEN_WIDTH,
+        points: [
+          [10, 10],
+          [30, 40],
+        ],
+      });
+      expect(strokes?.[1].eraser).toBe(true);
+      expect(Object.keys(strokes?.[0] ?? {}).sort()).toEqual(['color', 'eraser', 'points', 'width']);
+    });
+
+    it('si pasa los topes del servidor no se guarda (en vez de fallar)', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(1, 1));
+      pad.onUp(pointer(1, 1));
+      const internal = pad as unknown as { strokes: { points: unknown[] }[] };
+      internal.strokes = Array.from({ length: 601 }, () => internal.strokes[0]);
+      expect(pad.snapshot()).toBeNull();
+    });
+
+    it('"Borrar todo" deja la hoja vacía', () => {
+      const { pad } = setup();
+      pad.onDown(pointer(1, 1));
+      pad.onUp(pointer(1, 1));
+      expect(pad.snapshot()).not.toBeNull();
+      pad.clear();
+      expect(pad.snapshot()).toBeNull();
+    });
+  });
+
   describe('zoom', () => {
     const VIEW = { width: 480, height: 360 };
 

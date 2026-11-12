@@ -6,6 +6,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from app.db.gateway import (
     AssignmentAnswer,
@@ -43,6 +44,14 @@ class FakeGateway:
     grade_error: Exception | None = None
     touches: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
     touch_error: Exception | None = None
+
+    # hojas del papel (CU-A22): lo que se pidió guardar y la respuesta de la base
+    sheet_status: str = "ok"
+    sheet_error: Exception | None = None
+    sheet_link: bool = True
+    sheets: list[tuple[uuid.UUID, uuid.UUID, str, bool | None, str | None, list[Any]]] = field(
+        default_factory=list
+    )
 
     # respuestas sucesivas de authorize_student_use (se consumen en orden; luego rige `default`)
     sequence: list[str] = field(default_factory=list)
@@ -193,6 +202,28 @@ class FakeGateway:
         self.student_used[student_id] = self.student_used.get(student_id, 0) + cost
         self.tutor_used[tutor_id] = self.tutor_used.get(tutor_id, 0) + cost
         return "ok"
+
+    async def student_has_sheet_link(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        if self.sheet_error is not None:
+            raise self.sheet_error
+        return self.sheet_link
+
+    async def save_student_sheet(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        child_answer: str,
+        correct: bool | None,
+        correct_answer: str | None,
+        strokes: list[Any],
+    ) -> str:
+        if self.sheet_error is not None:
+            raise self.sheet_error
+        self.sheets.append(
+            (student_id, exercise_id, child_answer, correct, correct_answer, strokes)
+        )
+        return self.sheet_status
 
     async def record_attempt(
         self,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.exercises.levels import SkillProgress
 from app.streaks import DailyStreakRow
@@ -177,6 +177,37 @@ class HistoryItem:
 class HistoryPage:
     items: list[HistoryItem]
     has_more: bool
+
+
+@dataclass(frozen=True)
+class SheetSummary:
+    """Una hoja guardada vista por el docente en la lista: sin trazos ni textos."""
+
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    day: str  # AAAA-MM-DD, hora de Chile
+
+
+@dataclass(frozen=True)
+class SheetPage:
+    items: list[SheetSummary]
+    has_more: bool
+
+
+@dataclass(frozen=True)
+class SheetDetail:
+    """Una hoja completa. `strokes` son datos vectoriales; `statement` es "Tarea del tutor" en las
+    tareas del tutor (su texto nunca se guarda en la hoja)."""
+
+    id: uuid.UUID
+    topic: str
+    correct: bool
+    day: str
+    statement: str
+    child_answer: str
+    correct_answer: str
+    strokes: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -492,6 +523,36 @@ class Gateway(Protocol):
         self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
     ) -> HistoryPage | None:
         """Historial desde `accepted_at` del vínculo, o `None` si no puede ver a ese niño."""
+        ...
+
+    async def save_student_sheet(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        child_answer: str,
+        correct: bool | None,
+        correct_answer: str | None,
+        strokes: list[Any],
+    ) -> str:
+        """Guarda (upsert) la hoja del ejercicio ya respondido. `ok`, `not_found`, `no_link` (sin
+        docente vinculado activo), `no_attempt` o `mismatch`."""
+        ...
+
+    async def student_has_sheet_link(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        """¿Hay un docente vinculado activo cuyo texto de autorización cubre las hojas?"""
+        ...
+
+    async def teacher_student_sheets(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> SheetPage | None:
+        """Hojas guardadas desde `accepted_at`, o `None` si el docente no puede ver a ese niño."""
+        ...
+
+    async def teacher_student_sheet(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> SheetDetail | None:
+        """Una hoja, o `None` si no hay acceso (o la hoja es anterior al vínculo)."""
         ...
 
     async def list_student_attempts(

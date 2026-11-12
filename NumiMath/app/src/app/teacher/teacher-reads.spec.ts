@@ -133,6 +133,14 @@ describe('TeacherStudentPage (D5)', () => {
     await page.openHistory();
     expect(ctx.navigateForward).toHaveBeenCalledWith('/docente/alumnos/perfil-1/historial');
   });
+
+  it('lleva a las hojas de cálculo del alumno (D8)', async () => {
+    const ctx = configure({ getProgress: async () => progress });
+    const { page, el } = await render(TeacherStudentPage);
+    expect(el.querySelector('[data-testid="open-sheets"]')).not.toBeNull();
+    await page.openSheets();
+    expect(ctx.navigateForward).toHaveBeenCalledWith('/docente/alumnos/perfil-1/hojas');
+  });
 });
 
 describe('TeacherHistoryPage (D7)', () => {

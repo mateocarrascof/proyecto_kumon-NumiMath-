@@ -12,6 +12,8 @@ import {
   ViewChild,
 } from '@angular/core';
 
+import { SheetStroke } from '../sheets/sheets.port';
+
 export interface PenColor {
   name: string;
   value: string;
@@ -22,6 +24,11 @@ export const PEN_COLORS: readonly PenColor[] = [
   { name: 'azul', value: '#1d4ed8' },
   { name: 'rojo', value: '#c0392b' },
 ];
+
+/** Topes de la API para una hoja guardada (api/app/routes/sheets.py). */
+export const SHEET_MAX_STROKES = 600;
+export const SHEET_MAX_STROKE_POINTS = 3000;
+export const SHEET_MAX_POINTS = 12000;
 
 export const PEN_WIDTH = 4;
 export const ERASER_WIDTH = 26;
@@ -64,9 +71,9 @@ interface Pinch {
  * La hoja es más grande que la pantalla: se acerca o aleja con los botones, pellizcando
  * con dos dedos o con Ctrl + rueda, y se recorre con la herramienta "Mover".
  *
- * Privacidad: lo dibujado vive solo en la memoria de esta pantalla. No se guarda, no se exporta
- * (sin toDataURL ni toBlob) y no se envía a ningún lado. Se borra al cambiar `resetKey`
- * (el ejercicio siguiente) o al salir de la pantalla.
+ * Privacidad: lo dibujado vive solo en la memoria de esta pantalla (sin toDataURL ni toBlob). Solo
+ * `snapshot()` entrega los trazos como datos vectoriales, y quien los usa (CU-A22) los envía únicamente
+ * si el niño tiene un docente vinculado. Se borra al cambiar `resetKey` o al salir de la pantalla.
  */
 @Component({
   selector: 'app-scratchpad',
@@ -112,6 +119,26 @@ export class ScratchpadComponent implements AfterViewInit, OnChanges, OnDestroy 
   confirmingClear = false;
   clearCountdown = 0;
   private clearTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Copia de los trazos para guardarlos (CU-A22), con puntos enteros. `null` si no hay nada dibujado
+   * con lápiz o si pasa los topes del servidor (entonces simplemente no se guarda).
+   */
+  snapshot(): SheetStroke[] | null {
+    const strokes = this.strokes.filter((s) => s.points.length > 0);
+    const points = strokes.reduce((n, s) => n + s.points.length, 0);
+    const tooBig =
+      strokes.length > SHEET_MAX_STROKES ||
+      points > SHEET_MAX_POINTS ||
+      strokes.some((s) => s.points.length > SHEET_MAX_STROKE_POINTS);
+    if (tooBig || !strokes.some((s) => !s.eraser)) return null;
+    return strokes.map((s) => ({
+      eraser: s.eraser,
+      color: s.color,
+      width: s.width,
+      points: s.points.map((p): [number, number] => [Math.round(p.x), Math.round(p.y)]),
+    }));
+  }
 
   ngAfterViewInit(): void {
     this.ctx = this.canvas.getContext('2d');

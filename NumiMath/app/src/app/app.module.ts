@@ -15,6 +15,8 @@ import { AdminPort } from './core/admin/admin.port';
 import { HttpAdminService } from './core/admin/http-admin.service';
 import { HttpHistoryService } from './core/history/http-history.service';
 import { HistoryPort } from './core/history/history.port';
+import { HttpSheetsService } from './core/sheets/http-sheets.service';
+import { SheetsPort } from './core/sheets/sheets.port';
 import { HttpTeacherLinksService } from './core/teacher-links/http-teacher-links.service';
 import { TeacherLinksPort } from './core/teacher-links/teacher-links.port';
 import { HttpTeacherService } from './core/teacher/http-teacher.service';
@@ -72,6 +74,7 @@ import { OfflineSyncService } from './core/offline/offline-sync.service';
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: AccountPort, useExisting: HttpAccountService },
     { provide: AdminPort, useExisting: HttpAdminService },
+    { provide: SheetsPort, useExisting: HttpSheetsService },
     { provide: TeacherPort, useExisting: HttpTeacherService },
     { provide: TeacherLinksPort, useExisting: HttpTeacherLinksService },
     { provide: HistoryPort, useExisting: HttpHistoryService },

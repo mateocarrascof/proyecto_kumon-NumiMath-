@@ -35,7 +35,13 @@
       <section aria-labelledby="menu-title">
         <h2 id="menu-title">Tus alumnos</h2>
         <ion-button expand="block" (click)="openStudents()" data-testid="open-students">Mis alumnos</ion-button>
-        <p>Solo verás a los niños cuyos tutores te hayan vinculado.</p>
+        <ion-button expand="block" fill="outline" (click)="openStudents()" data-testid="open-sheets">
+          Hojas de cálculo
+        </ion-button>
+        <p>
+          Solo verás a los niños cuyos tutores te hayan vinculado. Las hojas de cálculo se abren desde
+          cada alumno y solo muestran lo guardado desde el vínculo.
+        </p>
         <h3>Lo que viene</h3>
         <ion-list>
           @for (item of upcoming; track item) {

@@ -29,6 +29,9 @@ from app.db.gateway import (
     LinkLookup,
     OfflineAttempt,
     PinState,
+    SheetDetail,
+    SheetPage,
+    SheetSummary,
     SkillState,
     TeacherProfile,
     TeacherProgress,
@@ -920,6 +923,99 @@ class SupabaseGateway:
                     for i in result["items"]
                 ],
                 has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def save_student_sheet(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        exercise_id: uuid.UUID,
+        child_answer: str,
+        correct: bool | None,
+        correct_answer: str | None,
+        strokes: list[Any],
+    ) -> str:
+        result = await self._rpc(
+            "save_student_sheet",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_exercise_id": str(exercise_id),
+                "p_child_answer": child_answer,
+                "p_correct": correct,
+                "p_correct_ans": correct_answer,
+                "p_strokes": strokes,
+            },
+        )
+        if not isinstance(result, str):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def student_has_sheet_link(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> bool:
+        result = await self._rpc(
+            "student_has_sheet_link",
+            {"p_tutor_id": str(tutor_id), "p_student_id": str(student_id)},
+        )
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def teacher_student_sheets(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> SheetPage | None:
+        result = await self._rpc(
+            "teacher_student_sheets",
+            {
+                "p_teacher_id": str(teacher_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return SheetPage(
+                items=[
+                    SheetSummary(
+                        id=uuid.UUID(str(i["id"])),
+                        topic=str(i["topic"]),
+                        correct=bool(i["correct"]),
+                        day=str(i["day"]),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_sheet(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, sheet_id: uuid.UUID
+    ) -> SheetDetail | None:
+        result = await self._rpc(
+            "teacher_student_sheet",
+            {
+                "p_teacher_id": str(teacher_id),
+                "p_student_id": str(student_id),
+                "p_sheet_id": str(sheet_id),
+            },
+        )
+        if result is None:
+            return None
+        try:
+            content = result["content"]
+            return SheetDetail(
+                id=uuid.UUID(str(result["id"])),
+                topic=str(result["topic"]),
+                correct=bool(result["correct"]),
+                day=str(result["day"]),
+                statement=str(content["statement"]),
+                child_answer=str(content["child_answer"]),
+                correct_answer=str(content["correct_answer"]),
+                strokes=list(content["strokes"]),
             )
         except (TypeError, KeyError, ValueError):
             raise GatewayError("unexpected_result") from None

@@ -1,0 +1,67 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="'/docente/alumnos/' + studentId" text="Progreso"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Hojas de cálculo</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 48rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error && items.length === 0) {
+      <p class="error" role="alert" data-testid="sheets-error">{{ error }}</p>
+    } @else if (opened) {
+      <ion-button fill="clear" (click)="close()" data-testid="sheet-back">← Volver a la lista</ion-button>
+      <h1>{{ opened.label }}</h1>
+      @if (opened.tutorTask) {
+        <p data-testid="sheet-statement">Tarea escrita por el tutor</p>
+      } @else {
+        <p data-testid="sheet-statement">{{ opened.statement }}</p>
+      }
+      <p data-testid="sheet-answers">
+        El niño respondió <strong>{{ opened.childAnswer }}</strong>
+        ({{ opened.correct ? 'correcta' : 'incorrecta' }}). La respuesta correcta es
+        <strong>{{ opened.correctAnswer }}</strong>. Guardada el {{ formatDay(opened.day) }}.
+      </p>
+      <app-sheet-view [strokes]="opened.strokes"></app-sheet-view>
+    } @else {
+      <p>Se muestran las hojas guardadas desde que el tutor te vinculó con este alumno.</p>
+      @if (openError) {
+        <p class="error" role="alert" data-testid="sheet-open-error">{{ openError }}</p>
+      }
+      @if (items.length === 0) {
+        <p data-testid="sheets-empty">Todavía no hay hojas guardadas desde el vínculo.</p>
+      } @else {
+        <ion-list data-testid="sheets-list">
+          @for (item of items; track item.id) {
+            <ion-item button (click)="open(item)" data-testid="sheet-row">
+              <ion-label>
+                <h2>{{ item.label }}</h2>
+                <p>
+                  {{ formatDay(item.day) }}
+                  @if (item.tutorTask) {
+                    · Tarea escrita por el tutor
+                  }
+                </p>
+              </ion-label>
+              <ion-note slot="end" [color]="item.correct ? 'success' : 'danger'">
+                {{ item.correct ? '✔ Correcta' : '✗ Incorrecta' }}
+              </ion-note>
+            </ion-item>
+          }
+        </ion-list>
+        @if (error) {
+          <p class="error" role="alert">{{ error }}</p>
+        }
+        @if (nextOffset !== null) {
+          <ion-button expand="block" fill="outline" [disabled]="loadingMore" (click)="more()" data-testid="sheets-more">
+            {{ loadingMore ? 'Cargando…' : 'Cargar más' }}
+          </ion-button>
+        }
+      }
+    }
+  </main>
+</ion-content>

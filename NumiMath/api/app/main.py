@@ -31,6 +31,7 @@ from app.routes import (
     pin,
     progress,
     report,
+    sheets,
     students,
     teacher,
     teacher_links,
@@ -77,7 +78,11 @@ def create_app(
 
     # Orden: lo último que se agrega es lo más externo. El límite de tamaño va DENTRO del contexto
     # de petición (para registrar y devolver el id) y CORS por fuera de todo.
-    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_body_bytes)
+    app.add_middleware(
+        BodySizeLimitMiddleware,
+        max_bytes=settings.max_body_bytes,
+        sheet_max_bytes=settings.max_sheet_body_bytes,
+    )
     app.add_middleware(RequestContextMiddleware)
     origins = settings.cors_origin_list
     if origins:
@@ -105,6 +110,7 @@ def create_app(
     app.include_router(teacher_links.router)
     app.include_router(consent.router)
     app.include_router(assignments.router)
+    app.include_router(sheets.router)
     app.include_router(report.router)
     app.include_router(pin.router)
     return app

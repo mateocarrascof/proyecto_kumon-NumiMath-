@@ -13,17 +13,29 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
 - El texto de autorización no obliga a re-aceptar los términos generales: si cambia su versión, los vínculos
   existentes conservan la versión que se aceptó (decidir si deben reconfirmarse).
 
-## Paso 8: hojas guardadas (T27, D8)
-- **Las hojas pertenecen al niño** (decidido): quitar un vínculo o eliminar al docente NO las borra, solo
-  dejan de verse para ese docente (la lectura pasa por `teacher_can_view`). Se borran cuando el tutor las
-  elimina (T27), al borrar el perfil o la cuenta y al revocar el consentimiento. Sin docente vinculado
-  activo no se guardan hojas nuevas.
-- **Plazo máximo de conservación de las hojas**: pendiente (con Legal); implementar con purga programada.
-- **Bucket privado de Storage con RLS** por tutor y lectura del docente solo por `teacher_can_view`, con
-  prueba pgTAP.
-- **Sin metadatos** (EXIF) y con tope de tamaño.
-- Que el **aviso del vínculo diga expresamente que se guardarán hojas**; evaluar avisar al tutor en cada
-  guardado.
+## Paso 8: hojas guardadas (A22 y D8 hechos; T27 pendiente)
+- **Hecho:** guardar la hoja (sola al responder y a mano), lectura del docente desde `accepted_at`, borrado por
+  perfil/cuenta/consentimiento (probado), plazo de 90 días provisional con purga diaria, texto de autorización
+  `prov-5`. Decisiones en `docs/SPEC.md` ("Hojas guardadas"). Se eligió jsonb vectorial en vez de imágenes en Storage.
+- **T27:** el tutor ve y elimina las hojas de su hijo (falta; hoy solo las lee por RLS).
+- **Límite: las hojas no entran a la cola sin conexión** (CU-A12/A13): sin red no se guardan.
+- **Plazo de 90 días sin confirmar por Legal:** confirmarlo o cambiarlo. `privacy_config_warnings()` y
+  `privacy_job_warnings()` aún NO vigilan `sheet_retention_confirmed` ni el trabajo `privacy-purge-sheets`.
+- **Aviso al niño** en lenguaje simple de que su docente verá la hoja (evaluar avisar al tutor en cada guardado).
+- **Vínculos con el texto de autorización antiguo** (v1 a v4): para las hojas ya está resuelto (`covers_sheets`); para
+  historial y progreso sigue pendiente (EIPD R35).
+- **Aviso al niño** en lenguaje simple ("Tu profe podrá ver este papel. No escribas tu nombre."), visible solo con vínculo.
+- **Alertas de la purga:** sumar `sheet_retention_confirmed` a `privacy_config_warnings()` y `privacy-purge-sheets` a
+  `privacy_job_warnings()`; avisar si falta `pg_cron`.
+- **Preguntas para Legal:** (1) ¿un vínculo con v1 a v4 puede cubrir historial/progreso o hay que reconfirmar?; (2) ¿son
+  proporcionales los 90 días, y conservar hojas sin docente vinculado y sin T27?; (3) resguardos de la Ley 21.430 para un
+  dibujo libre de un menor que ve un tercero (¿aviso al niño o al tutor en cada guardado?); (4) ¿el acceso del docente
+  desde el extranjero es transferencia internacional?; (5) ¿basta un canal manual de acceso y supresión mientras T27 no
+  exista?; (6) estado del Boletín 18.623-07 (posterga la Ley 21.719 a 2027).
+- **Aceptado (B2):** la hoja contrasta si la respuesta fue correcta, no el valor exacto que escribió el niño; solo afecta a
+  datos propios del tutor.
+- **Límite de frecuencia antes de autenticar:** el servidor lee el cuerpo (hasta 256 KB) de `/sheet` antes de validar la
+  sesión; el límite por tutor se aplica después.
 
 ## Para más adelante
 - **PRIORIDAD ALTA: registro de lecturas del docente** (EIPD R38). Hacerlo si sobra tiempo después

@@ -4,6 +4,7 @@ import {
   DestroyRef,
   ElementRef,
   OnInit,
+  ViewChild,
   inject,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -36,6 +37,8 @@ import { OfflineSyncService } from '../core/offline/offline-sync.service';
 import { OfflineError, OfflinePracticeService } from '../core/offline/offline-practice.service';
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
 import { ProgressPort } from '../core/progress/progress.port';
+import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
+import { SheetsPort } from '../core/sheets/sheets.port';
 
 /** Espera máxima a la sincronización antes de mostrar los temas (CU-A13). */
 export const SYNC_WAIT_MS = 3000;
@@ -200,6 +203,7 @@ export class PracticePage implements OnInit {
   private readonly connectivity = inject(ConnectivityService);
   private readonly offline = inject(OfflinePracticeService);
   private readonly sync = inject(OfflineSyncService);
+  private readonly sheets = inject(SheetsPort);
   protected readonly mascot = inject(MascotPort);
 
   studentId = '';
@@ -246,8 +250,13 @@ export class PracticePage implements OnInit {
   // Respuesta de fracción (numerador y denominador, escritos a mano).
   fraction: FractionValue = { num: '', den: '' };
 
-  // Papel para calcular: abierto o cerrado. Lo dibujado no se guarda.
+  // Papel para calcular: abierto o cerrado. Lo dibujado se guarda SOLO si el niño tiene un docente
+  // vinculado (CU-A22): sola al responder y a mano con "Guardar el papel". Sin vínculo o sin red no
+  // se guarda y no se muestra ningún error. Las hojas no entran a la cola sin conexión.
   paperOpen = false;
+  sheetNotice = '';
+  private sheetNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  @ViewChild(ScratchpadComponent) private paper?: ScratchpadComponent;
 
   // Tareas del tutor: el niño recibe solo id y texto; corrige el servidor.
   tasks: PendingAssignment[] = [];
@@ -714,6 +723,7 @@ export class PracticePage implements OnInit {
             )
           : await this.practice.answer(this.studentId, this.exercise.token, Number(this.answer));
       }
+      void this.saveSheet(); // automático: solo guarda si hay trazos y un docente vinculado
       this.total += 1;
       if (this.result.correct) {
         this.correctCount += 1;
@@ -772,6 +782,41 @@ export class PracticePage implements OnInit {
 
   togglePaper(): void {
     this.paperOpen = !this.paperOpen;
+  }
+
+  /** Guardado manual de la hoja (el automático ya ocurrió al responder). "Guardado" solo si resultó. */
+  async savePaper(): Promise<void> {
+    if (!(await this.saveSheet())) return;
+    this.sheetNotice = 'Guardado';
+    if (this.sheetNoticeTimer) clearTimeout(this.sheetNoticeTimer);
+    this.sheetNoticeTimer = setTimeout(() => {
+      this.sheetNotice = '';
+      this.cdr.markForCheck();
+    }, 2500);
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Guarda la hoja del ejercicio ya respondido (upsert: una por ejercicio). Los trazos se copian ANTES
+   * de cualquier espera, así que pasar al siguiente ejercicio no los pierde. Nunca lanza.
+   */
+  private async saveSheet(): Promise<boolean> {
+    const exercise = this.exercise;
+    const strokes = this.paper?.snapshot();
+    if (!exercise || !this.result || !strokes) return false;
+    if (this.offlineMode || exercise.offline) return false;
+    // Todo se copia ANTES de esperar: si el niño pasa al siguiente ejercicio, no cambia lo que se guarda.
+    const student = this.studentId;
+    const token = exercise.token;
+    const task = this.taskMode;
+    const fraction = this.fractionMode ? { num: Number(this.fraction.num), den: Number(this.fraction.den) } : null;
+    const answer = Number(this.answer);
+    // Sin docente vinculado el dibujo no sale del dispositivo.
+    if (!(await this.sheets.enabled(student))) return false;
+    if (task) return this.sheets.saveTask(student, token, answer, strokes);
+    return fraction
+      ? this.sheets.savePractice(student, token, fraction.num, fraction.den, strokes)
+      : this.sheets.savePractice(student, token, answer, null, strokes);
   }
 
   /** "Explícame cómo se hace": pide la explicación por streaming. Una petición a la vez. */

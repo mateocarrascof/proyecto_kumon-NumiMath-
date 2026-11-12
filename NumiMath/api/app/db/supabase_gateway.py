@@ -23,11 +23,18 @@ from app.db.gateway import (
     ConsentSummary,
     DiagnosticItem,
     GatewayError,
+    HistoryItem,
+    HistoryPage,
     LinkedTeacher,
     LinkLookup,
     PinState,
+    SkillState,
     TeacherProfile,
+    TeacherProgress,
     TeacherRow,
+    TeacherStudent,
+    TutorAttempt,
+    TutorHistoryPage,
 )
 from app.exercises.levels import BLOCK_SIZE, MAX_LEVEL, MIN_LEVEL, SkillProgress
 from app.streaks import DailyStreakRow
@@ -787,3 +794,107 @@ class SupabaseGateway:
         if result not in ("ok", "not_found"):
             raise GatewayError("unexpected_result")
         return str(result)
+
+    async def teacher_students(self, teacher_id: uuid.UUID) -> list[TeacherStudent]:
+        result = await self._rpc("teacher_students", {"p_teacher_id": str(teacher_id)})
+        try:
+            if not isinstance(result, list):
+                raise TypeError
+            return [
+                TeacherStudent(
+                    student_id=uuid.UUID(str(row["student_id"])),
+                    nickname=str(row["nickname"]),
+                    grade=int(row["grade"]),
+                )
+                for row in result
+            ]
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_progress(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> TeacherProgress | None:
+        result = await self._rpc(
+            "teacher_student_progress",
+            {"p_teacher_id": str(teacher_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        try:
+            return TeacherProgress(
+                nickname=str(result["nickname"]),
+                grade=int(result["grade"]),
+                skills=[
+                    SkillState(
+                        code=str(k["code"]),
+                        level=int(k["level"]),
+                        block_total=int(k["block_total"]),
+                        block_correct=int(k["block_correct"]),
+                        mastered=bool(k["mastered"]),
+                    )
+                    for k in result["skills"]
+                ],
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_history(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> HistoryPage | None:
+        result = await self._rpc(
+            "teacher_student_history",
+            {
+                "p_teacher_id": str(teacher_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return HistoryPage(
+                items=[
+                    HistoryItem(
+                        topic=str(i["topic"]),
+                        exercise=None if i["exercise"] is None else str(i["exercise"]),
+                        correct=bool(i["correct"]),
+                        level=int(i["level"]),
+                        day=str(i["day"]),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def list_student_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorHistoryPage | None:
+        result = await self._rpc(
+            "list_student_attempts",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_offset": offset,
+                "p_limit": limit,
+            },
+        )
+        if result is None:
+            return None
+        try:
+            return TutorHistoryPage(
+                items=[
+                    TutorAttempt(
+                        topic=str(i["topic"]),
+                        correct=bool(i["correct"]),
+                        level=int(i["level"]),
+                        answered_at=datetime.fromisoformat(str(i["answered_at"])),
+                    )
+                    for i in result["items"]
+                ],
+                has_more=bool(result["has_more"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None

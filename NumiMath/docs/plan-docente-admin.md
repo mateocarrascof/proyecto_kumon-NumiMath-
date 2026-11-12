@@ -26,9 +26,30 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
   guardado.
 
 ## Para más adelante
-- **Lectura del docente (D4 a D7):** decidido que el historial de ejercicios y las hojas se ven **solo desde
-  `accepted_at`** del vínculo y el progreso por habilidad (estado actual) completo. Aplicarlo al construir la
-  lectura, con filtro por `accepted_at` y pruebas pgTAP (EIPD R37).
+- **PRIORIDAD ALTA: registro de lecturas del docente** (EIPD R38). Hacerlo si sobra tiempo después
+  de T8, T22 y D6. Tabla de solo anexar con docente, perfil, recurso (D4, D5, D7) y **día**, sin contenido;
+  lectura solo para el tutor dueño y escritura solo del servidor; purga programada; y en el panel del tutor
+  "Docentes que vieron el perfil". Archivar también el alta y la baja del vínculo (R36).
+- **Términos del docente** (EIPD R39 y R40): compromiso de confidencialidad y de uso solo pedagógico, versionado
+  con su huella, y que `teacher_can_view` exija haberlos aceptado (hoy el docente ya lee sin haberlos aceptado).
+  **En el MVP la medida es organizacional:** la empresa entrega la cuenta al docente y le exige confidencialidad
+  por contrato. **Pendiente de Legal** (si basta o si hace falta el compromiso dentro de la app).
+- **T5 muestra menos que el docente:** el tutor no ve el enunciado de cada ejercicio y el docente sí. Agregar el
+  enunciado al historial del tutor (los datos son de su propio hijo) o un "ver como lo ve el docente".
+- **Vínculos antiguos y versión del texto** (EIPD R35): los vínculos aceptados con versiones anteriores del texto
+  (v1 a v3) ahora dan lecturas que esos textos no describían; en desarrollo basta borrarlos, en producción hay que
+  exigir la versión vigente o pedir reconfirmación (con prueba pgTAP).
+- **Fecha por día** del historial: permite deducir la rutina; si Legal lo pide, agrupar por semana. Documentar el
+  análisis de proporcionalidad en la EIPD.
+- **Registros de acceso del hosting:** confirmar que el log de acceso de uvicorn o del hosting no guarda la ruta
+  real con el id del niño.
+- **Paginación por cursor** `(answered_at, id)` si el volumen crece (hoy offset con tope de 5 000).
+- **Respuesta del niño y respuesta correcta en el historial del docente (D7):** hoy los intentos NO guardan lo
+  que respondió el niño ni la respuesta correcta (solo enunciado, resultado, nivel y fecha), así que el docente
+  no puede ver en qué se equivocó. Mostrarlo exigiría guardar ambas en `student_attempts` (columnas nuevas,
+  sin tareas del tutor, con su revisión de privacidad y el texto de autorización). Decidir antes de implementarlo.
+- **Tiempo típico y racha en el progreso del docente (D5):** fuera por ahora (salen de duraciones y fechas); si se
+  quieren, decidirlo con la misma regla de privacidad.
 - **Archivo de la autorización** al quitar o borrar un vínculo (alta y baja, sin datos del niño; EIPD R36).
 - **Reconfirmar o suspender vínculos** cuando cambie la versión del texto de autorización (EIPD R35).
 - **Token de confirmación de un solo uso:** hoy, si el tutor quita al docente con un token todavía vigente

@@ -33,7 +33,10 @@
       </section>
 
       <section aria-labelledby="menu-title">
-        <h2 id="menu-title">Lo que viene</h2>
+        <h2 id="menu-title">Tus alumnos</h2>
+        <ion-button expand="block" (click)="openStudents()" data-testid="open-students">Mis alumnos</ion-button>
+        <p>Solo verás a los niños cuyos tutores te hayan vinculado.</p>
+        <h3>Lo que viene</h3>
         <ion-list>
           @for (item of upcoming; track item) {
             <ion-item [disabled]="true">
@@ -42,7 +45,6 @@
             </ion-item>
           }
         </ion-list>
-        <p>Solo verás a los niños cuyos tutores te hayan vinculado.</p>
       </section>
     }
   </main>

@@ -1,0 +1,36 @@
+<section aria-labelledby="h-history" class="history" data-testid="student-history">
+  <h2 id="h-history">Historial de {{ nickname }}</h2>
+
+  @if (loading) {
+    <p role="status">Cargando…</p>
+  } @else if (error && items.length === 0) {
+    <p class="error" role="alert" data-testid="history-error">{{ error }}</p>
+  } @else if (items.length === 0) {
+    <p class="hint" data-testid="history-empty">Todavía no hay ejercicios.</p>
+  } @else {
+    <ul class="admin-list" data-testid="history-list">
+      @for (item of items; track $index) {
+        <li class="card" data-testid="history-row">
+          <div class="admin-row">
+            <span class="admin-name">
+              <strong>{{ item.label }}</strong> · Nivel {{ item.level }}
+              <br />
+              <small>{{ formatWhen(item.answeredAt) }}</small>
+            </span>
+            <span [class]="item.correct ? 'badge correct' : 'badge wrong'" data-testid="result">
+              {{ item.correct ? '✔ Correcta' : '✗ Incorrecta' }}
+            </span>
+          </div>
+        </li>
+      }
+    </ul>
+    @if (error) {
+      <p class="error" role="alert">{{ error }}</p>
+    }
+    @if (nextOffset !== null) {
+      <ion-button expand="block" fill="outline" [disabled]="loadingMore" (click)="more()" data-testid="history-more">
+        {{ loadingMore ? 'Cargando…' : 'Cargar más' }}
+      </ion-button>
+    }
+  }
+</section>

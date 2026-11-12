@@ -5,9 +5,9 @@ import { AuthPort } from '../core/auth/auth.port';
 import { TeacherPort, TeacherProfile } from '../core/teacher/teacher.port';
 
 /** Lo que vendrá: se muestra desactivado. El docente no ve a ningún niño sin un vínculo activo. */
-export const UPCOMING = ['Mis alumnos', 'Progreso por habilidad', 'Historial'];
+export const UPCOMING = ['Hojas de cálculo', 'Evolución del progreso'];
 
-/** Inicio del docente: solo su código de vínculo (D3) y el menú de lo que vendrá. */
+/** Inicio del docente: su código de vínculo (D3), el acceso a sus alumnos (D4) y lo que vendrá. */
 @Component({
   selector: 'app-teacher-home',
   templateUrl: 'teacher-home.page.html',
@@ -49,6 +49,10 @@ export class TeacherHomePage implements OnInit {
       this.copied = false;
     }
     this.cdr.markForCheck();
+  }
+
+  async openStudents(): Promise<void> {
+    await this.nav.navigateForward('/docente/alumnos');
   }
 
   async signOut(): Promise<void> {

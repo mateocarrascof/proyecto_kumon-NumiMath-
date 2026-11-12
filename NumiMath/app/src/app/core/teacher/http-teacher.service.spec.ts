@@ -51,4 +51,72 @@ describe('HttpTeacherService', () => {
     expect(await service.getProfile()).toEqual({ ok: false, reason: 'forbidden' });
     http.expectNone(URL);
   });
+
+  it('lista alumnos, progreso e historial solo con GET y el token del docente', async () => {
+    const { service, http } = setup();
+    const students = service.listStudents();
+    await tick();
+    const r1 = http.expectOne(`${environment.apiUrl}/v1/teacher/students`);
+    expect(r1.request.method).toBe('GET');
+    expect(r1.request.headers.get('Authorization')).toBe('Bearer jwt-docente');
+    r1.flush({ students: [{ student_id: 's1', nickname: 'Ana', grade: 2 }] });
+    expect(await students).toEqual({ ok: true, students: [{ studentId: 's1', nickname: 'Ana', grade: 2 }] });
+
+    const progress = service.getProgress('s1');
+    await tick();
+    http.expectOne(`${environment.apiUrl}/v1/teacher/students/s1/progress`).flush({
+      nickname: 'Ana',
+      grade: 2,
+      skills: [{ code: '2-01', label: 'L', module: 'M', level: 2, block_total: 3, block_correct: 2, mastered: false }],
+    });
+    expect(await progress).toEqual({
+      ok: true,
+      progress: {
+        nickname: 'Ana',
+        grade: 2,
+        skills: [{ code: '2-01', label: 'L', module: 'M', level: 2, blockTotal: 3, blockCorrect: 2, mastered: false }],
+      },
+    });
+
+    const history = service.getHistory('s1', 30);
+    await tick();
+    const r3 = http.expectOne((r) => r.url === `${environment.apiUrl}/v1/teacher/students/s1/history`);
+    expect(r3.request.params.get('offset')).toBe('30');
+    r3.flush({
+      items: [{ label: 'L', tutor_task: true, exercise: null, correct: false, level: 1, day: '2026-11-12' }],
+      has_more: false,
+      next_offset: null,
+    });
+    expect(await history).toEqual({
+      ok: true,
+      page: {
+        items: [{ label: 'L', tutorTask: true, exercise: null, correct: false, level: 1, day: '2026-11-12' }],
+        hasMore: false,
+        nextOffset: null,
+      },
+    });
+  });
+
+  it.each([
+    [404, 'not_found'],
+    [403, 'forbidden'],
+    [401, 'forbidden'],
+    [503, 'error'],
+    [0, 'network'],
+  ])('un %i al leer un alumno se traduce a %s', async (status, reason) => {
+    const { service, http } = setup();
+    const result = service.getProgress('s1');
+    await tick();
+    const req = http.expectOne(`${environment.apiUrl}/v1/teacher/students/s1/progress`);
+    if (status === 0) req.error(new ProgressEvent('error'));
+    else req.flush({}, { status, statusText: 'x' });
+    expect(await result).toEqual({ ok: false, reason });
+  });
+
+  it('sin sesión no llama al servidor', async () => {
+    const { service, http } = setup(null);
+    expect(await service.listStudents()).toEqual({ ok: false, reason: 'forbidden' });
+    expect(await service.getHistory('s1', 0)).toEqual({ ok: false, reason: 'forbidden' });
+    http.expectNone(`${environment.apiUrl}/v1/teacher/students`);
+  });
 });

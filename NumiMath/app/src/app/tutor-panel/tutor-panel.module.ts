@@ -7,6 +7,7 @@ import { IonicModule } from '@ionic/angular/lazy';
 import { CoreModule } from '../core/core.module';
 import { ProfileFormComponent } from './profile-form.component';
 import { RevokeConsentComponent } from './revoke-consent.component';
+import { StudentHistoryComponent } from './student-history.component';
 import { TeacherLinksComponent } from './teacher-links.component';
 import { TutorPanelPage } from './tutor-panel.page';
 
@@ -23,6 +24,7 @@ import { TutorPanelPage } from './tutor-panel.page';
     ProfileFormComponent,
     RevokeConsentComponent,
     TeacherLinksComponent,
+    StudentHistoryComponent,
   ],
 })
 export class TutorPanelPageModule {}

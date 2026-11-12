@@ -163,6 +163,8 @@
     </section>
 
     <!-- ===== Docentes del niño seleccionado (vincular y quitar, con PIN) ===== -->
+    <app-student-history [studentId]="studentId" [nickname]="selectedNickname"></app-student-history>
+
     <app-teacher-links [studentId]="studentId" [nickname]="selectedNickname"></app-teacher-links>
     }
 

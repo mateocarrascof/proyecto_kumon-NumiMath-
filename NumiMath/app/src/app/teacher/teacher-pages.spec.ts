@@ -70,20 +70,21 @@ describe('TeacherHomePage (D3)', () => {
     const getProfile = vi.fn(async () => result);
     const signOut = vi.fn(async () => undefined);
     const navigateRoot = vi.fn(async () => true);
+    const navigateForward = vi.fn(async () => true);
     TestBed.configureTestingModule({
       declarations: [TeacherHomePage],
       imports: [IonicModule.forRoot()],
       providers: [
         { provide: TeacherPort, useValue: { getProfile } },
         { provide: AuthPort, useValue: { signOut } },
-        { provide: NavController, useValue: { navigateRoot } },
+        { provide: NavController, useValue: { navigateRoot, navigateForward } },
       ],
     });
     const fixture = TestBed.createComponent(TeacherHomePage);
     fixture.detectChanges(); // dispara ngOnInit una sola vez
     await fixture.whenStable();
     fixture.detectChanges();
-    return { fixture, page: fixture.componentInstance, signOut, navigateRoot };
+    return { fixture, page: fixture.componentInstance, signOut, navigateRoot, navigateForward };
   }
 
   const ok: TeacherProfileResult = { ok: true, profile: { name: 'Ana', linkCode: 'AAAA2345' } };
@@ -118,6 +119,13 @@ describe('TeacherHomePage (D3)', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it('ofrece entrar a Mis alumnos, que está activo', async () => {
+    const { fixture, page, navigateForward } = await setup(ok);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="open-students"]')).not.toBeNull();
+    await page.openStudents();
+    expect(navigateForward).toHaveBeenCalledWith('/docente/alumnos');
   });
 
   it('si la cuenta ya no existe (403) cierra la sesión y vuelve a la entrada', async () => {

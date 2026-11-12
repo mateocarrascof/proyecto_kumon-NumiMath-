@@ -68,6 +68,14 @@ Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra u
 4. Prueba un código inexistente 5 veces: a la sexta te bloquea 15 minutos.
 5. Pulsa **Quitar**, escribe el PIN y confirma. Para repetir tras el bloqueo, espera o reinicia la base.
 
+### Probar las lecturas del docente y el historial del tutor a mano
+1. Como tutor, practica con un perfil (varios ejercicios) y, en "Docentes de <perfil>", vincula a un docente.
+   Luego practica unos ejercicios más (el docente solo verá lo posterior al vínculo).
+2. En el panel, sección **"Historial de <perfil>"** (T5): ves todos los intentos con habilidad, resultado, nivel y hora.
+3. Como docente (`/docente/login`): **Mis alumnos** → el alumno → **Progreso** (estado actual por habilidad) →
+   **Ver historial**: solo ejercicios desde el vínculo, con fecha sin hora; las tareas del tutor sin su texto.
+4. Como tutor, quita el vínculo: el docente recarga y el alumno ya no aparece (ni su progreso ni su historial).
+
 ## Pruebas
 
 | Qué | Comando |

@@ -444,14 +444,32 @@ están implementados; el resto se construye en el orden de abajo.
 - **Pendiente:** plazo máximo de conservación de las hojas (con purga programada).
 - Justificación: `docs/privacy/hojas-guardadas-justificacion.md`. **Pendiente de implementar**.
 
+### Lecturas del docente (D4, D5, D7) y del tutor (T5)
+**El docente solo lee.** Toda lectura pasa por `teacher_can_view` dentro de la base (vínculo activo,
+consentimiento vigente, perfil no bloqueado y rol docente verificado). Sin acceso, la respuesta es **siempre
+el mismo 404**, exista o no un niño con ese id. Las rutas del docente solo aceptan GET (el resto, 405).
+- **D4 Alumnos vinculados** (`GET /v1/teacher/students`, pantalla `/docente/alumnos`): apodo y curso, en orden
+  alfabético. Nada más.
+- **D5 Progreso por habilidad** (`GET /v1/teacher/students/{id}/progress`): estado actual de las habilidades ya
+  practicadas (nivel de 1 a 3, avance del bloque y si está dominada). **Sin tiempo típico ni racha.**
+- **D7 Historial** (`GET /v1/teacher/students/{id}/history?offset&limit`, paginado de a 30): solo ejercicios de
+  práctica **desde `accepted_at` del vínculo** vigente (un vínculo nuevo parte de su propia fecha), con
+  habilidad, nivel, resultado y **fecha sin hora (hora de Chile)**, sin duración. El enunciado se muestra solo en
+  los ejercicios generados por la app; en las **tareas del tutor** se muestra que fue una tarea y si acertó,
+  **sin su texto** (la base ni siquiera lo entrega). Sin el diagnóstico inicial. Los intentos **no guardan la
+  respuesta del niño ni la respuesta correcta**, así que no se muestran (ver `docs/plan-docente-admin.md`).
+- **T5 Historial del hijo** (tutor, `GET /v1/students/{id}/history`, zona del tutor con PIN): los intentos de
+  práctica de su hijo (habilidad, resultado, nivel y **hora**), paginados; lista vacía si no hay. Sección
+  "Historial" del panel del tutor.
+
 ### Vincular y quitar docentes (T25, con T24 integrado, y T26)
 Hecho en el panel del tutor, sección "Docentes de <apodo>" del perfil seleccionado. **Cada hijo se
 vincula por separado.** La lectura de datos del niño por el docente llega después.
 - **T25 Vincular:** el tutor escribe **su PIN (siempre de nuevo)** y el código de 8 caracteres del docente.
   - El servidor exige que el PIN se haya verificado hace **menos de 2 minutos** (el permiso del panel no basta).
   - Se muestra el **nombre del docente** y el texto de autorización (`docs/legal-provisional/autorizacion-docente.md`,
-    tipo `teacher_authorization`, versionado con su huella, provisional): qué verá (progreso por habilidad e
-    historial de ejercicios y hojas solo desde que se vincula, sin el texto de las tareas del tutor), qué se guardará (las hojas, solo con vínculo
+    tipo `teacher_authorization`, versionado con su huella, provisional): qué verá (progreso por habilidad:
+    estado actual completo; historial de ejercicios y hojas: solo desde que se vincula, sin el texto de las tareas del tutor), qué se guardará (las hojas, solo con vínculo
     activo) y cómo quitarlo. Solo se puede aceptar si la huella del texto coincide con la publicada.
   - Al aceptar ("Entiendo y autorizo", opt-in) se crea el vínculo con `accepted_at`, `terms_version_id` y el
     nombre mostrado. Exige consentimiento vigente. El código no se reenvía: la búsqueda entrega un token de
@@ -519,8 +537,8 @@ El docente no se registra desde la app: la empresa le entrega correo y contrase�
 3. **D2** entrada del docente; **D3** ver mi código (hecho). **AD4** editar y **AD5** eliminar (hecho).
 4. **T24–T26** (hecho) el tutor vincula por código con PIN, confirmación del nombre y límite de intentos, ve
    y quita vínculos. *(T24 ya no es un interruptor: es el aviso previo.)*
-5. **T5** historial del hijo (paginado); **D4** alumnos vinculados; **D5** progreso por habilidad;
-   **D7** historial.
+5. **D4**, **D5**, **D7** y **T5** (hecho): alumnos vinculados, progreso por habilidad, historial del alumno
+   (docente) e historial del hijo (tutor).
 6. **T8** editar tareas asignadas; **T22** exportar CSV (neutralizando celdas que empiecen con `=`,
    `+`, `-`, `@`, tab o CR); **D6** evolución.
 7. **T27 y D8** hojas guardadas.

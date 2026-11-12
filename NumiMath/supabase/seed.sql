@@ -5,4 +5,4 @@ insert into public.legal_document_versions (kind, version, content_sha256, is_cu
   ('terms',             'terminos-prov-1',   'def710ab867f2ae040068bf8e21c1a629ed33ce5dbcf83791dd6c5d070591f14', true),
   ('privacy',           'privacidad-prov-1', 'c6cec82fbc4a2f629c13c869d8f7978491c9fb861435860006bea99f42341aea', true),
   ('adult_declaration', 'declaracion-prov-1','4d5a426f45ea49294af2b8f7883810341e804f9aa6adc6096f4d97e23a989d27', true),
-  ('teacher_authorization', 'autorizacion-docente-prov-3', '660dbf5f6f87e77581cea872acac152769a2f3d4fccba91824bf90441db483d9', true);
+  ('teacher_authorization', 'autorizacion-docente-prov-4', 'a462512e59f009bf4fd33971241aebacf0923c475d638eda03fa216784c0dc0e', true);

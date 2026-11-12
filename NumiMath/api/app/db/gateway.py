@@ -119,6 +119,67 @@ class LinkedTeacher:
 
 
 @dataclass(frozen=True)
+class TeacherStudent:
+    """Alumno vinculado, para la lista del docente: solo apodo y curso."""
+
+    student_id: uuid.UUID
+    nickname: str
+    grade: int
+
+
+@dataclass(frozen=True)
+class SkillState:
+    """Estado actual de una habilidad practicada (sin tiempos ni fechas)."""
+
+    code: str
+    level: int
+    block_total: int
+    block_correct: int
+    mastered: bool
+
+
+@dataclass(frozen=True)
+class TeacherProgress:
+    nickname: str
+    grade: int
+    skills: list[SkillState]
+
+
+@dataclass(frozen=True)
+class HistoryItem:
+    """Un intento visto por el docente: fecha sin hora y sin duración. `exercise` es `None` en las
+    tareas del tutor (su texto nunca sale de la base hacia el docente)."""
+
+    topic: str
+    exercise: str | None
+    correct: bool
+    level: int
+    day: str  # AAAA-MM-DD, hora de Chile
+
+
+@dataclass(frozen=True)
+class HistoryPage:
+    items: list[HistoryItem]
+    has_more: bool
+
+
+@dataclass(frozen=True)
+class TutorAttempt:
+    """Un intento visto por el tutor (T5): habilidad, resultado, nivel y hora."""
+
+    topic: str
+    correct: bool
+    level: int
+    answered_at: datetime
+
+
+@dataclass(frozen=True)
+class TutorHistoryPage:
+    items: list[TutorAttempt]
+    has_more: bool
+
+
+@dataclass(frozen=True)
 class PinState:
     """Estado del PIN del tutor. `pin_hash` es argon2id; nunca sale del servidor."""
 
@@ -384,4 +445,26 @@ class Gateway(Protocol):
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, teacher_id: uuid.UUID
     ) -> str:
         """Quita el vínculo (no toca datos del niño). `ok` o `not_found`."""
+        ...
+
+    async def teacher_students(self, teacher_id: uuid.UUID) -> list[TeacherStudent]:
+        """Alumnos que el docente puede ver ahora (vínculo, consentimiento, perfil y rol)."""
+        ...
+
+    async def teacher_student_progress(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> TeacherProgress | None:
+        """Progreso por habilidad, o `None` si el docente no puede ver a ese niño."""
+        ...
+
+    async def teacher_student_history(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> HistoryPage | None:
+        """Historial desde `accepted_at` del vínculo, o `None` si no puede ver a ese niño."""
+        ...
+
+    async def list_student_attempts(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
+    ) -> TutorHistoryPage | None:
+        """Historial del hijo para el tutor (T5), o `None` si el perfil no es del tutor."""
         ...

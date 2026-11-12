@@ -11,6 +11,8 @@ import { AccountPort } from './core/account/account.port';
 import { HttpAccountService } from './core/account/http-account.service';
 import { AdminPort } from './core/admin/admin.port';
 import { HttpAdminService } from './core/admin/http-admin.service';
+import { HttpHistoryService } from './core/history/http-history.service';
+import { HistoryPort } from './core/history/history.port';
 import { HttpTeacherLinksService } from './core/teacher-links/http-teacher-links.service';
 import { TeacherLinksPort } from './core/teacher-links/teacher-links.port';
 import { HttpTeacherService } from './core/teacher/http-teacher.service';
@@ -53,6 +55,7 @@ import { HttpExplanationService } from './core/explanation/http-explanation.serv
     { provide: AdminPort, useExisting: HttpAdminService },
     { provide: TeacherPort, useExisting: HttpTeacherService },
     { provide: TeacherLinksPort, useExisting: HttpTeacherLinksService },
+    { provide: HistoryPort, useExisting: HttpHistoryService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
     { provide: AssignmentsPort, useExisting: HttpAssignmentsService },

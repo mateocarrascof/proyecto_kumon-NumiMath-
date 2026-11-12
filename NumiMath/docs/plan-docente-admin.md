@@ -14,8 +14,11 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
 - Probar el **límite de intentos** al vincular (R28 de la EIPD).
 
 ## Paso 8: hojas guardadas (T27, D8)
-- **Plazo máximo** de conservación con purga programada.
-- **`teacher_id` en cada hoja**, para borrar solo las de ese vínculo al quitarlo.
+- **Las hojas pertenecen al niño** (decidido): quitar un vínculo o eliminar al docente NO las borra, solo
+  dejan de verse para ese docente (la lectura pasa por `teacher_can_view`). Se borran cuando el tutor las
+  elimina (T27), al borrar el perfil o la cuenta y al revocar el consentimiento. Sin docente vinculado
+  activo no se guardan hojas nuevas.
+- **Plazo máximo de conservación de las hojas**: pendiente (con Legal); implementar con purga programada.
 - **Bucket privado de Storage con RLS** por tutor y lectura del docente solo por `teacher_can_view`, con
   prueba pgTAP.
 - **Sin metadatos** (EXIF) y con tope de tamaño.
@@ -45,6 +48,13 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
 - **Límite de tasa** en las rutas del administrador (`/v1/admin/teachers`).
 - **Verificación de la identidad del docente** antes de crear la cuenta (confirmación del correo,
   idoneidad para trabajar con menores; EIPD R32).
+- **Cambio de titular de una cuenta de docente (AD4):** (ya se cierran sus sesiones al cambiar el correo) avisar al correo anterior; suspender los vínculos o avisar a los tutores al cambiar nombre o correo (antes de T24 a T26); en T26 mostrar el nombre vigente frente a `teacher_name`. Ver EIPD R33.
+- **Orden de la baja (AD5):** hoy se borra en Auth y después se registra; si el registro falla queda solo un log. Evaluar bloquear la cuenta, registrar y luego borrar (con desbloqueo si falla).
+- **El docente ve su correo y un contacto de privacidad** en `/docente`, junto con el aviso de privacidad.
+- **Recuperar contraseña del docente:** "recuperar contraseña" (`/recuperar`) sirve a docentes y
+  administradores, pero el flujo termina en el inicio de sesión del tutor (`/login`, con el aviso
+  "cambiaste tu contraseña"); el docente debe entrar luego por `/docente/login`. Evaluar que la pantalla
+  de nueva contraseña lleve a la entrada de su rol.
 - Respuestas de Legal: docente como tercero receptor o encargado, consentimiento separado y versionado,
   plazos de hojas y vínculos, evidencia al quitar un vínculo, estado del proyecto que posterga la Ley
   21.719 (`docs/privacy/eipd/eipd-borrador.md`, sección 8.1 bis).

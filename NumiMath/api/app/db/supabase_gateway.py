@@ -24,6 +24,7 @@ from app.db.gateway import (
     DiagnosticItem,
     GatewayError,
     PinState,
+    TeacherProfile,
     TeacherRow,
 )
 from app.exercises.levels import BLOCK_SIZE, MAX_LEVEL, MIN_LEVEL, SkillProgress
@@ -616,3 +617,69 @@ class SupabaseGateway:
             ]
         except (TypeError, KeyError, ValueError):
             raise GatewayError("unexpected_result") from None
+
+    async def teacher_profile(self, teacher_id: uuid.UUID) -> TeacherProfile | None:
+        result = await self._rpc("teacher_profile", {"p_teacher_id": str(teacher_id)})
+        if result is None:
+            return None
+        try:
+            return TeacherProfile(name=str(result["name"]), link_code=str(result["link_code"]))
+        except (TypeError, KeyError):
+            raise GatewayError("unexpected_result") from None
+
+    async def admin_get_teacher(self, teacher_id: uuid.UUID) -> TeacherRow | None:
+        result = await self._rpc("admin_get_teacher", {"p_teacher_id": str(teacher_id)})
+        if result is None:
+            return None
+        try:
+            return TeacherRow(
+                id=uuid.UUID(str(result["id"])),
+                name=str(result["name"]),
+                email=str(result["email"] or ""),
+                link_code=str(result["link_code"]),
+            )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def admin_update_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, email_changed: bool
+    ) -> str:
+        result = await self._rpc(
+            "admin_update_teacher",
+            {
+                "p_admin_id": str(admin_id),
+                "p_teacher_id": str(teacher_id),
+                "p_name": name,
+                "p_email_changed": email_changed,
+            },
+        )
+        if result not in ("ok", "unchanged", "not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def admin_record_teacher_deleted(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> None:
+        await self._rpc(
+            "admin_record_teacher_deleted",
+            {"p_admin_id": str(admin_id), "p_teacher_id": str(teacher_id)},
+        )
+
+    async def admin_email_in_use(self, email: str, except_id: uuid.UUID) -> bool:
+        result = await self._rpc(
+            "admin_email_in_use", {"p_email": email, "p_except_id": str(except_id)}
+        )
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
+    async def admin_revoke_teacher_sessions(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> int:
+        result = await self._rpc(
+            "admin_revoke_teacher_sessions",
+            {"p_admin_id": str(admin_id), "p_teacher_id": str(teacher_id)},
+        )
+        if isinstance(result, bool) or not isinstance(result, int):
+            raise GatewayError("unexpected_result")
+        return result

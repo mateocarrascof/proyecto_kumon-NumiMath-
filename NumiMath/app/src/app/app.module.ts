@@ -11,6 +11,8 @@ import { AccountPort } from './core/account/account.port';
 import { HttpAccountService } from './core/account/http-account.service';
 import { AdminPort } from './core/admin/admin.port';
 import { HttpAdminService } from './core/admin/http-admin.service';
+import { HttpTeacherService } from './core/teacher/http-teacher.service';
+import { TeacherPort } from './core/teacher/teacher.port';
 import { AuthPort } from './core/auth/auth.port';
 import { SupabaseAuthService } from './core/auth/supabase-auth.service';
 import { ConsentRevocationPort } from './core/consent/consent-revocation.port';
@@ -47,6 +49,7 @@ import { HttpExplanationService } from './core/explanation/http-explanation.serv
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: AccountPort, useExisting: HttpAccountService },
     { provide: AdminPort, useExisting: HttpAdminService },
+    { provide: TeacherPort, useExisting: HttpTeacherService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
     { provide: AssignmentsPort, useExisting: HttpAssignmentsService },

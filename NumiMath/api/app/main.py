@@ -30,6 +30,7 @@ from app.routes import (
     progress,
     report,
     students,
+    teacher,
 )
 from app.routes import admin as admin_routes
 
@@ -81,7 +82,7 @@ def create_app(
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
-            allow_methods=["GET", "POST", "DELETE"],
+            allow_methods=["GET", "POST", "PATCH", "DELETE"],
             allow_headers=["Authorization", "Content-Type", "X-Parental-Token"],
             allow_credentials=False,
             max_age=600,
@@ -95,6 +96,7 @@ def create_app(
     app.include_router(progress.router)
     app.include_router(account.router)
     app.include_router(admin_routes.router)
+    app.include_router(teacher.router)
     app.include_router(consent.router)
     app.include_router(assignments.router)
     app.include_router(report.router)

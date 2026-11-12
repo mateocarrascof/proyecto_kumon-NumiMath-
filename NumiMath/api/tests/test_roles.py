@@ -2,19 +2,30 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.db.gateway import TeacherProfile
 from app.deps import CurrentAdmin, CurrentTeacher, CurrentTutor
 from app.main import create_app
 from tests.test_auth import SECRET, TUTOR, _hs256, _settings
 
 
+@dataclass
+class _Gw:
+    async def teacher_profile(self, teacher_id: object) -> TeacherProfile:
+        return TeacherProfile(name="Docente", link_code="AAAA2345")
+
+    async def aclose(self) -> None:
+        return None
+
+
 @pytest.fixture
 def client() -> TestClient:
-    app = create_app(_settings(supabase_jwt_secret=SECRET))
+    app = create_app(_settings(supabase_jwt_secret=SECRET), gateway=_Gw())  # type: ignore[arg-type]
 
     @app.get("/_tutor")
     async def tutor(user: CurrentTutor) -> dict[str, str]:

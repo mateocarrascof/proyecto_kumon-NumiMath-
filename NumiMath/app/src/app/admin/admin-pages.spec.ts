@@ -129,10 +129,15 @@ describe('AdminTeachersPage (AD3 mínimo)', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="admin-list-error"]')).not.toBeNull();
   });
 
-  it('no ofrece editar ni eliminar todavía (AD4 y AD5)', async () => {
-    const { fixture } = await setup({ ok: true, teachers });
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).not.toMatch(/Editar|Eliminar/);
+  it('cada fila ofrece editar y eliminar, y llevan a su pantalla', async () => {
+    const { fixture, page, navigateForward } = await setup({ ok: true, teachers });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('[data-testid="admin-edit"]').length).toBe(2);
+    expect(el.querySelectorAll('[data-testid="admin-delete"]').length).toBe(2);
+    await page.edit(teachers[1]);
+    await page.remove(teachers[0]);
+    expect(navigateForward).toHaveBeenCalledWith('/admin/docentes/2/editar');
+    expect(navigateForward).toHaveBeenCalledWith('/admin/docentes/1/eliminar');
   });
 
   it('salir cierra la sesión y vuelve a la entrada del administrador', async () => {

@@ -10,7 +10,7 @@ from fastapi import Depends, Request
 
 from app.access.authorize import AuthorizedStudent, authorize_student
 from app.auth.jwt import AuthenticatedTutor, InvalidToken, TokenVerifier
-from app.db.gateway import Gateway
+from app.db.gateway import Gateway, GatewayError
 from app.errors import ApiError
 from app.logging import get_logger, log_event
 from app.parental import InvalidParentalToken, verify_parental_token
@@ -51,8 +51,23 @@ async def get_current_tutor(request: Request) -> AuthenticatedTutor:
 
 
 async def get_current_teacher(request: Request) -> AuthenticatedTutor:
-    """Solo docentes (`app_metadata.role == "teacher"`). `tutor_id` es aquí el id del docente."""
-    return _require_role(await _authenticate(request), "teacher")
+    """Solo docentes (`app_metadata.role == "teacher"`) QUE SIGAN TENIENDO PERFIL.
+
+    Un docente eliminado puede conservar un token vigente unos minutos; como su perfil ya no
+    existe, se rechaza igual (403). `tutor_id` es aquí el id del docente.
+    """
+    user = _require_role(await _authenticate(request), "teacher")
+    gateway: Gateway = request.app.state.gateway
+    try:
+        profile = await gateway.teacher_profile(user.tutor_id)
+    except GatewayError as exc:
+        log_event(logger, "auth.rejected", code=f"gateway_{exc.reason}")
+        raise ApiError(503, "service_unavailable") from None
+    if profile is None:
+        log_event(logger, "auth.rejected", code="teacher_profile_missing")
+        raise ApiError(403, "forbidden")
+    request.state.teacher_profile = profile  # lo reutiliza la ruta, sin segunda consulta
+    return user
 
 
 async def get_current_admin(request: Request) -> AuthenticatedTutor:

@@ -4,7 +4,7 @@ import { NavController } from '@ionic/angular/lazy';
 import { AdminPort, AdminTeacher } from '../core/admin/admin.port';
 import { AuthPort } from '../core/auth/auth.port';
 
-/** Lista de docentes (AD3, versión mínima de solo lectura). Editar y eliminar llegan en AD4 y AD5. */
+/** Lista de docentes (AD3): solo lectura, con editar (AD4) y eliminar (AD5) por fila. */
 @Component({
   selector: 'app-admin-teachers',
   templateUrl: 'admin-teachers.page.html',
@@ -30,6 +30,14 @@ export class AdminTeachersPage implements OnInit {
 
   async create(): Promise<void> {
     await this.nav.navigateForward('/admin/docentes/nuevo');
+  }
+
+  async edit(teacher: AdminTeacher): Promise<void> {
+    await this.nav.navigateForward(`/admin/docentes/${teacher.id}/editar`);
+  }
+
+  async remove(teacher: AdminTeacher): Promise<void> {
+    await this.nav.navigateForward(`/admin/docentes/${teacher.id}/eliminar`);
   }
 
   async signOut(): Promise<void> {

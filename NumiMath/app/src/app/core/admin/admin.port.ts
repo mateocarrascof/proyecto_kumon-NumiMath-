@@ -16,7 +16,19 @@ export interface NewTeacher {
   password: string;
 }
 
-export type AdminFailure = 'email_taken' | 'invalid' | 'forbidden' | 'network' | 'error';
+/** Cambios de un docente: lo que no se envía no se toca. */
+export interface TeacherChanges {
+  name?: string;
+  email?: string;
+}
+
+export type AdminFailure =
+  | 'email_taken'
+  | 'invalid'
+  | 'forbidden'
+  | 'not_found'
+  | 'network'
+  | 'error';
 
 export type ListTeachersResult =
   | { ok: true; teachers: AdminTeacher[] }
@@ -26,6 +38,12 @@ export type CreateTeacherResult =
   | { ok: true; teacher: CreatedTeacher }
   | { ok: false; reason: AdminFailure };
 
+export type UpdateTeacherResult =
+  | { ok: true; teacher: AdminTeacher; changed: boolean }
+  | { ok: false; reason: AdminFailure };
+
+export type DeleteTeacherResult = { ok: true } | { ok: false; reason: AdminFailure };
+
 /**
  * Zona del administrador: cuentas de adultos (docentes). Nunca datos de niños ni hojas.
  * Todo pasa por FastAPI con el token del administrador.
@@ -33,4 +51,6 @@ export type CreateTeacherResult =
 export abstract class AdminPort {
   abstract listTeachers(): Promise<ListTeachersResult>;
   abstract createTeacher(input: NewTeacher): Promise<CreateTeacherResult>;
+  abstract updateTeacher(id: string, changes: TeacherChanges): Promise<UpdateTeacherResult>;
+  abstract deleteTeacher(id: string): Promise<DeleteTeacherResult>;
 }

@@ -50,6 +50,16 @@ api/.venv/Scripts/python api/scripts/create_admin.py correo@empresa.cl
 Pide la contraseña (mínimo 8) dos veces, sin mostrarla. Luego entra en http://localhost:8100/admin/login.
 Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra una sola vez.
 
+### Probar docentes a mano (sin escribir contraseñas en ningún chat)
+1. Entra como administrador en http://localhost:8100/admin/login.
+2. **Crear docente:** "Crear el primer docente" (o "Crear docente"), con nombre, correo y una contraseña
+   inicial que elijas. Anota el correo, la contraseña y el código que muestra la pantalla (aparecen una sola vez).
+3. **Editar:** en la lista, "Editar": cambia el nombre y/o el correo. El correo nuevo rige de inmediato.
+4. **Docente:** en otra ventana privada, http://localhost:8100/docente/login con el correo (nuevo) y la
+   contraseña inicial: verás el código con "Copiar". Con el correo viejo no entra.
+5. **Eliminar:** "Eliminar" → lee la explicación → "Sí, eliminar la cuenta". El docente ya no puede entrar
+   (si su pantalla seguía abierta, al recargar vuelve a la entrada).
+
 ## Pruebas
 
 | Qué | Comando |

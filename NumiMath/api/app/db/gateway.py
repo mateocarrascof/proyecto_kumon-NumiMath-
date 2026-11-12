@@ -88,6 +88,14 @@ class TeacherRow:
 
 
 @dataclass(frozen=True)
+class TeacherProfile:
+    """Perfil del docente: solo su nombre y su código de vínculo (nunca datos de niños)."""
+
+    name: str
+    link_code: str
+
+
+@dataclass(frozen=True)
 class PinState:
     """Estado del PIN del tutor. `pin_hash` es argon2id; nunca sale del servidor."""
 
@@ -293,4 +301,34 @@ class Gateway(Protocol):
 
     async def admin_list_teachers(self) -> list[TeacherRow]:
         """Docentes en orden alfabético, con correo y código. Solo lectura."""
+        ...
+
+    async def teacher_profile(self, teacher_id: uuid.UUID) -> TeacherProfile | None:
+        """Perfil del docente, o `None` si la cuenta no es de docente o ya no tiene perfil."""
+        ...
+
+    async def admin_get_teacher(self, teacher_id: uuid.UUID) -> TeacherRow | None:
+        """Un docente con su correo, o `None` si no existe."""
+        ...
+
+    async def admin_update_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, email_changed: bool
+    ) -> str:
+        """Cambia el nombre y deja constancia. `ok`, `unchanged` o `not_found`."""
+        ...
+
+    async def admin_record_teacher_deleted(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> None:
+        """Constancia de la baja de un docente (solo ids)."""
+        ...
+
+    async def admin_email_in_use(self, email: str, except_id: uuid.UUID) -> bool:
+        """¿Otra cuenta ya usa este correo?"""
+        ...
+
+    async def admin_revoke_teacher_sessions(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID
+    ) -> int:
+        """Cierra todas las sesiones del docente (invalida sus tokens de refresco)."""
         ...

@@ -29,6 +29,8 @@
               <p>{{ teacher.email }}</p>
             </ion-label>
             <ion-note slot="end" data-testid="admin-code">{{ teacher.linkCode }}</ion-note>
+            <ion-button slot="end" fill="outline" size="small" (click)="edit(teacher)" data-testid="admin-edit">Editar</ion-button>
+            <ion-button slot="end" fill="outline" size="small" color="danger" (click)="remove(teacher)" data-testid="admin-delete">Eliminar</ion-button>
           </ion-item>
         }
       </ion-list>

@@ -11,6 +11,7 @@ const MESSAGES: Record<AdminFailure, string> = {
   email_taken: 'Ese correo ya tiene una cuenta. No se creó nada.',
   invalid: 'Revisa los datos: el servidor no los aceptó.',
   forbidden: 'Tu sesión ya no es válida. Entra de nuevo.',
+  not_found: 'No pudimos crear la cuenta. No se creó nada: inténtalo de nuevo.',
   network: 'No pude conectar con el servidor. Revisa tu conexión.',
   error: 'No pudimos crear la cuenta. No se creó nada: inténtalo de nuevo.',
 };

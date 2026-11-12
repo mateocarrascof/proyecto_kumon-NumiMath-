@@ -427,14 +427,18 @@ están implementados; el resto se construye en el orden de abajo.
   restaura (hay que vincular de nuevo). Eliminar la cuenta del tutor o un perfil los borra en cascada.
 - Los términos y la política nuevos (con la cláusula del docente como tercero) se aceptan al vincular
   por primera vez, no al registrarse.
-- Borrar un docente borra sus vínculos; no toca perfiles, progreso ni hojas de niños. Sin contraseñas, correos ni contenido en logs.
+- Borrar un docente borra sus vínculos; no toca perfiles, progreso ni hojas de niños (las hojas solo
+  dejan de verse para ese docente). Sin contraseñas, correos ni contenido en logs.
 
 ### Hojas guardadas ("Guardar el papel")
 - Por defecto el papel para calcular no se guarda. Se guarda **solo si el niño tiene un docente
   vinculado activo** y pulsa "Guardar el papel"; el docente la ve por ese mismo vínculo. No hay casilla
   aparte de hojas.
-- El tutor puede verlas y borrarlas. Se eliminan al quitar el vínculo, al revocar el consentimiento y
-  al borrar el perfil o la cuenta. No llegan a la IA.
+- **Las hojas pertenecen al niño.** Eliminar a un docente o quitar un vínculo **no borra las hojas**:
+  solo dejan de verse para ese docente. Se borran cuando el tutor las elimina (T27), al borrar el perfil
+  del niño (o la cuenta) y al revocar el consentimiento. Sin docente vinculado activo no se guardan
+  hojas nuevas. No llegan a la IA.
+- **Pendiente:** plazo máximo de conservación de las hojas (con purga programada).
 - Justificación: `docs/privacy/hojas-guardadas-justificacion.md`. **Pendiente de implementar**.
 
 ### Administrador (AD1 a AD5)
@@ -454,26 +458,45 @@ no genera registro.
   obligatorio de contraseña en el primer ingreso y canal de entrega definido. Reemplaza al antiguo CU-D1. Correo ya registrado: 409 y no se
   crea nada. Si falla el guardado del perfil tras crear la cuenta, se borra esa cuenta (503).
 - **AD3 Consultar docentes:** lista de solo lectura (`GET /v1/admin/teachers`), orden alfabético, con
-  nombre, correo y código; desde cada fila se podrá editar o eliminar; sin docentes se ofrece crear el
-  primero. *Hecho: la lista de solo lectura con el estado vacío; las acciones por fila llegan con AD4 y AD5.*
-- **AD4 Editar docente:** cambia nombre y/o correo; el código no cambia y se conservan los vínculos.
-  Correo usado por otra cuenta: no se cambia.
+  nombre, correo y código; desde cada fila se puede editar o eliminar; sin docentes se ofrece crear el
+  primero.
+- **AD4 Editar docente:** cambia nombre y/o correo (`PATCH /v1/admin/teachers/{id}`); el código no cambia
+  y se conservan los vínculos. El correo nuevo **rige de inmediato, sin correo de confirmación** (cambio
+  hecho con la API de administración de Auth y `email_confirm`): el docente entra con el nuevo y no con el
+  viejo, y se **cierran sus sesiones** (sus tokens de refresco dejan de servir; el token de acceso ya
+  emitido vence solo). Correo usado por otra cuenta: 409 y no se cambia nada (se comprueba en la base antes de tocar
+  Auth). Sin cambios: no se hace nada ni se registra. Si falla el guardado del nombre tras cambiar el
+  correo, el correo se revierte. Queda registro `teacher_updated` en `admin_audit` (solo ids).
 - **AD5 Eliminar docente:** pantalla de confirmación que explica qué se borra (la cuenta y sus
-  vínculos); los datos de los niños y las hojas no se tocan; el docente deja de poder entrar.
+  vínculos) y qué no (datos de los niños y hojas); "Cancelar" no cambia nada. `DELETE
+  /v1/admin/teachers/{id}` borra la cuenta de Auth (el perfil del docente y sus vínculos caen por
+  cascada) y después registra `teacher_deleted`. Los perfiles, el progreso y las hojas de niños no se
+  tocan. El docente deja de poder entrar; un token que conserve unos minutos recibe 403, porque
+  `CurrentTeacher` comprueba que el perfil exista y `teacher_can_view` exige la cuenta.
+
+### Docente (D2 y D3)
+El docente no se registra desde la app: la empresa le entrega correo y contraseña.
+- **D2 Iniciar sesión como docente:** ruta propia `/docente/login`. Credenciales incorrectas: se informa y
+  puede reintentar. Una cuenta válida que no sea de docente recibe el mismo error y se cierra su sesión.
+  Con rol docente llega a su inicio (`/docente`, protegido con `roleGuard('teacher')`).
+- **D3 Consultar mi código de vínculo:** el inicio muestra el código de 8 caracteres (`GET /v1/teacher/me`)
+  con botón "Copiar" y una explicación de que se lo entregue al tutor. El código no cambia. El resto del
+  inicio es el menú de lo que vendrá (desactivado): el docente nunca ve datos de niños sin un vínculo
+  activo.
+- **Recuperar la contraseña:** el docente puede usar "recuperar contraseña" (`/recuperar`), que termina en
+  el inicio de sesión del tutor; después entra por `/docente/login`.
 
 ### Casos de uso y orden de construcción
 1. **Base y roles** (hecho): migración, trigger, `roleGuard`, dependencias por rol, pruebas de RLS.
-2. **AD1 y AD2** (hecho) y la lista mínima de **AD3** (ver arriba).
-3. **D2** entrada del docente; **D3** ver mi código.
+2. **AD1, AD2 y AD3** (hecho).
+3. **D2** entrada del docente; **D3** ver mi código (hecho). **AD4** editar y **AD5** eliminar (hecho).
 4. **T24–T26** el tutor vincula por código con confirmación del nombre y límite de intentos, ve y quita
    vínculos (incluye términos y política nuevos). *(T24 ya no es un interruptor: es el aviso previo.)*
 5. **T5** historial del hijo (paginado); **D4** alumnos vinculados; **D5** progreso por habilidad;
    **D7** historial.
 6. **T8** editar tareas asignadas; **T22** exportar CSV (neutralizando celdas que empiecen con `=`,
    `+`, `-`, `@`, tab o CR); **D6** evolución.
-7. **AD3** acciones por fila; **AD4** editar nombre y correo (rechaza correo ya usado; el código no
-   cambia); **AD5** eliminar con confirmación.
-8. **T27 y D8** hojas guardadas.
+7. **T27 y D8** hojas guardadas.
 
 ### Datos y privacidad
 - Tablas: `teachers` (nombre hasta 60, código, fecha; el correo solo en Auth) y `teacher_links`

@@ -9,8 +9,11 @@ import {
   AdminPort,
   AdminTeacher,
   CreateTeacherResult,
+  DeleteTeacherResult,
   ListTeachersResult,
   NewTeacher,
+  TeacherChanges,
+  UpdateTeacherResult,
 } from './admin.port';
 
 interface TeacherDto {
@@ -19,6 +22,7 @@ interface TeacherDto {
   email: string;
   link_code: string;
   password?: string;
+  changed?: boolean;
 }
 
 const URL = `${environment.apiUrl}/v1/admin/teachers`;
@@ -27,6 +31,7 @@ function failure(error: unknown): AdminFailure {
   if (!(error instanceof HttpErrorResponse) || error.status === 0) return 'network';
   if (error.status === 409) return 'email_taken';
   if (error.status === 422) return 'invalid';
+  if (error.status === 404) return 'not_found';
   if (error.status === 401 || error.status === 403) return 'forbidden';
   return 'error';
 }
@@ -64,6 +69,30 @@ export class HttpAdminService extends AdminPort {
     try {
       const dto = await firstValueFrom(this.http.post<TeacherDto>(URL, input, { headers }));
       return { ok: true, teacher: { ...toTeacher(dto), password: dto.password ?? '' } };
+    } catch (error) {
+      return { ok: false, reason: failure(error) };
+    }
+  }
+
+  async updateTeacher(id: string, changes: TeacherChanges): Promise<UpdateTeacherResult> {
+    const headers = await this.headers();
+    if (!headers) return { ok: false, reason: 'forbidden' };
+    try {
+      const dto = await firstValueFrom(
+        this.http.patch<TeacherDto>(`${URL}/${encodeURIComponent(id)}`, changes, { headers }),
+      );
+      return { ok: true, teacher: toTeacher(dto), changed: dto.changed ?? true };
+    } catch (error) {
+      return { ok: false, reason: failure(error) };
+    }
+  }
+
+  async deleteTeacher(id: string): Promise<DeleteTeacherResult> {
+    const headers = await this.headers();
+    if (!headers) return { ok: false, reason: 'forbidden' };
+    try {
+      await firstValueFrom(this.http.delete(`${URL}/${encodeURIComponent(id)}`, { headers }));
+      return { ok: true };
     } catch (error) {
       return { ok: false, reason: failure(error) };
     }

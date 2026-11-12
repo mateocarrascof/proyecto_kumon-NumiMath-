@@ -39,6 +39,11 @@ class AuthAdmin(Protocol):
         correo ya tiene cuenta (no se crea nada)."""
         ...
 
+    async def update_email(self, user_id: uuid.UUID, email: str) -> None:
+        """Cambia el correo AL INSTANTE, sin correo de confirmación (`email_confirm`). Falla con
+        `email_exists` si otra cuenta ya lo usa (no se cambia nada)."""
+        ...
+
     async def ban(self, user_id: uuid.UUID) -> None:
         """Bloquea el acceso del usuario por poco tiempo (congelar la cuenta mientras se borra)."""
         ...
@@ -122,6 +127,19 @@ class GoTrueAdmin:
             return uuid.UUID(str(response.json()["id"]))
         except (ValueError, KeyError, TypeError, AttributeError):
             raise AuthAdminError("bad_json") from None
+
+    async def update_email(self, user_id: uuid.UUID, email: str) -> None:
+        # `email_confirm` hace que el cambio rija de inmediato, sin enlace de confirmación.
+        response = await self._call("PUT", user_id, json={"email": email, "email_confirm": True})
+        if response.status_code in (400, 409, 422):
+            try:
+                error_code = response.json().get("error_code")
+            except (ValueError, AttributeError):
+                error_code = None
+            if error_code in ("email_exists", "user_already_exists"):
+                raise AuthAdminError("email_exists")
+        if response.status_code != 200:
+            raise AuthAdminError(f"status_{response.status_code}")
 
     async def _set_ban(self, user_id: uuid.UUID, duration: str) -> None:
         response = await self._call("PUT", user_id, json={"ban_duration": duration})

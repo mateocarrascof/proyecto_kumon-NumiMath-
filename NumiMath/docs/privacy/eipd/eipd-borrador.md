@@ -1,8 +1,8 @@
-# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.2
+# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.3
 
 **Apoyo técnico, no asesoría legal.** Debe revisarlo un abogado o el delegado de protección de datos antes de darlo por válido. Enfoque del art. 15 ter de la Ley 21.719 (verificar contra el texto oficial; el texto de la ley y su fecha de vigencia deben confirmarse: ver sección 8).
 
-**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.2 (borrador) · **Fecha:** 2026-10-12
+**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.3 (borrador) · **Fecha:** 2026-11-12 (0.3: modo sin conexión, CU-A12)
 **Responsable del tratamiento:** `<razón social y contacto: pendiente>` · **Contacto de privacidad:** `<correo: pendiente>`
 **Basado en:** `docs/privacy/inventario-datos.md`, `docs/adr/0001-contrato-fastapi-consentimiento.md`, `docs/lote-2-propuesta-consentimiento.md` y las migraciones de `supabase/`.
 
@@ -41,6 +41,7 @@ Detalle completo y vigente en `docs/privacy/inventario-datos.md`. Resumen:
 | Declaración del adulto archivada (versión, huella, fecha; sin datos del niño) | Tutor | PostgreSQL, solo servidor | Se crea al borrar un perfil. |
 | Prompt a la IA (curso, tema, ejercicio) | — | FastAPI → proveedor de IA | Sin datos personales si el filtro funciona. |
 | Logs técnicos | — | Infraestructura | Sin contenido ni datos personales (regla de diseño). |
+| **Modo sin conexión (CU-A12):** copia de apodo y curso, lote de ejercicios, cola de intentos con las respuestas del niño, id del tutor dueño | Alumno / Tutor | **Dispositivo del tutor (IndexedDB), sin cifrar** | Primera vez que hay datos del niño fuera de la base. Plazos: copia 7 días, lote 7, cola hasta ~21; vencidos dejan de usarse y se borran la próxima vez que se abre la app o vuelve a primer plano (riesgos R27 y R28; ADR 0002). |
 
 **No se recolectan:** apellidos, fotos, ubicación, fecha de nacimiento, voz, contactos, identificadores publicitarios, correo o teléfono del alumno. No hay SDK de publicidad ni de analítica de terceros.
 
@@ -129,6 +130,8 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R24 | **Perfiles bloqueados antes por otro motivo no se purgan al revocar** y quedan guardados sin plazo ni consentimiento. | Baja | Media | Hoy no hay ruta de la app que bloquee por `tutor_request` o `arcop_claim`; decisión legal pendiente (28.5). |
 | R25 | **Para borrar un solo perfil tras revocar hay que eliminar la cuenta entera** (la interfaz no lo ofrece sin consentimiento). | Media | Media | El texto lo dice con veracidad; la API sí lo permite. Pendiente (28.6). |
 | R26 | **Constancia falsificable o visible en la dirección** (`?revocado=…`). | Baja | Baja | Solo muestra un aviso; plazo absurdo ignorado; no identifica al niño. Mejorar con una consulta al servidor. |
+| R27 | **Datos del niño sin cifrar en el dispositivo** (modo sin conexión): apodo, curso y respuestas quedan en IndexedDB; en un equipo compartido, quien lo use sin cerrar sesión puede verlos. | Media | Media | Decisión 6 del ADR 0002 (sin cifrado: datos mínimos y vida corta). Solo apodo, curso y respuestas numéricas; nada va a la IA. Plazos: copia de perfiles 7 días, lote 7, cola hasta ~21; vencidos dejan de usarse y se borran la próxima vez que se abre la app o vuelve a primer plano (no se puede borrar si la app no se abre). Se borra al cerrar sesión, al revocar, si la sesión termina sin cerrar sesión (`SIGNED_OUT`), si entra otro tutor, al borrar o pausar un perfil y ante un 403. "Cerrar sesión" no se ofrece sin red para no perder intentos. `storage.persist()` solo en la web y desde el panel del tutor. | Política `privacidad-prov-2` (cambio aparte). Evaluar cifrado si Legal lo pide (pendientes-legales, 29). | Medio |
+| R28 | **Excepción a la revocación sin red**: si el tutor revoca o pausa desde otro equipo, un dispositivo **sin conexión** sigue permitiendo practicar con su lote hasta conectarse (máx. 7 días). | Media | Media | Decisión 8 del ADR 0002, aceptada **para esta etapa** y **pendiente de revisión por Adolfo y `privacy-cl-auditor`**. Al conectarse, el dispositivo lo detecta (consentimiento `missing` o 403) y borra todo; la copia deja de usarse a los 7 días aunque nunca se conecte y se borra la próxima vez que se abre la app. La pantalla de revocación lo avisa ("en un equipo sin internet, el borrado ocurre al conectarse"). Lo que se practicó no cuenta hasta que el servidor lo acepte (CU-A13, que rechazará perfiles sin consentimiento). | Validar con Legal (pendientes-legales, 29). Política `privacidad-prov-2` (cambio aparte). | Medio |
 
 ---
 
@@ -151,6 +154,11 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 - Trabajos programados (purgas y avisos), runbook de borrado de cuenta y de incidentes, restauración de backups probada.
 - Capacitación y responsables: `<pendiente>`.
 - Revisión de proveedores y DPA.
+
+**Modo sin conexión (CU-A12, implementadas con pruebas):** copia local ligada al tutor y con
+vencimiento de 7 días; borrado ante `SIGNED_OUT`, cambio de tutor, revocación detectada con red y
+403; perfil en pausa no se abre sin red ni por dirección directa; el service worker no guarda
+respuestas de la API (sin `dataGroups`) y solo se registra en la web.
 
 ## 6. Derechos del titular (ejercidos por el tutor)
 

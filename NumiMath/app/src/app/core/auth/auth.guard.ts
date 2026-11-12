@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { ConnectivityService } from '../offline/connectivity.service';
-import { offlineAllowed } from '../offline/offline-access';
+import { isOffline, offlineAllowed } from '../offline/offline-access';
 import { OfflineStore } from '../offline/offline-store.port';
 import { AuthPort } from './auth.port';
 
@@ -19,7 +19,8 @@ export const authGuard: CanActivateFn = async (route) => {
   const store = inject(OfflineStore);
   await auth.ready();
   if (auth.user()) return true;
-  if (await offlineAllowed(route, connectivity, store)) return true;
+  // Sin sesión y sin conexión (la sesión no pudo renovarse): solo las rutas de práctica.
+  if (isOffline(connectivity) && (await offlineAllowed(route, store))) return true;
   return router.createUrlTree(['/login']);
 };
 

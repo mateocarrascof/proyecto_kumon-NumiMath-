@@ -163,7 +163,8 @@ tiene menos de 10 posibles (regla actual). *(El número es configurable: `offlin
 comprobaciones que la práctica (`AuthorizedStudentDep`: perfil del tutor, no bloqueado,
 consentimiento vigente). No usa IA. Límite: 5 descargas por perfil al día (evita acumular lotes).
 La app lo pide **sola** al abrir la práctica de un perfil con conexión, si no hay lote, si quedan
-menos de la mitad o si vence en menos de 2 días. El lote nuevo reemplaza al anterior en el
+menos de la mitad, si vence en menos de 2 días **o si alguna habilidad se agotó en su nivel actual**
+(enmienda del 2026-11-12, ver "Revisión antes del PR"). El lote nuevo reemplaza al anterior en el
 dispositivo; los tokens del anterior siguen válidos en el servidor hasta caducar (no hay estado),
 pero ya no se ofrecen.
 
@@ -299,10 +300,56 @@ Decisiones confirmadas el 2026-11-12 sobre lo que surgió al implementar:
   la app") no está disponible.
 - **Guards:** sin red, `authGuard` y `consentGuard` aceptan solo las rutas marcadas
   `data: { offline: true }` (Inicio, "¿Quién practica?" y la práctica) y solo si existe la copia
-  local de perfiles (señal de que un tutor entró con sesión y consentimiento en ese equipo y no
-  cerró sesión). Las demás rutas no se abren sin red.
+  local de perfiles **de un tutor conocido y de menos de 7 días**. En la práctica (`:id`) el perfil
+  debe estar en la copia y no estar en pausa. Las demás rutas no se abren sin red.
 - **Datos locales que se borran:** al cerrar sesión, al revocar el consentimiento, al borrar un
-  perfil y cuando el servidor responde 403 al pedir el lote.
+  perfil y cuando el servidor responde 403 al pedir el lote. Ampliado en "Revisión antes del PR".
+
+## Revisión antes del PR (2026-11-12)
+
+Hallazgos de `code-reviewer`, `security-reviewer`, `scalability-reviewer`, `privacy-cl-auditor` y
+`child-safety-ai-reviewer`, corregidos:
+
+1. **El modo sin conexión ya no se queda pegado.** `consentGuard` siempre intenta en línea si el
+   navegador cree que hay red; usa la copia local solo si la consulta falla. La consulta distingue
+   "sin consentimiento" de "no se pudo consultar" (`consentStatus`: `active`, `missing`,
+   `unknown`). `navigator.onLine` no es la única señal: la práctica y "¿Quién practica?" también
+   intentan en línea primero.
+2. **Si el dispositivo se entera con red de un bloqueo o una revocación, borra lo guardado:** 403
+   en la práctica en línea (`forget`), y consentimiento `missing` en el guard (`clear`). Una falla
+   de red (`unknown`) no borra nada.
+3. **Lo guardado queda ligado al tutor** (almacén `meta`: id del tutor y fecha). Se borra todo si
+   Supabase avisa `SIGNED_OUT` (sesión revocada o cambio de contraseña en otro equipo) o si entra
+   otro tutor. La copia de perfiles **vence a los 7 días** de la última carga con conexión. Al
+   recargar la lista se borran lote y cola de perfiles borrados o en pausa.
+4. **`/practica/:id` sin red** exige que el perfil esté en la copia y no esté en pausa.
+5. **Criterio de renovación (enmienda de la sección 3):** además de "menos de la mitad" y "vence en
+   menos de 2 días", se renueva si **alguna habilidad se agotó en su nivel actual**. Motivo: solo
+   se usan los 10 ejercicios del nivel actual de cada habilidad (de unos 30), así que agotar las 1
+   o 2 habilidades de siempre casi nunca llega a "la mitad" y quedaban agotadas hasta el día 5.
+   Además, dos aperturas seguidas comparten la misma descarga (no gastan dos del día).
+6. **La descarga se cuenta recién después de leer el progreso:** si la base falla antes, no se
+   pierde una de las 5 del día.
+7. **La generación del lote corre fuera del event loop** (`run_in_threadpool`; 14 a 35 ms de CPU).
+7b. **Purga sin red:** lo vencido se borra al iniciar la app y al volver a primer plano
+   (`visibilitychange`, sin plugins), no solo al abrir la práctica con red. Segunda pasada de
+   `privacy-cl-auditor`: con esto da la decisión 8 por aceptable para esta etapa (sigue pendiente
+   de Adolfo y de Legal).
+8. **"Cerrar sesión" se oculta sin conexión** (borraría los intentos sin enviar). Sin PIN, por
+   decisión del dueño.
+
+Mejoras menores: región de aviso siempre presente para el lector de pantalla; aviso junto a la
+tarjeta en "¿Quién practica?"; sin lote no se muestra a la vez "puedes practicar" y "hay que
+conectarse"; "Panel del tutor" avisa "Esto necesita internet"; el lote agotado sugiere elegir otro
+tema; letra más grande en el aviso (1,15 rem) y en la baldosa agotada (1 rem);
+`navigator.storage.persist()` solo en la web y desde el panel del tutor (no en la zona infantil);
+el service worker solo en la web (no en la app nativa); `signing_key` y `student_grade` en un
+módulo común.
+
+**Sigue pendiente:** escribir solo el intento (y no el lote completo, ~190 kB) en cada respuesta
+(`scalability-reviewer`, media); compresión gzip; tope por tutor; regla de bloques en tres
+lenguajes. La política de privacidad que informa el guardado local va en un cambio aparte (sube su
+versión y obliga a pedir de nuevo el consentimiento).
 - **Lote viejo sin sincronizar (aceptado hasta que exista CU-A13):** al renovar el lote con
   conexión, el nivel que se muestra vuelve al del servidor, aunque haya intentos en cola sin
   enviar. Se resuelve sincronizando antes de renovar (CU-A13).

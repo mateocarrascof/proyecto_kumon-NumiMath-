@@ -21,10 +21,15 @@
       <app-mascot [state]="mascot.state()" [message]="message" data-testid="mascot-top"></app-mascot>
     }
 
-    @if (offlineMode) {
-      <!-- CU-A12: aviso claro sin conexión y qué se puede hacer mientras tanto. -->
+    @if (offlineMode && offlineNotice !== offlineMessages.noBatch) {
+      <!-- CU-A12: aviso claro sin conexión y qué se puede hacer mientras tanto. Sin lote no se
+           muestra: diría "puedes practicar" junto a "primero hay que conectarse". -->
       <app-offline-notice [text]="offlineMessages.banner" testId="offline-banner"></app-offline-notice>
     }
+
+    <!-- Región de aviso SIEMPRE presente (vacía si no hay aviso), en la lista y en el ejercicio:
+         el lector de pantalla solo anuncia cambios de una región que ya existía. -->
+    <app-offline-notice [text]="offlineNotice"></app-offline-notice>
 
     @if (loading) {
       <ion-spinner name="dots"></ion-spinner>
@@ -47,9 +52,6 @@
         }
         <span class="topic-go" aria-hidden="true">›</span>
       </button>
-      @if (offlineNotice) {
-        <app-offline-notice [text]="offlineNotice"></app-offline-notice>
-      }
       <!-- Baldosas por eje: cada eje con su color e ícono fijos. Ninguna habilidad tiene candado. -->
       <app-skill-tiles [groups]="ownGroups" (pick)="choose($event)"></app-skill-tiles>
       @if (reviewTopics.length) {
@@ -269,10 +271,6 @@
         }
       }
 
-      @if (offlineNotice && !exercise) {
-        <!-- Excepción de la ficha: se acabaron los ejercicios guardados de este tema. -->
-        <app-offline-notice [text]="offlineNotice"></app-offline-notice>
-      }
 
       @if (tasksDone) {
         <div class="medal" role="status" data-testid="tasks-done">

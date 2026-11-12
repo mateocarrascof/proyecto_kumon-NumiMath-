@@ -683,12 +683,13 @@ firmados**. Sin internet, el niño practica con ese lote: la app corrige con la 
 |---|---|
 | Lote | Habilidades del **curso** del perfil (sin repaso); por habilidad, 10 ejercicios en el nivel actual y 10 en cada nivel vecino. Unos 240 a 300 ejercicios y 100 a 125 kB |
 | Vigencia | 7 días para responder; 14 días más de margen para sincronizar (CU-A13) |
-| Descarga | Sola, al abrir la práctica con conexión, si no hay lote, quedan menos de la mitad o vence en menos de 2 días. Máximo 5 por perfil y día (429). El lote nuevo reemplaza al anterior |
-| Sin conexión | Se detecta por `navigator.onLine` **o** porque una petición falló por red. Aviso: "Estás sin internet. Puedes practicar con los ejercicios guardados." |
+| Descarga | Sola, al abrir la práctica con conexión, si no hay lote, quedan menos de la mitad, vence en menos de 2 días o alguna habilidad se agotó en su nivel. Máximo 5 por perfil y día (429), contadas solo si se entrega el lote. Dos aperturas seguidas comparten una descarga. El lote nuevo reemplaza al anterior |
+| Sin conexión | Si el navegador cree que hay red, siempre se intenta en línea; el lote se usa solo si la petición falla por red (`navigator.onLine` no es la única señal). Aviso: "Estás sin internet. Puedes practicar con los ejercicios guardados." (no se muestra junto al aviso de "sin lote") |
 | Disponible sin conexión | Inicio, "¿Quién practica?" (copia local de apodo y curso) y la práctica de las habilidades del lote. Sin diagnóstico, repaso, racha ni explicación de Numi. "Tareas de tu tutor" y "Mi progreso" se ven, pero al tocarlos dicen "Esto necesita internet. Cuando vuelva, aquí estará." |
 | Corrección | Provisional, con la solución en hash. Correcto: "¡Correcto!" (y la forma simple de una fracción). Incorrecto: **solo "Casi."**, porque el dispositivo no conoce la solución |
 | Nivel y bloque | Se calculan en el dispositivo con la misma regla de bloques de 10, solo para mostrar estrellas y "¡Subiste de nivel!". El nivel real lo recalcula el servidor al sincronizar (CU-A13) |
-| Lote agotado (excepción de la ficha) | La baldosa dice "Ya hiciste los ejercicios guardados" y al tocarla: "Ya hiciste todos los ejercicios guardados de este tema. Para traer más hace falta conectarse a internet." |
+| Lote agotado (excepción de la ficha) | La baldosa dice "Sin ejercicios guardados" (1 rem) y al tocarla: "Ya hiciste todos los ejercicios guardados de este tema. Puedes elegir otro tema." |
+| Cerrar sesión | Se oculta sin conexión: borraría los intentos sin enviar y dejaría al niño fuera de la app |
 | Sin lote | "Para practicar sin internet, primero hay que conectarse una vez. Pide ayuda a un adulto." |
 | No se pudo guardar el intento | No se muestra resultado: "No pude guardar tu respuesta. Intenta otra vez." |
 | Vuelve la red | Al volver a la lista de temas, si el navegador cree que hay red, se intenta en línea; si responde, sale del modo sin conexión |
@@ -703,7 +704,11 @@ firmados**. Sin internet, el niño practica con ese lote: la app corrige con la 
 - `POST /v1/students/{id}/offline-batch`: mismas comprobaciones que la práctica
   (`AuthorizedStudentDep`). No usa IA. Si no puede leer el progreso, no entrega lote (503).
 - Guards sin red: solo las rutas con `data: { offline: true }` y solo si hay copia local de
-  perfiles. El servidor sigue sin caché (ADR 0001) y vuelve a comprobar todo al sincronizar.
+  perfiles de un tutor conocido, de menos de 7 días; en `/practica/:id`, el perfil debe estar en la
+  copia y no estar en pausa. El servidor sigue sin caché (ADR 0001) y vuelve a comprobar todo al
+  sincronizar.
+- `consentGuard` distingue "sin consentimiento" (borra lo guardado y va a /terminos) de "no se
+  pudo consultar" (no borra nada; solo rutas de práctica con la copia local).
 - El service worker guarda solo los archivos de la app (sin `dataGroups`): nunca respuestas de la
   API ni de Supabase.
 
@@ -711,8 +716,13 @@ firmados**. Sin internet, el niño practica con ese lote: la app corrige con la 
 IndexedDB `numimath-offline`, sin cifrar: `profiles` (apodo, curso, en pausa), `batches` (lote) y
 `queue` (intentos con la respuesta escrita del niño). Escritura con `durability: 'strict'`; el
 resultado se muestra recién cuando la transacción terminó. Se borra todo al cerrar sesión o revocar
-el consentimiento; lo de un perfil, al borrarlo o si el servidor responde 403. Ver
-`docs/privacy/inventario-datos.md`.
+el consentimiento (también si se revocó en otro equipo y el dispositivo lo detecta con red), si
+Supabase avisa que la sesión terminó (`SIGNED_OUT`) o si entra otro tutor; lo de un perfil, al
+borrarlo, si el servidor responde 403 o si al recargar la lista ya no está o está en pausa. La
+copia de perfiles vence a los 7 días. Lo vencido se purga al iniciar la app y cada vez que vuelve a
+primer plano (`visibilitychange`), sin depender de la red: deja de usarse a los 7 días y se borra la
+próxima vez que se abre la app. `navigator.storage.persist()` se pide solo en la web y desde
+el panel del tutor. Ver `docs/privacy/inventario-datos.md`.
 
 ### Decisiones confirmadas (2026-11-12)
 - Incorrecto sin conexión: **solo "Casi."**; la solución no se guarda de forma reversible.
@@ -733,14 +743,35 @@ el consentimiento; lo de un perfil, al borrarlo o si el servidor responde 403. V
 6. **Tope por tutor:** la duda queda comentada en la migración para Adolfo.
 7. **Antes de CU-A13 (aceptado):** renovar el lote con intentos en cola muestra el nivel del servidor
    (sin esos intentos). Cerrar sesión con intentos sin enviar los pierde (el aviso es parte de CU-A13).
+7b. **Escritura por respuesta:** cada respuesta reescribe el lote completo (~190 kB) para marcar un
+    ejercicio usado; escribir solo el intento queda pendiente (`scalability-reviewer`). Tampoco hay
+    gzip en la API ni regla de bloques compartida (tres lenguajes).
+7d. **Solo para que lo sepa el dueño:** al subir a `privacidad-prov-2`, el primer acceso con red pide
+    de nuevo el consentimiento (`missing`) y **borra lote y cola en todos los equipos**, incluidos
+    intentos sin enviar (CU-A13 aún no existe). La purga y el borrado por dueño o pausa se prueban
+    solo con `MemoryOfflineStore`: probar IndexedDB real requeriría una dependencia de desarrollo
+    nueva (p. ej. `fake-indexeddb`), que no se agregó.
+7c. **Política de privacidad:** el párrafo sobre el guardado local va en un cambio aparte, que sube
+    la versión de la política y obliga a pedir de nuevo el consentimiento.
 8. **Copia de perfiles cuando la base no responde:** si `list()` falla por cualquier motivo (no solo
    red) y hay copia local, se muestra la copia con el aviso de sin conexión.
 9. **Presupuestos de estilos:** `practice.page.scss` (7,95 de 8 kB) y `profiles.page.scss` siguen
    sobre el aviso de 4 kB (ya lo estaban). Los estilos nuevos van en `app-offline-notice` y en las
    baldosas.
-10. **Revisores antes del PR:** `code-reviewer`, `security-reviewer`, `scalability-reviewer`,
-    `privacy-cl-auditor` (datos nuevos en el dispositivo) y `child-safety-ai-reviewer` (UI infantil).
-    No se corrieron en este encargo.
+10. **Revisores antes del PR:** se corrieron los cinco el 2026-11-12; sus hallazgos se corrigieron
+    (ADR 0002, "Revisión antes del PR"). Lo que quedó abierto está en los puntos 1, 5, 6 y 7b.
+
+### Pendientes para CU-A13 (no implementados; anotados por la revisión de seguridad)
+- El margen de 14 días para sincronizar debe ser un parámetro de `verify` que exista **solo** con
+  `offline=True`: nunca alargar la caducidad de los tokens de práctica ni de diagnóstico.
+- El servidor toma el perfil de la ruta (`AuthorizedStudentDep`), el nivel y el tema **solo del
+  token**, e ignora `correct`, `level` y `topic` que mande el cliente. Se mantiene la regla de
+  `record_attempt`: un intento con nivel distinto al del progreso no cuenta para el bloque.
+- `answered_at` y `local_date` se acotan a `[emisión, min(caducidad, ahora)]`.
+- Cada intento va por su propio perfil (sin endpoints de lote que mezclen perfiles).
+- Al renovar el lote con intentos en cola, el progreso que se ve no debe retroceder.
+- Al entrar CU-A13, actualizar las declaraciones de Data safety (Google) y Privacy Nutrition Label
+  (Apple) por la sincronización de la cola.
 
 ### Pruebas
 - Servidor: `api/tests/test_offline_batch.py` (contenido, 10 por nivel, vigencia, hash = solución

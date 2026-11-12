@@ -1,9 +1,12 @@
 <ion-header [translucent]="true">
   <ion-toolbar color="primary">
     <ion-title>Matemáticas con Numi</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="signOut()">Cerrar sesión</ion-button>
-    </ion-buttons>
+    <!-- Sin conexión no se ofrece: borraría los intentos sin enviar (CU-A12). -->
+    @if (!offline()) {
+      <ion-buttons slot="end">
+        <ion-button (click)="signOut()" data-testid="sign-out">Cerrar sesión</ion-button>
+      </ion-buttons>
+    }
   </ion-toolbar>
 </ion-header>
 
@@ -20,10 +23,11 @@
       <ion-button expand="block" routerLink="/perfiles" data-testid="who-practices">
         <span aria-hidden="true">🎒</span>&nbsp;¿Quién practica?
       </ion-button>
-      <ion-button expand="block" color="secondary" routerLink="/panel" data-testid="tutor-panel">
+      <ion-button expand="block" color="secondary" (click)="openPanel()" data-testid="tutor-panel">
         <span aria-hidden="true">🔒</span>&nbsp;Panel del tutor
       </ion-button>
     </div>
+    <app-offline-notice [text]="offlineNotice" testId="offline-needs-internet"></app-offline-notice>
 
     <footer class="footer">
       <p class="note">Sesión de {{ auth.user()?.email }}</p>

@@ -278,6 +278,19 @@ def test_sin_progreso_no_hay_lote_falla_cerrado() -> None:
     gateway.levels_error = GatewayError("transport")
     response = _batch(_client(gateway))
     assert response.status_code == 503
+    # Hallazgo de revisión: la descarga no se cuenta si no se pudo entregar el lote.
+    assert gateway.offline_batches == {}
+
+
+def test_tras_una_falla_del_progreso_siguen_las_5_descargas_del_dia() -> None:
+    gateway = _gateway()
+    client = _client(gateway)
+    gateway.levels_error = GatewayError("transport")
+    for _ in range(3):
+        assert _batch(client).status_code == 503
+    gateway.levels_error = None
+    for _ in range(5):
+        assert _batch(client).status_code == 200
 
 
 def test_sin_clave_de_firma_503() -> None:

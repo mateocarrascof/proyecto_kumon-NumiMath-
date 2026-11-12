@@ -30,6 +30,7 @@ import {
 } from '../core/practice/practice.port';
 import { FractionValue } from '../core/math/fraction-input.component';
 import { ConnectivityService } from '../core/offline/connectivity.service';
+import { isOffline } from '../core/offline/offline-access';
 import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 import { OfflineError, OfflinePracticeService } from '../core/offline/offline-practice.service';
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
@@ -331,7 +332,9 @@ export class PracticePage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.studentId = this.route.snapshot.paramMap.get('id') ?? '';
-    if (this.connectivity.online() && this.connectivity.browserOnline()) {
+    // Si el navegador cree que hay red se intenta en línea, aunque antes haya fallado una
+    // petición: solo una falla por red lleva al lote (no basta `navigator.onLine`).
+    if (this.connectivity.browserOnline()) {
       await this.loadOnline();
     } else {
       await this.loadOffline();
@@ -357,6 +360,11 @@ export class PracticePage implements OnInit {
     } catch (error) {
       online = !this.isNetwork(error);
       if (online) this.fail(error);
+      // El servidor dice que este perfil ya no se puede usar (borrado, en pausa o sin permiso):
+      // se borra lo guardado para que no siga practicando al quedarse sin red.
+      if (error instanceof PracticeError && error.code === 'forbidden') {
+        await this.offline.forget(this.studentId);
+      }
     } finally {
       await Promise.all([daily, tasks]);
       if (online) {
@@ -412,14 +420,19 @@ export class PracticePage implements OnInit {
   }
 
   /** Pantalla con las tareas del tutor (pendientes y hechas). */
-  openTasks(): Promise<boolean> {
-    // Sin conexión las tareas no se pueden corregir (las corrige el servidor): se avisa en vez de
-    // navegar a una pantalla que no cargaría.
-    if (this.offlineMode) {
+  async openTasks(): Promise<boolean> {
+    // Las tareas las corrige el servidor. Sin red se avisa sin intentar; si el navegador cree que
+    // hay red se intenta, y si el guard no deja pasar por falta de conexión, también se avisa.
+    if (this.offlineMode && !this.connectivity.browserOnline()) {
       this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
-      return Promise.resolve(false);
+      return false;
     }
-    return this.nav.navigateForward(['/tareas', this.studentId]);
+    const opened = await this.nav.navigateForward(['/tareas', this.studentId]);
+    if (!opened && isOffline(this.connectivity)) {
+      this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+      this.cdr.markForCheck();
+    }
+    return opened;
   }
 
   async choose(topic: Topic): Promise<void> {

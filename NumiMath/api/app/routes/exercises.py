@@ -28,6 +28,7 @@ from app.exercises.levels import BLOCK_SIZE, SkillProgress
 from app.exercises.tickets import duration_since
 from app.exercises.tokens import InvalidExercise, IssuedExercise, issue, verify
 from app.logging import get_logger, log_event
+from app.routes.common import signing_key, student_grade
 from app.streaks import parse_local_day
 
 router = APIRouter(prefix="/v1/students", tags=["exercises"])
@@ -94,30 +95,9 @@ class AnswerOut(BaseModel):
     simplified_den: int | None = None
 
 
-def _key(request: Request) -> bytes:
-    key = request.app.state.settings.exercise_signing_key.get_secret_value()
-    if not key:
-        # Falla cerrado: sin clave de firma no se emiten ni se corrigen ejercicios.
-        log_event(logger, "exercise.denied", code="signing_key_missing")
-        raise ApiError(503, "service_unavailable")
-    return key.encode()
-
-
-async def _grade(request: Request, tutor_id, student_id) -> int:  # type: ignore[no-untyped-def]
-    gateway: Gateway = request.app.state.gateway
-    try:
-        grade = await gateway.get_student_grade(tutor_id, student_id)
-    except GatewayError as exc:
-        log_event(logger, "exercise.denied", stage="grade", code=f"gateway_{exc.reason}")
-        raise ApiError(503, "service_unavailable") from None
-    if grade is None:
-        raise ApiError(403, "forbidden")
-    return grade
-
-
 @router.get("/{student_id}/topics")
 async def list_topics(student: AuthorizedStudentDep, request: Request) -> list[TopicOut]:
-    grade = await _grade(request, student.tutor_id, student.student_id)
+    grade = await student_grade(request, student.tutor_id, student.student_id)
     gateway: Gateway = request.app.state.gateway
     try:
         progress = await gateway.list_skill_progress(student.tutor_id, student.student_id)
@@ -155,8 +135,8 @@ async def list_topics(student: AuthorizedStudentDep, request: Request) -> list[T
 async def create_exercise(
     body: ExerciseRequest, student: AuthorizedStudentDep, request: Request
 ) -> ExerciseOut:
-    key = _key(request)
-    grade = await _grade(request, student.tutor_id, student.student_id)
+    key = signing_key(request)
+    grade = await student_grade(request, student.tutor_id, student.student_id)
     if get_topic(grade, body.topic) is None:
         log_event(logger, "exercise.denied", stage="topic", code="topic_not_for_grade")
         raise ApiError(422, "invalid_request")
@@ -230,7 +210,7 @@ async def _block_texts(
 async def answer_exercise(
     body: AnswerRequest, student: AuthorizedStudentDep, request: Request
 ) -> AnswerOut:
-    key = _key(request)
+    key = signing_key(request)
     gateway: Gateway = request.app.state.gateway
     try:
         verified = verify(key, body.token, student.student_id)

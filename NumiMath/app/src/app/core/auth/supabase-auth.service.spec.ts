@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
+import { MemoryOfflineStore } from '../offline/memory-offline-store';
+import { OfflineStore } from '../offline/offline-store.port';
 import { SESSION_TIMEOUT_MS, SupabaseAuthService } from './supabase-auth.service';
 import { SUPABASE_CLIENT } from './supabase.client';
 
@@ -113,5 +115,60 @@ describe('SupabaseAuthService', () => {
     const s = service({ throws: true });
     expect(await s.signIn('a@b.test', 'clave-larga-1')).toEqual({ ok: false, reason: 'network' });
     expect(await s.signUp('a@b.test', 'clave-larga-1')).toEqual({ ok: false, reason: 'network' });
+  });
+});
+
+describe('SupabaseAuthService: datos sin conexión ligados al tutor (CU-A12)', () => {
+  type Listener = (event: string, session: unknown) => void;
+
+  async function withListener() {
+    let listener: Listener = () => undefined;
+    const client = {
+      auth: {
+        getSession: async () => ({ data: { session: null } }),
+        onAuthStateChange: (cb: Listener) => {
+          listener = cb;
+          return { data: { subscription: { unsubscribe: () => undefined } } };
+        },
+        signOut: async () => ({ error: null }),
+      },
+    };
+    const store = new MemoryOfflineStore();
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: SUPABASE_CLIENT, useValue: client },
+        { provide: OfflineStore, useValue: store },
+      ],
+    });
+    TestBed.inject(SupabaseAuthService);
+    const nowS = Math.floor(Date.now() / 1000);
+    await store.saveProfiles(
+      [{ id: 'p1', nickname: 'Ana', grade: 2, blocked: false }],
+      { tutorId: 'tutor-a', savedAt: nowS },
+    );
+    const emit = async (event: string, userId: string | null) => {
+      listener(event, userId ? { user: { id: userId, email: 'x@y.test' } } : null);
+      for (let i = 0; i < 5; i++) await Promise.resolve();
+    };
+    return { store, emit };
+  }
+
+  it('si la sesión termina sin "Cerrar sesión" (SIGNED_OUT), borra lo guardado', async () => {
+    const { store, emit } = await withListener();
+    await emit('SIGNED_OUT', null);
+    expect(await store.profiles()).toEqual([]);
+    expect(await store.owner()).toBeNull();
+  });
+
+  it('si entra otro tutor en el mismo equipo, borra lo del anterior', async () => {
+    const { store, emit } = await withListener();
+    await emit('SIGNED_IN', 'tutor-b');
+    expect(await store.profiles()).toEqual([]);
+  });
+
+  it('el mismo tutor (renovación del token) conserva lo guardado', async () => {
+    const { store, emit } = await withListener();
+    await emit('TOKEN_REFRESHED', 'tutor-a');
+    expect(await store.profiles()).toHaveLength(1);
   });
 });

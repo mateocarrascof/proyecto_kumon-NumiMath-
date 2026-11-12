@@ -1,13 +1,25 @@
 import { Injectable } from '@angular/core';
 
-import { CachedProfile, OfflineBatch, QueuedAttempt, SYNC_GRACE_SECONDS } from './offline.model';
+import {
+  CachedProfile,
+  OfflineBatch,
+  OfflineOwner,
+  PROFILES_TTL_SECONDS,
+  QueuedAttempt,
+  SYNC_GRACE_SECONDS,
+} from './offline.model';
 import { OfflineStore } from './offline-store.port';
 
 const DB_NAME = 'numimath-offline';
-const DB_VERSION = 1;
+// Versión 2: almacén `meta` con el dueño de la copia (tutor y fecha). Se crea solo lo que falta,
+// para no perder datos de un equipo que ya tuviera la versión 1.
+const DB_VERSION = 2;
 const BATCHES = 'batches';
 const QUEUE = 'queue';
 const PROFILES = 'profiles';
+const META = 'meta';
+const OWNER_KEY = 'owner';
+const ALL = [BATCHES, QUEUE, PROFILES, META];
 
 /**
  * IndexedDB nativo del navegador, sin librerías (ADR 0002): sirve igual en la PWA y dentro de
@@ -24,9 +36,13 @@ export class IndexedDbOfflineStore extends OfflineStore {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
         request.onupgradeneeded = () => {
           const db = request.result;
-          db.createObjectStore(BATCHES, { keyPath: 'studentId' });
-          db.createObjectStore(QUEUE, { keyPath: 'id' }).createIndex('studentId', 'studentId');
-          db.createObjectStore(PROFILES, { keyPath: 'id' });
+          const has = (name: string) => db.objectStoreNames.contains(name);
+          if (!has(BATCHES)) db.createObjectStore(BATCHES, { keyPath: 'studentId' });
+          if (!has(QUEUE)) {
+            db.createObjectStore(QUEUE, { keyPath: 'id' }).createIndex('studentId', 'studentId');
+          }
+          if (!has(PROFILES)) db.createObjectStore(PROFILES, { keyPath: 'id' });
+          if (!has(META)) db.createObjectStore(META);
         };
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
@@ -34,9 +50,6 @@ export class IndexedDbOfflineStore extends OfflineStore {
         this.db = null; // se puede reintentar más tarde
         throw error;
       });
-      // Pedir almacenamiento persistente reduce el riesgo de que el navegador borre la cola
-      // (ADR 0002, riesgos). Mejor esfuerzo: el navegador puede decir que no.
-      void navigator.storage?.persist?.().catch(() => undefined);
     }
     return this.db;
   }
@@ -98,8 +111,26 @@ export class IndexedDbOfflineStore extends OfflineStore {
     ) as Promise<CachedProfile[]>;
   }
 
-  saveProfiles(profiles: CachedProfile[]): Promise<void> {
-    return this.tx([PROFILES], 'readwrite', (tx) => {
+  owner(): Promise<OfflineOwner | null> {
+    return this.tx([META], 'readonly', async (tx) => {
+      const found = await IndexedDbOfflineStore.read(tx.objectStore(META).get(OWNER_KEY));
+      return (found as OfflineOwner | undefined) ?? null;
+    });
+  }
+
+  saveProfiles(profiles: CachedProfile[], owner: OfflineOwner): Promise<void> {
+    return this.tx(ALL, 'readwrite', async (tx) => {
+      const meta = tx.objectStore(META);
+      const previous = (await IndexedDbOfflineStore.read(meta.get(OWNER_KEY))) as
+        | OfflineOwner
+        | undefined;
+      const batches = tx.objectStore(BATCHES);
+      const queue = tx.objectStore(QUEUE);
+      // Otro tutor en el mismo equipo: no queda nada del anterior.
+      if (previous && previous.tutorId !== owner.tutorId) {
+        batches.clear();
+        queue.clear();
+      }
       const store = tx.objectStore(PROFILES);
       // La lista reemplaza a la anterior: un perfil borrado en otro equipo desaparece también aquí.
       store.clear();
@@ -107,6 +138,13 @@ export class IndexedDbOfflineStore extends OfflineStore {
       for (const p of profiles) {
         store.put({ id: p.id, nickname: p.nickname, grade: p.grade, blocked: p.blocked });
       }
+      meta.put({ tutorId: owner.tutorId, savedAt: owner.savedAt }, OWNER_KEY);
+      // Perfiles borrados o en pausa: fuera su lote y su cola.
+      const active = new Set(profiles.filter((p) => !p.blocked).map((p) => p.id));
+      const batchKeys = await IndexedDbOfflineStore.read(batches.getAllKeys());
+      for (const key of batchKeys) if (!active.has(String(key))) batches.delete(key);
+      const attempts = (await IndexedDbOfflineStore.read(queue.getAll())) as QueuedAttempt[];
+      for (const a of attempts) if (!active.has(a.studentId)) queue.delete(a.id);
     });
   }
 
@@ -121,21 +159,28 @@ export class IndexedDbOfflineStore extends OfflineStore {
   }
 
   purgeExpired(nowS: number): Promise<void> {
-    return this.tx([BATCHES, QUEUE], 'readwrite', async (tx) => {
+    return this.tx(ALL, 'readwrite', async (tx) => {
       const batches = tx.objectStore(BATCHES);
       const allBatches = (await IndexedDbOfflineStore.read(batches.getAll())) as OfflineBatch[];
       for (const b of allBatches) if (b.expiresAt <= nowS) batches.delete(b.studentId);
       const queue = tx.objectStore(QUEUE);
       const attempts = (await IndexedDbOfflineStore.read(queue.getAll())) as QueuedAttempt[];
       for (const a of attempts) if (a.expiresAt + SYNC_GRACE_SECONDS <= nowS) queue.delete(a.id);
+      const meta = tx.objectStore(META);
+      const owner = (await IndexedDbOfflineStore.read(meta.get(OWNER_KEY))) as
+        | OfflineOwner
+        | undefined;
+      // Sin dueño (copia de una versión anterior) o con más de 7 días: fuera.
+      if (!owner || owner.savedAt + PROFILES_TTL_SECONDS <= nowS) {
+        tx.objectStore(PROFILES).clear();
+        meta.delete(OWNER_KEY);
+      }
     });
   }
 
   clear(): Promise<void> {
-    return this.tx([BATCHES, QUEUE, PROFILES], 'readwrite', (tx) => {
-      tx.objectStore(BATCHES).clear();
-      tx.objectStore(QUEUE).clear();
-      tx.objectStore(PROFILES).clear();
+    return this.tx(ALL, 'readwrite', (tx) => {
+      for (const name of ALL) tx.objectStore(name).clear();
     });
   }
 }

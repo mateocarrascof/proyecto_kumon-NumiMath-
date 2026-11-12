@@ -9,7 +9,9 @@ import {
 } from '@angular/core';
 import { NavController } from '@ionic/angular/lazy';
 
+import { AuthPort } from '../core/auth/auth.port';
 import { MascotPort } from '../core/mascot/mascot.port';
+import { isOffline } from '../core/offline/offline-access';
 import { ConnectivityService } from '../core/offline/connectivity.service';
 import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 import { OfflineStore } from '../core/offline/offline-store.port';
@@ -45,6 +47,7 @@ export class ProfilesPage implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly offlineStore = inject(OfflineStore);
   private readonly connectivity = inject(ConnectivityService);
+  private readonly auth = inject(AuthPort);
 
   cards: KidCard[] = [];
   /** CU-A12: sin conexión se muestra la copia local de los perfiles (solo apodo y curso). */
@@ -108,11 +111,19 @@ export class ProfilesPage implements OnInit {
    * esa copia. Si no hay copia, se muestra el error de siempre.
    */
   private async loadProfiles(): Promise<Profile[]> {
-    if (this.connectivity.online() && this.connectivity.browserOnline()) {
+    // Se intenta en línea si el navegador cree que hay red (no basta `navigator.onLine`: la copia
+    // se usa solo si la lectura falla).
+    if (this.connectivity.browserOnline()) {
       try {
         const profiles = await this.profilesPort.list();
         this.offlineMode = false;
-        await this.offlineStore.saveProfiles(profiles).catch(() => undefined);
+        this.connectivity.reportSuccess();
+        // La copia queda ligada a este tutor y vale 7 días.
+        const tutorId = this.auth.user()?.id;
+        if (tutorId) {
+          const savedAt = Math.floor(Date.now() / 1000);
+          await this.offlineStore.saveProfiles(profiles, { tutorId, savedAt }).catch(() => undefined);
+        }
         return profiles;
       } catch {
         // Puede ser falta de red: se prueba con la copia local.
@@ -204,12 +215,19 @@ export class ProfilesPage implements OnInit {
   progress(card: KidCard, event?: Event): Promise<boolean> {
     // El botón está dentro de la tarjeta: que no abra también la práctica.
     event?.stopPropagation();
-    // Sin conexión el progreso no se puede calcular (lo hace el servidor): se avisa.
-    if (this.offlineMode) {
+    // El progreso lo calcula el servidor. Sin red se avisa sin intentar; si el navegador cree que
+    // hay red se intenta, y si el guard no deja pasar por falta de conexión, también se avisa.
+    if (this.offlineMode && !this.connectivity.browserOnline()) {
       this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
       return Promise.resolve(false);
     }
-    return this.nav.navigateForward(['/progreso', card.profile.id]);
+    return this.nav.navigateForward(['/progreso', card.profile.id]).then((opened) => {
+      if (!opened && isOffline(this.connectivity)) {
+        this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+        this.cdr.markForCheck();
+      }
+      return opened;
+    });
   }
 
   /** Racha de cada perfil. Mejor esfuerzo: si falla, la tarjeta se ve igual sin la racha. */

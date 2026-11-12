@@ -20,6 +20,7 @@ import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
 import { FractionInputComponent } from '../core/math/fraction-input.component';
 import { MathTextComponent } from '../core/math/math-text.component';
 import { GentleTimerComponent } from '../core/timer/gentle-timer.component';
+import { ConnectivityService } from '../core/offline/connectivity.service';
 import { MemoryOfflineStore } from '../core/offline/memory-offline-store';
 import { OfflineBatch } from '../core/offline/offline.model';
 import { OfflineBatchPort } from '../core/offline/offline-batch.port';
@@ -200,6 +201,53 @@ describe('PracticePage', () => {
     expect(page.error).toBe('');
     expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.noBatch);
     expect(page.loading).toBe(false);
+  });
+
+  it('si el servidor responde 403 (perfil en pausa o revocado en otro equipo), borra lo guardado sin conexión', async () => {
+    const store = new MemoryOfflineStore();
+    const nowS = Math.floor(Date.now() / 1000);
+    await store.saveProfiles(
+      [{ id: 'perfil-1', nickname: 'Ana', grade: 2, blocked: false }],
+      { tutorId: 't', savedAt: nowS },
+    );
+    await store.saveBatch({
+      studentId: 'perfil-1', salt: 's', issuedAt: nowS, expiresAt: nowS + 3600, topics: [], exercises: [],
+    });
+    TestBed.overrideProvider(OfflineStore, { useValue: store });
+    const { page } = setup({
+      topics: vi.fn(async () => {
+        throw new PracticeError('forbidden');
+      }),
+    });
+    await page.ngOnInit();
+    expect(await store.batch('perfil-1')).toBeNull();
+    expect(await store.profiles()).toEqual([]);
+  });
+
+  it('un error que no es 403 (servicio caído) no borra lo guardado', async () => {
+    const store = new MemoryOfflineStore();
+    const nowS = Math.floor(Date.now() / 1000);
+    await store.saveBatch({
+      studentId: 'perfil-1', salt: 's', issuedAt: nowS, expiresAt: nowS + 3600, topics: [], exercises: [],
+    });
+    TestBed.overrideProvider(OfflineStore, { useValue: store });
+    const { page } = setup({
+      topics: vi.fn(async () => {
+        throw new PracticeError('unavailable');
+      }),
+    });
+    await page.ngOnInit();
+    expect(await store.batch('perfil-1')).not.toBeNull();
+  });
+
+  it('si el guard no abre las tareas por falta de conexión, avisa "Esto necesita internet"', async () => {
+    const { page, nav } = setup();
+    await page.ngOnInit();
+    nav.navigateForward.mockResolvedValue(false);
+    TestBed.inject(ConnectivityService).reportNetworkFailure();
+    expect(await page.openTasks()).toBe(false);
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/tareas', 'perfil-1']);
+    expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.needsInternet);
   });
 
   it.each(['session', 'forbidden', 'network', 'unavailable', 'expired'] as const)(
@@ -1305,7 +1353,7 @@ describe('PracticePage: sin conexión (CU-A12)', () => {
     expect(TestBed.inject(MascotService).state()).not.toBe('sad');
   });
 
-  it('lote agotado: avisa que hace falta conectarse para descargar más', async () => {
+  it('lote agotado: avisa y sugiere elegir otro tema', async () => {
     const { page, fixture } = await offlineSetup(1);
     await page.choose(page.topics[0]);
     page.onAnswerInput('2');
@@ -1314,7 +1362,8 @@ describe('PracticePage: sin conexión (CU-A12)', () => {
     fixture.detectChanges();
     expect(page.exercise).toBeNull();
     expect(page.offlineNotice).toBe(OFFLINE_MESSAGES.exhausted);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('conectarse a internet');
+    // Dice qué hacer mientras tanto, sin culpa.
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Puedes elegir otro tema');
     // Al volver a la lista, la baldosa lo dice.
     page.changeTopic();
     await new Promise((r) => setTimeout(r, 0));

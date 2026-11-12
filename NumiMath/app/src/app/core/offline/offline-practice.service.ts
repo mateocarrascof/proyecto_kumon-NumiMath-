@@ -34,6 +34,8 @@ export class OfflinePracticeService {
   private readonly batches = inject(OfflineBatchPort);
   /** Cuándo se mostró cada ejercicio, para medir el tiempo (solo en memoria). */
   private readonly shownAt = new Map<string, number>();
+  /** Descarga en curso por perfil: abrir la práctica dos veces no gasta dos descargas del día. */
+  private readonly inFlight = new Map<string, Promise<void>>();
 
   /** Reloj en milisegundos (las pruebas lo cambian). */
   now: () => number = () => Date.now();
@@ -46,8 +48,22 @@ export class OfflinePracticeService {
     return !exercise.used && batch.expiresAt > this.nowS();
   }
 
+  /** ¿Quedan ejercicios usables de la habilidad en el nivel que lleva el dispositivo? */
+  private exhausted(batch: OfflineBatch, topicId: string, level: number): boolean {
+    return !batch.exercises.some(
+      (e) => e.topic === topicId && e.level === level && this.usable(batch, e),
+    );
+  }
+
+  /**
+   * Criterio de renovación (ADR 0002, enmendado): vence en menos de 2 días, quedan menos de la
+   * mitad, o ALGUNA habilidad se agotó en su nivel actual. Lo último importa porque solo se usan
+   * los 10 del nivel actual de cada habilidad: agotar las 1 o 2 de siempre casi nunca llega a "la
+   * mitad" del lote, y esas habilidades seguirían agotadas en la próxima salida sin internet.
+   */
   private needsRefresh(batch: OfflineBatch): boolean {
     if (batch.expiresAt - this.nowS() < REFRESH_BEFORE_S) return true;
+    if (batch.topics.some((t) => this.exhausted(batch, t.id, t.level))) return true;
     const left = batch.exercises.filter((e) => this.usable(batch, e)).length;
     return left * 2 < batch.exercises.length;
   }
@@ -57,7 +73,23 @@ export class OfflinePracticeService {
    * 2 días. Mejor esfuerzo: si falla, la práctica en línea sigue igual. Si el servidor dice que
    * el perfil ya no se puede usar (403), se borran sus datos del dispositivo.
    */
-  async refresh(studentId: string): Promise<void> {
+  refresh(studentId: string): Promise<void> {
+    const running = this.inFlight.get(studentId);
+    if (running) return running;
+    const work = this.doRefresh(studentId).finally(() => this.inFlight.delete(studentId));
+    this.inFlight.set(studentId, work);
+    return work;
+  }
+
+  /**
+   * El servidor dijo que el perfil ya no se puede usar (403: borrado, en pausa o sin permiso):
+   * se borra lo suyo del dispositivo para que no siga practicando al quedarse sin red.
+   */
+  forget(studentId: string): Promise<void> {
+    return this.store.forgetStudent(studentId).catch(() => undefined);
+  }
+
+  private async doRefresh(studentId: string): Promise<void> {
     await this.store.purgeExpired(this.nowS()).catch(() => undefined);
     const current = await this.store.batch(studentId).catch(() => null);
     if (current && !this.needsRefresh(current)) return;
@@ -65,7 +97,7 @@ export class OfflinePracticeService {
       await this.store.saveBatch(await this.batches.download(studentId));
     } catch (error) {
       if (error instanceof OfflineBatchError && error.code === 'forbidden') {
-        await this.store.forgetStudent(studentId).catch(() => undefined);
+        await this.forget(studentId);
       }
     }
   }
@@ -96,9 +128,7 @@ export class OfflinePracticeService {
       mastered: t.mastered,
       // Sin conexión no hay diagnóstico inicial (necesita al servidor para guardarse).
       diagnosticAvailable: false,
-      exhausted: !batch.exercises.some(
-        (e) => e.topic === t.id && e.level === t.level && this.usable(batch, e),
-      ),
+      exhausted: this.exhausted(batch, t.id, t.level),
     }));
   }
 

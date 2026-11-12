@@ -43,7 +43,9 @@ describe('authGuard sin conexión (CU-A12)', () => {
   async function runOffline(data: Record<string, unknown>, cached: boolean) {
     vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     const store = new MemoryOfflineStore();
-    if (cached) await store.saveProfiles([{ id: 'p1', nickname: 'Ana', grade: 2, blocked: false }]);
+    if (cached) {
+      await store.saveProfiles([{ id: 'p1', nickname: 'Ana', grade: 2, blocked: false }], { tutorId: 'tutor-1', savedAt: Math.floor(Date.now() / 1000) });
+    }
     TestBed.configureTestingModule({
       providers: [
         // Sin red la sesión puede no renovarse: el usuario queda en null.
@@ -52,7 +54,7 @@ describe('authGuard sin conexión (CU-A12)', () => {
         { provide: OfflineStore, useValue: store },
       ],
     });
-    return TestBed.runInInjectionContext(() => authGuard({ data } as never, {} as never));
+    return TestBed.runInInjectionContext(() => authGuard({ data, params: {} } as never, {} as never));
   }
 
   it('acepta las rutas de práctica si hay copia local de perfiles', async () => {

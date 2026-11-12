@@ -57,6 +57,9 @@ describe('RevokeConsentComponent', () => {
     expect(text).toContain('plazo');
     expect(text).toContain('constancia');
     expect(text).toContain('no reactiva');
+    // CU-A12: lo guardado sin conexión se borra cuando ese equipo se conecta.
+    expect(text).toContain('En un equipo sin internet,');
+    expect(text).toContain('ocurre al conectarse');
   });
 
   it('cancelar cierra sin llamar a la API', () => {

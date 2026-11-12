@@ -1,6 +1,8 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
+import { AuthPort } from '../core/auth/auth.port';
 import { MascotComponent } from '../core/mascot/mascot.component';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
@@ -17,6 +19,7 @@ const ANA: Profile = { id: 'p-ana', nickname: 'Ana', grade: 2, blocked: false };
 const BETO: Profile = { id: 'p-beto', nickname: 'Beto', grade: 3, blocked: true };
 const CATA: Profile = { id: 'p-cata', nickname: 'Cata', grade: 4, blocked: false };
 const DANI: Profile = { id: 'p-dani', nickname: 'Dani', grade: 1, blocked: false };
+const OWNER = { tutorId: 'tutor-1', savedAt: Math.floor(Date.now() / 1000) };
 
 function setup(
   list: () => Promise<Profile[]> = async () => [ANA, BETO],
@@ -45,6 +48,7 @@ function setup(
       { provide: ProgressPort, useValue: progress },
       { provide: NavController, useValue: nav },
       { provide: OfflineStore, useValue: store },
+      { provide: AuthPort, useValue: { user: signal({ id: 'tutor-1', email: 'a@b.test' }) } },
     ],
   });
   const fixture = TestBed.createComponent(ProfilesPage);
@@ -189,6 +193,20 @@ describe('ProfilesPage (¿Quién practica?)', () => {
   });
 
   describe('sin conexión (CU-A12)', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('si "Mi progreso" no abre por falta de conexión (falla de red), avisa junto a la tarjeta', async () => {
+      const { fixture, page, nav } = setup();
+      await render(fixture);
+      nav.navigateForward.mockResolvedValue(false);
+      TestBed.inject(ConnectivityService).reportNetworkFailure();
+      await page.progress(page.cards[0]);
+      fixture.detectChanges();
+      expect(el(fixture).querySelector('[data-testid="offline-needs-internet"]')?.textContent).toContain(
+        OFFLINE_MESSAGES.needsInternet,
+      );
+    });
+
     it('con conexión guarda una copia local con solo apodo, curso y pausa', async () => {
       const { fixture, store } = setup();
       await render(fixture);
@@ -196,13 +214,16 @@ describe('ProfilesPage (¿Quién practica?)', () => {
         { id: ANA.id, nickname: 'Ana', grade: 2, blocked: false },
         { id: BETO.id, nickname: 'Beto', grade: 3, blocked: true },
       ]);
+      // La copia queda ligada al tutor de la sesión (para borrarla si entra otro).
+      expect(store.cachedOwner?.tutorId).toBe('tutor-1');
       expect(el(fixture).querySelector('[data-testid="offline-banner"]')).toBeNull();
     });
 
     it('sin red muestra la copia local y el aviso, sin racha; "Mi progreso" avisa que necesita internet', async () => {
       const store = new MemoryOfflineStore();
-      await store.saveProfiles([ANA, BETO]);
+      await store.saveProfiles([ANA, BETO], OWNER);
       const { fixture, profiles, progress } = setup(undefined, undefined, store);
+      vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
       TestBed.inject(ConnectivityService).reportNetworkFailure();
       await render(fixture);
       const root = el(fixture);
@@ -226,7 +247,7 @@ describe('ProfilesPage (¿Quién practica?)', () => {
 
     it('si la base no responde pero hay copia local, se usa la copia', async () => {
       const store = new MemoryOfflineStore();
-      await store.saveProfiles([ANA]);
+      await store.saveProfiles([ANA], OWNER);
       const { fixture, page } = setup(async () => {
         throw new Error('profiles_unavailable');
       }, undefined, store);

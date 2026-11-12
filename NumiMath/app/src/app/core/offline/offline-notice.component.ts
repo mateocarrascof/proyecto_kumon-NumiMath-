@@ -7,9 +7,9 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 export const OFFLINE_MESSAGES = {
   banner: 'Estás sin internet. Puedes practicar con los ejercicios guardados.',
   noBatch: 'Para practicar sin internet, primero hay que conectarse una vez. Pide ayuda a un adulto.',
-  exhausted:
-    'Ya hiciste todos los ejercicios guardados de este tema. Para traer más hace falta conectarse a internet.',
-  exhaustedTile: 'Ya hiciste los ejercicios guardados',
+  // Dice qué hacer mientras tanto: elegir otro tema.
+  exhausted: 'Ya hiciste todos los ejercicios guardados de este tema. Puedes elegir otro tema.',
+  exhaustedTile: 'Sin ejercicios guardados',
   storage: 'No pude guardar tu respuesta. Intenta otra vez.',
   profiles: 'Estás sin internet. Puedes practicar con los ejercicios guardados.',
   // Tareas y "Mi progreso" los calcula el servidor (decisión 4 del ADR 0002).
@@ -18,17 +18,24 @@ export const OFFLINE_MESSAGES = {
 
 /**
  * Aviso del modo sin conexión. Componente aparte para no sumar estilos a la pantalla de práctica
- * (su hoja está al límite del presupuesto). `role="status"`: el lector de pantalla lo anuncia sin
- * interrumpir. Colores fijos con contraste alto (texto #3d2c00 sobre #fff3cd: más de 12:1).
+ * (su hoja está al límite del presupuesto). Colores fijos con contraste alto (texto #3d2c00 sobre
+ * #fff3cd: más de 12:1) y letra grande para quien está aprendiendo a leer.
+ *
+ * El propio elemento es la región `role="status"` y está SIEMPRE en la página (aunque vacío): los
+ * lectores de pantalla (VoiceOver, TalkBack) solo anuncian cambios dentro de una región que ya
+ * existía. Por eso las pantallas lo dejan puesto y cambian solo el texto.
  */
 @Component({
   selector: 'app-offline-notice',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { role: 'status', 'aria-live': 'polite' },
   template: `
-    <p class="offline-notice" role="status" [attr.data-testid]="testId">
-      <span class="icon" aria-hidden="true">📴</span>
-      <span>{{ text }}</span>
-    </p>
+    @if (text) {
+      <p class="offline-notice" [attr.data-testid]="testId">
+        <span class="icon" aria-hidden="true">📴</span>
+        <span>{{ text }}</span>
+      </p>
+    }
   `,
   styles: [
     `
@@ -43,8 +50,8 @@ export const OFFLINE_MESSAGES = {
         border: 2px solid #e0b400;
         background: #fff3cd;
         color: #3d2c00;
-        font-size: 1.05rem;
-        line-height: 1.4;
+        font-size: 1.15rem;
+        line-height: 1.45;
         text-align: left;
       }
       .icon {

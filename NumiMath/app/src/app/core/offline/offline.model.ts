@@ -70,6 +70,21 @@ export interface QueuedAttempt {
   expiresAt: number;
 }
 
+/**
+ * De quién es la copia local y cuándo se guardó (segundos). Liga los datos guardados a UN tutor:
+ * si entra otro, o la copia tiene más de 7 días, no sirve para entrar sin conexión.
+ */
+export interface OfflineOwner {
+  tutorId: string;
+  savedAt: number;
+}
+
+/**
+ * La copia de perfiles vale 7 días desde la última carga con conexión (igual que el lote). Pasado
+ * ese plazo no abre la app sin red y se borra (auditoría de privacidad, CU-A12).
+ */
+export const PROFILES_TTL_SECONDS = 7 * 24 * 3600;
+
 /** Copia local para "¿Quién practica?" sin internet: solo apodo y curso (decisión 5 del ADR). */
 export interface CachedProfile {
   id: string;

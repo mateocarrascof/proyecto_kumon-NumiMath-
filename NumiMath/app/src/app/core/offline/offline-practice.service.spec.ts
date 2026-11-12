@@ -225,9 +225,33 @@ describe('OfflinePracticeService (CU-A12)', () => {
 
     it('con un lote vigente y casi completo no descarga otro', async () => {
       const { service, store, port } = setup();
-      await store.saveBatch(await makeBatch(4));
+      const batch = await makeBatch(4);
+      batch.exercises[0].used = true;
+      await store.saveBatch(batch);
       await service.refresh(ID);
       expect(port.download).not.toHaveBeenCalled();
+    });
+
+    it('renueva si UNA habilidad se agotó en su nivel, aunque quede más de la mitad del lote', async () => {
+      const { service, store, port } = setup();
+      const batch = await makeBatch(4);
+      // Nivel 1 agotado (2 usados); quedan 2 de nivel 2 sin usar: más de la mitad no aplica.
+      batch.exercises[0].used = true;
+      batch.exercises[1].used = true;
+      batch.exercises[2].level = 2;
+      batch.exercises[3].level = 2;
+      await store.saveBatch(batch);
+      await service.refresh(ID);
+      expect(port.download).toHaveBeenCalledTimes(1);
+    });
+
+    it('dos aperturas seguidas no gastan dos descargas del día', async () => {
+      const { service, port } = setup();
+      await Promise.all([service.refresh(ID), service.refresh(ID)]);
+      expect(port.download).toHaveBeenCalledTimes(1);
+      // Terminada la primera, una nueva llamada sí puede volver a revisar.
+      await service.refresh(ID);
+      expect(port.download).toHaveBeenCalledTimes(1);
     });
 
     it('renueva si quedan menos de la mitad o vence en menos de 2 días', async () => {
@@ -252,7 +276,7 @@ describe('OfflinePracticeService (CU-A12)', () => {
       }, store);
       const old = await makeBatch(4, DAY);
       await store.saveBatch(old);
-      await store.saveProfiles([{ id: ID, nickname: 'Ana', grade: 2, blocked: false }]);
+      await store.saveProfiles([{ id: ID, nickname: 'Ana', grade: 2, blocked: false }], { tutorId: 't', savedAt: NOW_S });
       store.attempts.push({
         id: 'a1', studentId: ID, token: 't', topic: '2-06', level: 1, answer: 1, correct: true,
         answeredAt: '', localDate: '2026-11-12', durationS: null, expiresAt: old.expiresAt,

@@ -28,7 +28,7 @@ from app.errors import ApiError
 from app.exercises.diagnostic import STEPS, entry_level, level_for_step
 from app.exercises.tokens import InvalidExercise, VerifiedExercise, issue, verify
 from app.logging import get_logger, log_event
-from app.routes.exercises import _grade, _key
+from app.routes.common import signing_key, student_grade
 
 router = APIRouter(prefix="/v1/students", tags=["diagnostic"])
 logger = get_logger("mathtutor.diagnostic")
@@ -74,7 +74,7 @@ class DiagnosticOut(BaseModel):
 
 
 async def _check_topic(request: Request, tutor_id: uuid.UUID, student_id: uuid.UUID, topic: str):  # type: ignore[no-untyped-def]
-    grade = await _grade(request, tutor_id, student_id)
+    grade = await student_grade(request, tutor_id, student_id)
     if get_topic(grade, topic) is None:
         log_event(logger, "diagnostic.denied", stage="topic", code="topic_not_for_grade")
         raise ApiError(422, "invalid_request")
@@ -84,7 +84,7 @@ async def _check_topic(request: Request, tutor_id: uuid.UUID, student_id: uuid.U
 async def create_diagnostic_exercise(
     body: DiagnosticExerciseRequest, student: AuthorizedStudentDep, request: Request
 ) -> DiagnosticExerciseOut:
-    key = _key(request)
+    key = signing_key(request)
     await _check_topic(request, student.tutor_id, student.student_id, body.topic)
     gateway: Gateway = request.app.state.gateway
     # Solo antes de la primera práctica: si la habilidad ya tiene progreso, no hay diagnóstico.
@@ -126,7 +126,7 @@ def _is_correct(verified: VerifiedExercise, answer: DiagnosticAnswer) -> bool:
 async def submit_diagnostic(
     body: DiagnosticRequest, student: AuthorizedStudentDep, request: Request
 ) -> DiagnosticOut:
-    key = _key(request)
+    key = signing_key(request)
     await _check_topic(request, student.tutor_id, student.student_id, body.topic)
 
     by_step: dict[int, tuple[VerifiedExercise, DiagnosticAnswer]] = {}

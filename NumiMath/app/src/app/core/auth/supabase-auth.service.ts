@@ -103,10 +103,32 @@ export class SupabaseAuthService extends AuthPort {
         this.current.set(null);
       },
     );
-    this.client.auth.onAuthStateChange((_event, session) => {
+    this.client.auth.onAuthStateChange((event, session) => {
       if (this.recovering) return;
-      this.current.set(toUser(session));
+      const user = toUser(session);
+      this.current.set(user);
+      void this.guardOfflineData(event, user);
     });
+  }
+
+  /**
+   * CU-A12: lo guardado para practicar sin conexión pertenece a UN tutor. Se borra si la sesión
+   * terminó sin pasar por "Cerrar sesión" (sesión revocada, cambio de contraseña en otro equipo:
+   * Supabase avisa `SIGNED_OUT`) o si entra otro tutor en el mismo equipo. Una falla de red NO
+   * dispara `SIGNED_OUT` (Supabase reintenta), así que no se pierde nada por estar sin internet.
+   */
+  private async guardOfflineData(event: string, user: AuthUser | null): Promise<void> {
+    try {
+      if (event === 'SIGNED_OUT') {
+        await this.offlineStore.clear();
+        return;
+      }
+      if (!user) return;
+      const owner = await this.offlineStore.owner();
+      if (owner && owner.tutorId !== user.id) await this.offlineStore.clear();
+    } catch {
+      // Mejor esfuerzo: si el almacén falla, igual vence a los 7 días.
+    }
   }
 
   ready(): Promise<void> {

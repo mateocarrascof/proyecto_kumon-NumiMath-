@@ -6,6 +6,7 @@ import { IonicModule } from '@ionic/angular/lazy';
 
 import { roleGuard, roleGuestGuard } from '../core/auth/auth.guard';
 import { CoreModule } from '../core/core.module';
+import { TeacherEvolutionPage } from './teacher-evolution.page';
 import { TeacherHistoryPage } from './teacher-history.page';
 import { TeacherHomePage } from './teacher-home.page';
 import { TeacherLoginPage } from './teacher-login.page';
@@ -22,6 +23,11 @@ const routes: Routes = [
     path: 'alumnos/:id/historial',
     canActivate: [roleGuard('teacher')],
     component: TeacherHistoryPage,
+  },
+  {
+    path: 'alumnos/:id/evolucion',
+    canActivate: [roleGuard('teacher')],
+    component: TeacherEvolutionPage,
   },
   {
     path: 'alumnos/:id/hojas',
@@ -41,6 +47,7 @@ const routes: Routes = [
     TeacherStudentPage,
     TeacherHistoryPage,
     TeacherSheetsPage,
+    TeacherEvolutionPage,
   ],
 })
 export class TeacherModule {}

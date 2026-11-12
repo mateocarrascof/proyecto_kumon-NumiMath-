@@ -134,6 +134,14 @@ describe('TeacherStudentPage (D5)', () => {
     expect(ctx.navigateForward).toHaveBeenCalledWith('/docente/alumnos/perfil-1/historial');
   });
 
+  it('lleva a la evolución del alumno (D6)', async () => {
+    const ctx = configure({ getProgress: async () => progress });
+    const { page, el } = await render(TeacherStudentPage);
+    expect(el.querySelector('[data-testid="open-evolution"]')).not.toBeNull();
+    await page.openEvolution();
+    expect(ctx.navigateForward).toHaveBeenCalledWith('/docente/alumnos/perfil-1/evolucion');
+  });
+
   it('lleva a las hojas de cálculo del alumno (D8)', async () => {
     const ctx = configure({ getProgress: async () => progress });
     const { page, el } = await render(TeacherStudentPage);

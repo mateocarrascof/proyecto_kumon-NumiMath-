@@ -421,6 +421,28 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def update_assignment(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        assignment_id: uuid.UUID,
+        text: str,
+        answer: int,
+    ) -> str:
+        result = await self._rpc(
+            "update_assignment",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_assignment_id": str(assignment_id),
+                "p_text": text,
+                "p_answer": answer,
+            },
+        )
+        if result not in ("ok", "not_found", "answered"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def delete_assignment(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, assignment_id: uuid.UUID
     ) -> str:
@@ -917,6 +939,23 @@ class SupabaseGateway:
                     for k in result["skills"]
                 ],
             )
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None
+
+    async def teacher_student_evolution(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[tuple[date, int, int]] | None:
+        result = await self._rpc(
+            "teacher_student_evolution",
+            {"p_teacher_id": str(teacher_id), "p_student_id": str(student_id)},
+        )
+        if result is None:
+            return None
+        try:
+            return [
+                (date.fromisoformat(str(w["start"])), int(w["total"]), int(w["correct"]))
+                for w in result["weeks"]
+            ]
         except (TypeError, KeyError, ValueError):
             raise GatewayError("unexpected_result") from None
 

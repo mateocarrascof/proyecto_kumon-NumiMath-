@@ -1,0 +1,24 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button [defaultHref]="'/docente/alumnos/' + studentId" text="Progreso"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Evolución</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 40rem; margin: 0 auto">
+    @if (loading) {
+      <p role="status">Cargando…</p>
+    } @else if (error) {
+      <p class="error" role="alert" data-testid="evolution-error">{{ error }}</p>
+    } @else {
+      <p>Ejercicios y aciertos por semana, desde que el tutor te vinculó con este alumno (últimas 8 semanas).</p>
+      @if (fewExercises) {
+        <p data-testid="evolution-few">Aún hay pocos ejercicios para sacar conclusiones.</p>
+      }
+      <app-weekly-chart [data]="weeks" data-testid="evolution-chart"></app-weekly-chart>
+    }
+  </main>
+</ion-content>

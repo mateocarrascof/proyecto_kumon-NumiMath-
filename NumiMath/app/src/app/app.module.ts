@@ -13,6 +13,8 @@ import { AccountPort } from './core/account/account.port';
 import { HttpAccountService } from './core/account/http-account.service';
 import { AdminPort } from './core/admin/admin.port';
 import { HttpAdminService } from './core/admin/http-admin.service';
+import { ExportPort } from './core/export/export.port';
+import { HttpExportService } from './core/export/http-export.service';
 import { HttpHistoryService } from './core/history/http-history.service';
 import { HistoryPort } from './core/history/history.port';
 import { HttpSheetsService } from './core/sheets/http-sheets.service';
@@ -86,6 +88,7 @@ import { StreakReminderService } from './core/reminders/streak-reminder.service'
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: AccountPort, useExisting: HttpAccountService },
     { provide: AdminPort, useExisting: HttpAdminService },
+    { provide: ExportPort, useExisting: HttpExportService },
     { provide: SheetsPort, useExisting: HttpSheetsService },
     { provide: TutorSheetsPort, useExisting: HttpTutorSheetsService },
     { provide: TeacherPort, useExisting: HttpTeacherService },

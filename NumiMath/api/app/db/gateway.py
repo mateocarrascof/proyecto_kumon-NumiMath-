@@ -396,6 +396,17 @@ class Gateway(Protocol):
         """Crea una tarea ya filtrada. `ok`, `student_not_found` o `limit` (20 pendientes)."""
         ...
 
+    async def update_assignment(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        assignment_id: uuid.UUID,
+        text: str,
+        answer: int,
+    ) -> str:
+        """T8: corrige una tarea PENDIENTE ya filtrada. `ok`, `not_found` o `answered`."""
+        ...
+
     async def delete_assignment(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, assignment_id: uuid.UUID
     ) -> str:
@@ -569,6 +580,12 @@ class Gateway(Protocol):
         self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
     ) -> HistoryPage | None:
         """Historial desde `accepted_at` del vínculo, o `None` si no puede ver a ese niño."""
+        ...
+
+    async def teacher_student_evolution(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[tuple[date, int, int]] | None:
+        """D6: (inicio de semana, ejercicios, aciertos) de 8 semanas; `None` sin acceso."""
         ...
 
     async def save_student_sheet(

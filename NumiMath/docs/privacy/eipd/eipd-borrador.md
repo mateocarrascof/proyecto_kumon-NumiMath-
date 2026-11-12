@@ -13,7 +13,7 @@
 - **Qué es la app:** una tutora de matemáticas con mascota para niños de 6 a 10 años. Los niños **no tienen cuenta**: solo los adultos (tutor, docente y administrador) tienen cuenta. El tutor crea perfiles con **apodo y curso**; si lo decide, vincula a un docente, que pasa a ser un **tercero que ve datos del niño** (apodo, curso, progreso, historial y las hojas del papel que el niño guarda).
 - **Por qué esta evaluación:** se tratan datos de **menores de 14 años** y una **IA** adapta la dificultad. Eso la hace una evaluación recomendada (la obligatoriedad la confirma un abogado).
 - **Lo que ya está resuelto técnicamente:** del niño se guarda apodo y curso, más sus intentos de práctica, su progreso y (más adelante, solo con docente vinculado) las hojas del papel; sin consentimiento vigente no se puede crear ni usar un perfil; el consentimiento se puede retirar y bloquea los perfiles; un perfil se puede bloquear por separado; se guarda evidencia mínima y seudonimizada; hay plazos configurables, purgas programadas y alertas; todo está cubierto por 316 pruebas automáticas y una prueba de concurrencia.
-- **Lo que falta:** los plazos legales de conservación, los acuerdos con proveedores (Supabase, IA, hosting), la región donde viven los datos, el filtro de la IA y los endpoints de FastAPI (aún no existen), la exportación de datos (portabilidad) y la validación legal.
+- **Lo que falta:** los plazos legales de conservación, los acuerdos con proveedores (Supabase, IA, hosting), la región donde viven los datos, el filtro de la IA y los endpoints de FastAPI (aún no existen), la exportación completa de datos (portabilidad; hoy parcial, T22) y la validación legal.
 - **Riesgo residual global (evaluación preliminar):** **medio**, hasta que se cierren los pendientes de la sección 8. Con los pendientes cerrados se estima **bajo a medio**.
 
 ---
@@ -206,7 +206,7 @@ Plazos de referencia a verificar con el texto vigente: respuesta en 30 días cor
 | **Rectificación** | Puede corregir apodo y curso, **también con el perfil bloqueado**. | — |
 | **Supresión** | Borra un perfil o la cuenta; el borrado de cuenta sigue el orden del ADR 0001. Se archiva solo evidencia mínima. | Plazos de la evidencia y de los backups sin definir; borrado selectivo de evidencia no implementado (solo por vencimiento). |
 | **Oposición / bloqueo** | La revocación bloquea **todos** los perfiles del tutor, y un perfil se puede bloquear por separado (`tutor_request` o `arcop_claim`) vía servidor tras el control parental. Los bloqueados por reclamo no se purgan automáticamente. | Falta el endpoint y definir cuánto puede durar un bloqueo por reclamo (plazo de bloqueo temporal en 2 días hábiles: verificar). |
-| **Portabilidad** | — | **No implementada** (exportación JSON/CSV a cargo de FastAPI). |
+| **Portabilidad** | — | **Parcial: CSV de práctica (T22)**: estadísticas e historial de práctica (hasta 5 000 filas recientes), sin diagnóstico, juegos, tareas, hojas ni consentimientos; alcance y formato pendientes con Legal. |
 | **Decisiones automatizadas** | La adaptación de dificultad no excluye ni sanciona. | Explicación e intervención humana: a definir (art. 8 bis, verificar). |
 
 ## 7. Consulta y aprobación
@@ -249,7 +249,7 @@ Plazos de referencia a verificar con el texto vigente: respuesta en 30 días cor
 - Región de Supabase y del hosting (ADR pendiente); proveedor de IA y su configuración de no retención.
 - Custodia y rotación de la clave HMAC.
 - Apodo: lista cerrada o texto libre con validación.
-- Exportación de datos (portabilidad).
+- Exportación completa de datos (portabilidad; hoy parcial: CSV de práctica, T22).
 - Función única `authorize_student_use` y códigos de error propios.
 - Trabajos programados (FastAPI o `pg_cron`) y purga por lotes.
 - Nivel de aislamiento `READ COMMITTED` fijado en el pool de FastAPI.

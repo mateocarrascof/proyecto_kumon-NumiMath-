@@ -21,6 +21,8 @@ import { HistoryPort } from '../core/history/history.port';
 import { StudentHistoryComponent } from './student-history.component';
 import { TutorSheetsPort } from '../core/sheets/tutor-sheets.port';
 import { StudentSheetsComponent } from './student-sheets.component';
+import { StudentExportComponent } from './student-export.component';
+import { ExportPort } from '../core/export/export.port';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
 const REPORT: Report = {
@@ -70,6 +72,9 @@ function setup(
     create: vi.fn(async () => {
       tasks = [...tasks, task('nueva')];
     }),
+    update: vi.fn(async (_s: string, id: string, text: string, answer: number) => {
+      tasks = tasks.map((t) => (t.id === id ? { ...t, text, answer } : t));
+    }),
     remove: vi.fn(async (_s: string, id: string) => {
       tasks = tasks.filter((t) => t.id !== id);
     }),
@@ -87,6 +92,7 @@ function setup(
       TeacherLinksComponent,
       StudentHistoryComponent,
       StudentSheetsComponent,
+      StudentExportComponent,
     ],
     imports: [IonicModule.forRoot(), StreakReminderToggleComponent],
     providers: [
@@ -94,6 +100,7 @@ function setup(
       { provide: ReportPort, useValue: reports },
       { provide: ProfilesPort, useValue: profiles },
       { provide: ParentalPort, useValue: parental },
+      { provide: ExportPort, useValue: { downloadCsv: vi.fn(async () => ({ ok: true })) } },
       { provide: AccountPort, useValue: { delete: vi.fn(async () => 'ok') } },
       { provide: ConsentRevocationPort, useValue: { revoke: vi.fn() } },
       { provide: AuthPort, useValue: { signOut: vi.fn(async () => undefined) } },
@@ -177,6 +184,68 @@ describe('TutorPanelPage', () => {
     await page.remove(page.tasks[0]);
     expect(assignments.remove).toHaveBeenCalledWith('perfil-1', 'a');
     expect(page.tasks.map((t) => t.id)).toEqual(['b']);
+  });
+
+  describe('editar una tarea pendiente (T8)', () => {
+    it('solo las pendientes se pueden editar', async () => {
+      const { page } = setup({ tasks: [task('a'), task('b', 'correct')] });
+      await page.ngOnInit();
+      page.startEdit(page.tasks[1]);
+      expect(page.editing).toBeNull();
+      page.startEdit(page.tasks[0]);
+      expect(page.editing?.id).toBe('a');
+      expect(page.editText).toBe('a + 1 = ?');
+    });
+
+    it('verifica el PIN antes de guardar y luego recarga las tareas', async () => {
+      const { page, assignments, parental } = setup({ tasks: [task('a')] });
+      await page.ngOnInit();
+      page.startEdit(page.tasks[0]);
+      page.editText = '3 + 3 = ?';
+      page.editAnswer = '6';
+      page.editPin = '1234';
+      await page.saveEdit();
+      expect(parental.verify).toHaveBeenCalledWith('1234');
+      expect(assignments.update).toHaveBeenCalledWith('perfil-1', 'a', '3 + 3 = ?', 6);
+      expect(parental.verify.mock.invocationCallOrder[0]).toBeLessThan(
+        assignments.update.mock.invocationCallOrder[0],
+      );
+      expect(page.editing).toBeNull();
+      expect(page.tasks[0].text).toBe('3 + 3 = ?');
+    });
+
+    it('sin 4 dígitos de PIN no se guarda', async () => {
+      const { page, assignments } = setup({ tasks: [task('a')] });
+      await page.ngOnInit();
+      page.startEdit(page.tasks[0]);
+      page.editPin = '12';
+      expect(page.canSaveEdit).toBe(false);
+      await page.saveEdit();
+      expect(assignments.update).not.toHaveBeenCalled();
+    });
+
+    it('con un PIN incorrecto no guarda nada y lo dice', async () => {
+      const { page, assignments, parental } = setup({ tasks: [task('a')] });
+      parental.verify.mockRejectedValueOnce(new PinError('wrong', 2));
+      await page.ngOnInit();
+      page.startEdit(page.tasks[0]);
+      page.editPin = '0000';
+      await page.saveEdit();
+      expect(assignments.update).not.toHaveBeenCalled();
+      expect(page.editError).not.toBe('');
+      expect(page.editPin).toBe('');
+    });
+
+    it('si la tarea ya fue respondida lo dice y no se cierra', async () => {
+      const { page, assignments } = setup({ tasks: [task('a')] });
+      assignments.update.mockRejectedValueOnce(new TutorError('already_answered'));
+      await page.ngOnInit();
+      page.startEdit(page.tasks[0]);
+      page.editPin = '1234';
+      await page.saveEdit();
+      expect(page.editError).toContain('ya fue respondida');
+      expect(page.editing).not.toBeNull();
+    });
   });
 
   it('si el informe falla, las tareas siguen disponibles', async () => {

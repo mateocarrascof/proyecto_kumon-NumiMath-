@@ -6,7 +6,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -66,6 +66,11 @@ class Gw:
             False,
         )
     )
+    evolution: list[tuple[Any, int, int]] = field(
+        default_factory=lambda: [
+            (date(2026, 10, 5) + timedelta(days=7 * i), i, i // 2) for i in range(8)
+        ]
+    )
     fail: set[str] = field(default_factory=set)
     calls: list[tuple[str, Any]] = field(default_factory=list)
 
@@ -89,6 +94,12 @@ class Gw:
     ) -> TeacherProgress | None:
         self._maybe("progress")
         return self.progress if student_id == STUDENT else None
+
+    async def teacher_student_evolution(
+        self, teacher_id: uuid.UUID, student_id: uuid.UUID
+    ) -> list[tuple[Any, int, int]] | None:
+        self._maybe("evolution")
+        return self.evolution if student_id == STUDENT else None
 
     async def teacher_student_history(
         self, teacher_id: uuid.UUID, student_id: uuid.UUID, offset: int, limit: int
@@ -122,6 +133,7 @@ READS = [
     "/v1/teacher/students",
     f"/v1/teacher/students/{STUDENT}/progress",
     f"/v1/teacher/students/{STUDENT}/history",
+    f"/v1/teacher/students/{STUDENT}/evolution",
 ]
 
 
@@ -247,14 +259,14 @@ def test_un_tutor_o_admin_no_lee_por_las_rutas_del_docente(
     gw = Gw()
     headers = {"Authorization": f"Bearer {_hs256(sub=str(TUTOR), **claims)}"}
     assert _client(gw).get(path, headers=headers).status_code == 403
-    assert not any(c[0] in {"students", "progress", "history"} for c in gw.calls)
+    assert not any(c[0] in {"students", "progress", "history", "evolution"} for c in gw.calls)
 
 
 @pytest.mark.parametrize("path", READS)
 def test_un_docente_eliminado_con_token_vigente_no_lee_nada(path: str) -> None:
     gw = Gw(profile=None)
     assert _client(gw).get(path, headers=_t()).status_code == 403
-    assert not any(c[0] in {"students", "progress", "history"} for c in gw.calls)
+    assert not any(c[0] in {"students", "progress", "history", "evolution"} for c in gw.calls)
 
 
 @pytest.mark.parametrize("path", READS)
@@ -271,7 +283,7 @@ def test_el_docente_solo_lee(path: str, method: str) -> None:
 
 @pytest.mark.parametrize("path", READS)
 def test_con_la_base_caida_responde_503(path: str) -> None:
-    gw = Gw(fail={"students", "progress", "history"})
+    gw = Gw(fail={"students", "progress", "history", "evolution"})
     assert _client(gw).get(path, headers=_t()).status_code == 503
 
 
@@ -281,6 +293,22 @@ def test_ni_apodos_ni_ids_de_alumnos_llegan_a_los_logs(caplog: pytest.LogCapture
     for path in READS:
         client.get(path, headers=_t())
     assert "Ana" not in caplog.text and str(STUDENT) not in caplog.text
+
+
+def test_el_docente_ve_la_evolucion_semana_a_semana_solo_con_totales() -> None:
+    response = _client(Gw()).get(f"/v1/teacher/students/{STUDENT}/evolution", headers=_t())
+    assert response.status_code == 200
+    weeks = response.json()["weeks"]
+    assert len(weeks) == 8 and set(weeks[0]) == {"start", "total", "correct"}
+    assert weeks[7] == {"start": "2026-11-23", "total": 7, "correct": 3}
+
+
+def test_evolucion_sin_acceso_da_el_mismo_404_que_un_nino_inexistente() -> None:
+    client = _client(Gw())
+    a = client.get(f"/v1/teacher/students/{UNKNOWN}/evolution", headers=_t())
+    b = client.get(f"/v1/teacher/students/{uuid.uuid4()}/evolution", headers=_t())
+    assert a.status_code == b.status_code == 404
+    assert a.json()["error"]["message"] == b.json()["error"]["message"]
 
 
 # ------------------------------------------------------------------ T5 (tutor)

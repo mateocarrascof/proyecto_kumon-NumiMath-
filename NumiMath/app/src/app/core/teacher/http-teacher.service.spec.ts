@@ -149,6 +149,17 @@ describe('HttpTeacherService', () => {
     });
   });
 
+  it('pide la evolución con GET y el token del docente (D6)', async () => {
+    const { service, http } = setup();
+    const result = service.getEvolution('s1');
+    await tick();
+    const req = http.expectOne(`${environment.apiUrl}/v1/teacher/students/s1/evolution`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-docente');
+    req.flush({ weeks: [{ start: '2026-10-05', total: 3, correct: 2 }] });
+    expect(await result).toEqual({ ok: true, weeks: [{ start: '2026-10-05', total: 3, correct: 2 }] });
+  });
+
   it.each([
     [404, 'not_found'],
     [503, 'error'],

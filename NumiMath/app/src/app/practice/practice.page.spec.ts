@@ -1428,3 +1428,45 @@ describe('PracticePage: sin conexión (CU-A12)', () => {
     expect(ctx.page.offlineMode).toBe(false);
   });
 });
+
+describe('PracticePage: botón "Jugar" (CU-A21)', () => {
+  async function withTopics(topics: unknown[]) {
+    const ctx = setup({ topics: vi.fn(async () => topics) } as never);
+    await ctx.page.ngOnInit();
+    ctx.fixture.detectChanges();
+    return ctx;
+  }
+
+  it('aparece en 1° básico y abre los juegos del perfil', async () => {
+    const { fixture, nav } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
+    const card = query(fixture, '[data-testid="games-card"]') as HTMLElement;
+    expect(card?.textContent).toContain('Jugar');
+    card.click();
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1']);
+  });
+
+  it('aparece en 2° (el repaso de 1° no cambia el curso)', async () => {
+    const { fixture } = await withTopics([
+      { ...TOPIC, grade: 2, review: false },
+      { ...TOPIC, id: 'r', grade: 1, review: true },
+    ]);
+    expect(query(fixture, '[data-testid="games-card"]')).not.toBeNull();
+  });
+
+  it('no aparece en 3° ni 4°', async () => {
+    const { fixture } = await withTopics([{ ...TOPIC, grade: 3, review: false }]);
+    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+  });
+
+  it('si no se puede deducir el curso, no aparece', async () => {
+    const { fixture } = await withTopics([{ ...TOPIC }]);
+    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+  });
+
+  it('sin conexión no aparece (los juegos necesitan internet)', async () => {
+    const { fixture, page } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
+    expect(query(fixture, '[data-testid="games-card"]')).not.toBeNull();
+    page.offlineMode = true;
+    expect(page.canPlay).toBe(false);
+  });
+});

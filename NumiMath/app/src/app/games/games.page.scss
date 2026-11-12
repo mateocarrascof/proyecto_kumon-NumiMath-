@@ -1,0 +1,103 @@
+// CU-A21: pantalla de juegos, pensada para 360 px de ancho.
+.games {
+  max-width: 520px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 12px 0;
+}
+
+.prompt {
+  font-size: 1.35rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.glyphs {
+  display: block;
+  font-size: 1.8rem;
+  letter-spacing: 2px;
+  margin-top: 6px;
+}
+
+.round,
+.axis {
+  font-size: 1rem;
+  color: #2d3748;
+  margin: 4px 0;
+}
+
+.choices {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.big {
+  width: 100%;
+  min-height: 60px; // objetivo táctil grande
+  padding: 10px 14px;
+  border-radius: 16px;
+  border: 3px solid #1a56db;
+  background: #fff;
+  color: #1a202c;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.big.primary {
+  background: #1a56db;
+  color: #fff;
+  margin-top: 16px;
+}
+
+.big:focus-visible,
+.link:focus-visible {
+  outline: 4px solid #1a56db;
+  outline-offset: 3px;
+}
+
+.link {
+  background: none;
+  border: 0;
+  font: inherit;
+  color: #1a56db;
+  min-height: 44px;
+  text-decoration: underline;
+}
+
+.actions {
+  display: grid;
+  gap: 12px;
+}
+
+.result,
+.medal {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-top: 16px;
+}
+
+.notice p {
+  background: #fff3cd;
+  color: #3d2c00;
+  border: 2px solid #e0b400;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 1.1rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

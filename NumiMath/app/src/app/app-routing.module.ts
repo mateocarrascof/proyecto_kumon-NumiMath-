@@ -49,6 +49,12 @@ const routes: Routes = [
     loadChildren: () => import('./practice/practice.module').then((m) => m.PracticePageModule),
   },
   {
+    // CU-A21: juegos de refuerzo (1° y 2°). SIN `offline: true`: los juegos necesitan internet.
+    path: 'juegos/:id',
+    canActivate: [authGuard, consentGuard],
+    loadChildren: () => import('./games/games.module').then((m) => m.GamesPageModule),
+  },
+  {
     path: 'progreso/:id',
     canActivate: [authGuard, consentGuard],
     loadChildren: () => import('./progress/progress.module').then((m) => m.ProgressPageModule),

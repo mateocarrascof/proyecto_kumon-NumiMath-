@@ -572,3 +572,45 @@ Se hace en el **Panel del tutor** (sección "Revocar mi consentimiento"). Ruta: 
 
 ### Pruebas
 `supabase/tests/database/consent_revocation.test.sql` (constancia, bloqueo, datos intactos, plazo, idempotencia, aislamiento entre tutores, solo `service_role`), `api/tests/test_consent_revocation.py` (PIN, constancia, fallos honestos, logs sin datos personales) y `api/tests/test_integration_consent_revocation.py` (cuenta real: antes funciona, después 403 en todo, los datos siguen y otro tutor no se ve afectado), más las pruebas de la app (`revoke-consent.component.spec.ts`, `http-consent-revocation.service.spec.ts`, `terms.page.spec.ts`).
+
+## Diagnóstico inicial (CU-A2)
+
+Ficha CU-A2 de los Anexos ("Realizar diagnóstico inicial", RF-04, extiende CU-A1). Decidido el 2026-11-12. Migración: `supabase/migrations/20261112100000_diagnostic_attempts.sql`.
+
+### Qué es
+Prueba corta y **opcional** que estima el nivel de entrada de una habilidad antes de la primera práctica. Se ofrece solo si la habilidad **no tiene intentos** (ni de práctica ni de diagnóstico). Si el niño no la hace o la abandona, parte en el nivel 1 y el motor de bloques de 10 sube o baja el nivel como siempre.
+
+### Reglas
+| Situación | Resultado |
+|---|---|
+| Prueba | Siempre 6 ejercicios: 2 de nivel 1, 2 de nivel 2 y 2 de nivel 3, en ese orden. No se corta aunque falle |
+| Nivel de entrada | El nivel **más alto** en que acertó los 2 ejercicios; mínimo 1, tope 3. No se suma uno (acierta los niveles 1 y 2 y falla el 3 → nivel 2) |
+| Dominio | El diagnóstico nunca deja la habilidad "dominada" |
+| Termina | Se guardan los 6 intentos (`activity = 'diagnostic'`) y el nivel de entrada con el bloque vacío; la práctica (CU-A1) sigue en ese nivel. Ya no se vuelve a ofrecer |
+| Abandona (cambiar de tema, salir, falla de red o prueba vencida) | **No se guarda nada**: la habilidad queda en nivel 1 y la prueba se puede volver a ofrecer |
+| La habilidad ya tenía intentos al enviar | 409 `diagnostic_not_available`; la app sigue directo con la práctica |
+
+Los intentos de diagnóstico **no cuentan** para el bloque de 10, las medallas, el gráfico y el informe del tutor, el progreso ni la racha de días (`list_attempts` y `list_recent_exercises` leen solo `activity = 'practice'`; el diagnóstico no pasa por `record_attempt`).
+
+### Seguridad
+- Los ejercicios los genera el mismo código determinista que la práctica. El nivel de cada paso lo fija el **servidor** (`step // 2 + 1`); el cliente solo dice qué paso pide.
+- El token va firmado con un **dominio propio** (`diagnostic-token|`) y lleva el paso: un token de práctica no sirve en el diagnóstico ni al revés. Caduca a los 10 minutos.
+- Las 6 respuestas se envían **juntas al final** (`POST /v1/students/{id}/diagnostic`). El servidor exige los pasos 0 a 5, cada uno una vez, todos de la misma habilidad y con su nivel, y corrige (fracciones equivalentes valen). `save_diagnostic` (solo `service_role`) guarda todo en una transacción, con el perfil bloqueado (`for update`) para que dos envíos no guarden dos diagnósticos.
+- Mismas comprobaciones que la práctica (JWT, perfil del tutor, no bloqueado, consentimiento). No usa IA.
+
+### UI y tono
+- Oferta: "¿Hacemos una prueba corta?" y "Son 6 ejercicios para empezar en tu nivel. No importa si te equivocas.", con "Sí, probar" y "No, empezar a practicar".
+- Durante la prueba: "Prueba corta: N de 6" (`aria-live`), la misma tarjeta, la misma casilla y el mismo papel para calcular. **No se dice si cada respuesta estaba bien** y no hay explicación de Numi, medallas ni marcador.
+- Al final: "¡Listo! Empiezas en el nivel N" con las estrellas y "Empezar a practicar". Si no se pudo guardar: "Esta vez la prueba no se pudo guardar. Empiezas en el nivel 1." (Numi no se pone triste).
+
+### Pendientes (no implementados; revisar)
+1. **Caducidad.** Cada token vence a los 10 minutos y se comprueba al enviar las 6 respuestas. Si el niño tarda más de 10 minutos desde el primer ejercicio, la prueba no se guarda y parte en nivel 1.
+2. **Enunciados repetidos.** Dentro del diagnóstico, los 2 ejercicios de un mismo nivel pueden salir con el mismo enunciado: el servidor no guarda estado entre pedidos.
+3. **Regla literal.** Con la regla tal cual, fallar el nivel 1 y acertar 2 de 2 en el nivel 3 da nivel de entrada 3. Confirmar si es lo deseado.
+4. **Racha de días.** El diagnóstico **no** suma a la racha (comentario inline en la migración, para revisarlo).
+5. **Oferta.** `GET /topics` (`diagnostic_available`) usa la fila de `student_skill_progress` como señal de "sin intentos". `save_diagnostic` vuelve a comprobar los intentos exactos al guardar.
+6. **Roles de cuenta.** Las reglas del encargo dicen que el administrador crea las cuentas de docente. CLAUDE.md dice "solo el tutor tiene cuenta" y el borrador del profesor (más arriba) dice registro con dominio del colegio. Hay que resolverlo antes del perfil docente.
+7. **Presupuesto de estilos.** `practice.page.scss` quedó en 7,95 kB de 8 kB (límite de error del build). El próximo estilo de esa pantalla no cabrá.
+
+### Pruebas
+`supabase/tests/database/diagnostic.test.sql`, `api/tests/test_diagnostic.py`, `api/tests/test_supabase_gateway.py` (filtro `activity` y `save_diagnostic`), `http-practice.service.spec.ts` y `practice.page.spec.ts`.

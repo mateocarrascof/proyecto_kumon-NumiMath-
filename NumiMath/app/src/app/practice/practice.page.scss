@@ -399,3 +399,24 @@ ion-button.dim { opacity: 0.6; }
 @media (prefers-reduced-motion: reduce) {
   .topic-icon, .medal-icon, .star.on, .result, .medal { animation: none; transition: none; }
 }
+
+/* Diagnóstico (CU-A2): texto grande y botones de 56 px. */
+.diag-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto 12px;
+  padding: 20px 16px;
+  max-width: 480px;
+  border-radius: var(--kid-radius);
+  background: #fff;
+  color: #2b2d42;
+  border: 3px solid var(--ion-color-tertiary, #6e4bd8);
+  text-align: center;
+  font-size: 1.15rem;
+  p, h2 { margin: 0; }
+}
+.diag-title { font-size: 1.5rem; font-weight: 900; }
+.diag-stars { font-size: 2rem; color: #b07800; }
+.diag-btn { min-height: 56px; font-size: 1.15rem; }
+.diag-progress { display: block; width: fit-content; margin: 0 auto 12px; }

@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { AuthPort } from '../auth/auth.port';
 import {
   AnswerResult,
+  DiagnosticAnswer,
   Exercise,
   Level,
   PracticeError,
@@ -24,6 +25,7 @@ interface TopicDto {
   block_done?: number;
   block_size?: number;
   mastered?: boolean;
+  diagnostic_available?: boolean;
 }
 
 interface ExerciseDto {
@@ -111,6 +113,7 @@ export class HttpPracticeService extends PracticePort {
         blockDone: count(t.block_done) ?? 0,
         blockSize: count(t.block_size) ?? 10,
         mastered: t.mastered === true,
+        diagnosticAvailable: t.diagnostic_available === true,
       }));
     });
   }
@@ -160,6 +163,48 @@ export class HttpPracticeService extends PracticePort {
         result.simplified = { num: dto.simplified_num, den: dto.simplified_den };
       }
       return result;
+    });
+  }
+
+  diagnosticExercise(studentId: string, topic: string, step: number): Promise<Exercise> {
+    return this.call(async (headers) => {
+      const dto = await firstValueFrom(
+        this.http.post<ExerciseDto>(
+          this.url(studentId, '/diagnostic/exercises'),
+          { topic, step },
+          { headers },
+        ),
+      );
+      return {
+        token: dto.token,
+        topic: dto.topic,
+        text: dto.text,
+        level: toLevel(dto.level),
+        expiresIn: dto.expires_in,
+        answerKind: dto.answer_kind === 'fraction' ? 'fraction' : 'integer',
+      };
+    });
+  }
+
+  submitDiagnostic(
+    studentId: string,
+    topic: string,
+    answers: DiagnosticAnswer[],
+  ): Promise<Level> {
+    return this.call(async (headers) => {
+      // Sin fecha local: el diagnóstico no suma a la racha de días.
+      const body = {
+        topic,
+        answers: answers.map((a) => ({
+          token: a.token,
+          answer: a.answer,
+          ...(a.answerDen === undefined ? {} : { answer_den: a.answerDen }),
+        })),
+      };
+      const dto = await firstValueFrom(
+        this.http.post<{ level?: number }>(this.url(studentId, '/diagnostic'), body, { headers }),
+      );
+      return toLevel(dto.level);
     });
   }
 }

@@ -51,6 +51,8 @@ class TopicOut(BaseModel):
     block_done: int
     block_size: int = BLOCK_SIZE
     mastered: bool
+    # CU-A2: la habilidad aún no tiene progreso, así que se puede ofrecer el diagnóstico inicial.
+    diagnostic_available: bool = False
 
 
 class ExerciseRequest(BaseModel):
@@ -116,7 +118,16 @@ async def _grade(request: Request, tutor_id, student_id) -> int:  # type: ignore
 @router.get("/{student_id}/topics")
 async def list_topics(student: AuthorizedStudentDep, request: Request) -> list[TopicOut]:
     grade = await _grade(request, student.tutor_id, student.student_id)
-    progress = await _progress(request, student.tutor_id, student.student_id)
+    gateway: Gateway = request.app.state.gateway
+    try:
+        progress = await gateway.list_skill_progress(student.tutor_id, student.student_id)
+        progress_read = True
+    except GatewayError as exc:
+        # Mejor esfuerzo: todo en nivel 1, pero SIN ofrecer el diagnóstico (no se sabe si la
+        # habilidad ya tiene intentos).
+        log_event(logger, "exercise.level_fallback", code=f"gateway_{exc.reason}")
+        progress = {}
+        progress_read = False
     out: list[TopicOut] = []
     for t in topics_for_grade(grade):
         if t.id not in GENERATORS:
@@ -132,6 +143,9 @@ async def list_topics(student: AuthorizedStudentDep, request: Request) -> list[T
                 level=p.level,
                 block_done=p.block_total,
                 mastered=p.mastered,
+                # Toda práctica o diagnóstico crea la fila de progreso: sin fila no hay intentos.
+                # La base lo vuelve a comprobar al guardar (save_diagnostic).
+                diagnostic_available=progress_read and t.id not in progress,
             )
         )
     return out

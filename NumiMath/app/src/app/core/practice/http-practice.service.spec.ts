@@ -103,6 +103,7 @@ describe('HttpPracticeService', () => {
         blockDone: 3,
         blockSize: 10,
         mastered: false,
+        diagnosticAvailable: false,
       },
     ]);
   });
@@ -203,5 +204,90 @@ describe('HttpPracticeService', () => {
     const { service, http } = setup(null);
     await expect(service.topics('perfil-1')).rejects.toBeInstanceOf(PracticeError);
     http.expectNone(`${BASE}/topics`);
+  });
+});
+
+describe('HttpPracticeService: diagnóstico inicial (CU-A2)', () => {
+  afterEach(() => TestBed.inject(HttpTestingController).verify());
+
+  it('lee si la habilidad ofrece el diagnóstico', async () => {
+    const { service, http } = setup();
+    const result = service.topics('perfil-1');
+    await tick();
+    http.expectOne(`${BASE}/topics`).flush([
+      { id: '1-06', label: 'Sumas', diagnostic_available: true },
+      { id: '1-07', label: 'Restas' },
+    ]);
+    const [nueva, practicada] = await result;
+    expect(nueva.diagnosticAvailable).toBe(true);
+    expect(practicada.diagnosticAvailable).toBe(false);
+  });
+
+  it('pide el ejercicio de un paso con el JWT del tutor', async () => {
+    const { service, http } = setup();
+    const result = service.diagnosticExercise('perfil-1', '1-06', 3);
+    await tick();
+    const req = http.expectOne(`${BASE}/diagnostic/exercises`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('Authorization')).toBe('Bearer jwt-del-tutor');
+    expect(req.request.body).toEqual({ topic: '1-06', step: 3 });
+    req.flush({
+      token: 't',
+      topic: '1-06',
+      text: '4 + 5 = ?',
+      level: 2,
+      step: 3,
+      steps: 6,
+      expires_in: 600,
+    });
+    expect(await result).toEqual({
+      token: 't',
+      topic: '1-06',
+      text: '4 + 5 = ?',
+      level: 2,
+      expiresIn: 600,
+      answerKind: 'integer',
+    });
+  });
+
+  it('envía las 6 respuestas juntas, sin fecha local (no suma a la racha)', async () => {
+    const { service, http } = setup();
+    const answers = [
+      { token: 'a', answer: 3 },
+      { token: 'b', answer: 3, answerDen: 5 },
+    ];
+    const result = service.submitDiagnostic('perfil-1', '1-06', answers);
+    await tick();
+    const req = http.expectOne(`${BASE}/diagnostic`);
+    expect(req.request.body).toEqual({
+      topic: '1-06',
+      answers: [
+        { token: 'a', answer: 3 },
+        { token: 'b', answer: 3, answer_den: 5 },
+      ],
+    });
+    expect('local_date' in req.request.body).toBe(false);
+    req.flush({ level: 2 });
+    expect(await result).toBe(2);
+  });
+
+  it('un 409 (ya no disponible) se traduce como ya respondido', async () => {
+    const { service, http } = setup();
+    const result = service.submitDiagnostic('perfil-1', '1-06', []);
+    await tick();
+    http
+      .expectOne(`${BASE}/diagnostic`)
+      .flush({ error: { code: 'diagnostic_not_available' } }, { status: 409, statusText: 'Conflict' });
+    await expect(result).rejects.toEqual(new PracticeError('already_answered'));
+  });
+
+  it('una prueba vencida se traduce como vencida', async () => {
+    const { service, http } = setup();
+    const result = service.submitDiagnostic('perfil-1', '1-06', []);
+    await tick();
+    http
+      .expectOne(`${BASE}/diagnostic`)
+      .flush({ error: { code: 'exercise_invalid' } }, { status: 422, statusText: 'Unprocessable' });
+    await expect(result).rejects.toEqual(new PracticeError('expired'));
   });
 });

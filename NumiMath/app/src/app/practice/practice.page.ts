@@ -179,15 +179,15 @@ export const DIAGNOSTIC_MESSAGES = {
   done: '¡Listo!',
   fallback: 'Esta vez la prueba no se pudo guardar. Empiezas en el nivel 1.',
   // Rechazar es definitivo (decisión del dueño): antes se confirma, con calma.
-  declineTitle: '¿Seguro que no quieres la prueba?',
-  declineDetail:
-    'Si dices que no, esta prueba no aparecerá otra vez en este tema y no podrás hacerla después. ' +
-    'Igual puedes practicar todo lo que quieras.',
-  declineConfirm: 'Sí, no quiero la prueba',
+  // Sin doble negación y sin la palabra "prueba" en el error (revisión child-safety).
+  declineTitle: '¿Practicar sin la prueba?',
+  declineDetail: 'Si dices que no, no podrás hacer esta prueba después. Igual puedes practicar todo lo que quieras.',
+  declineWait: 'Léelo con calma. En un momento puedes elegir.',
+  declineConfirm: 'No quiero la prueba',
   declineBack: 'Volver',
   declineReady: 'Ya puedes elegir.',
-  declineError: 'No pudimos guardarlo. Prueba de nuevo.',
-  declineRetry: 'Reintentar',
+  declineError: 'No pudimos guardarlo. Inténtalo de nuevo.',
+  declineRetry: 'Intentar otra vez',
   declinePracticeAnyway: 'Empezar a practicar igual',
 } as const;
 
@@ -512,7 +512,8 @@ export class PracticePage implements OnInit {
    * juego (la lista se pide una vez, al entrar al primer tema; si falla, no se muestra).
    */
   get topicGames(): GameInfo[] {
-    if (!this.topic || !this.canPlay || !this.gamesBySkill) return [];
+    // Nunca durante la prueba corta ni su oferta: tocarlo la abandonaría sin aviso.
+    if (!this.topic || this.diag || !this.canPlay || !this.gamesBySkill) return [];
     return this.gamesBySkill.get(this.topic.id) ?? [];
   }
 
@@ -587,6 +588,7 @@ export class PracticePage implements OnInit {
     this.clearDeclineTimer();
     this.declineStep = 'confirm';
     this.declineReady = false;
+    this.message = ''; // Numi no sigue invitando a la prueba mientras se confirma
     this.declineTimer = setTimeout(() => {
       this.declineTimer = null;
       this.declineReady = true; // la región viva anuncia "Ya puedes elegir."
@@ -600,38 +602,56 @@ export class PracticePage implements OnInit {
     this.clearDeclineTimer();
     this.declineStep = null;
     this.declineReady = false;
+    this.message = DIAGNOSTIC_MESSAGES.offer;
     this.focusDiagnosticTitle();
   }
 
   /** Confirmado: se guarda en el servidor. Solo si quedó guardado se da por hecho. */
   async confirmDecline(): Promise<void> {
-    if (!this.topic || this.declineBusy) return;
-    if (this.declineStep === 'confirm' && !this.declineReady) return;
+    const topic = this.topic;
+    if (!topic || this.declineBusy || this.diag !== 'offer') return;
+    // Solo desde la confirmación ya disponible o desde el error (reintentar).
+    const allowed = this.declineStep === 'error' || (this.declineStep === 'confirm' && this.declineReady);
+    if (!allowed) return;
     this.declineBusy = true;
+    this.cdr.markForCheck(); // "Volver" y "Empezar a practicar igual" se desactivan ya
     let saved = false;
     try {
-      await this.practice.declineDiagnostic(this.studentId, this.topic.id);
+      await this.practice.declineDiagnostic(this.studentId, topic.id);
       saved = true;
+      // Guardado: el tema deja de ofrecer el test ya en la app (sin esperar a recargar los temas).
+      this.markDeclined(topic.id);
     } catch {
       // Sin culpa y sin darlo por hecho: reintentar o practicar igual (se ofrecerá más tarde).
+      // El foco va al título del error (el botón tocado desaparece); también si falla otra vez.
       this.declineStep = 'error';
+      this.message = '';
+      this.focusDiagnosticTitle();
     } finally {
       this.declineBusy = false;
       this.cdr.markForCheck();
     }
-    if (saved) await this.startPracticeAnyway();
+    // Si mientras tanto cambió la pantalla (otro tema), no se toca lo que el niño ve ahora.
+    if (saved && this.topic?.id === topic.id && this.diag === 'offer') await this.startPracticeAnyway();
+  }
+
+  private markDeclined(topicId: string): void {
+    const off = (t: Topic) => (t.id === topicId ? { ...t, diagnosticAvailable: false } : t);
+    this.topics = this.topics.map(off);
+    if (this.topic) this.topic = off(this.topic);
   }
 
   /** Empieza a practicar en el nivel 1, como siempre (si el rechazo no se guardó, el test se
    * vuelve a ofrecer más tarde). */
   async startPracticeAnyway(): Promise<void> {
+    if (this.declineBusy) return;
     this.resetDiagnostic();
     await this.next();
   }
 
   /** Texto de la región viva de la confirmación. */
   get declineStatus(): string {
-    if (this.declineStep === 'error') return DIAGNOSTIC_MESSAGES.declineError;
+    // El error no va aquí: lo lee el foco en su título (sin repetirlo).
     return this.declineStep === 'confirm' && this.declineReady ? DIAGNOSTIC_MESSAGES.declineReady : '';
   }
 

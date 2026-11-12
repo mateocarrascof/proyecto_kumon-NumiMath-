@@ -1409,7 +1409,9 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     const q = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement;
-    expect(q('diag-decline-detail').textContent).toContain('no podrás hacerla después');
+    expect(q('diag-decline-detail').textContent).toContain('no podrás hacer esta prueba después');
+    expect(q('diag-decline-wait').textContent).toContain('Léelo con calma');
+    expect(page.message).toBe(''); // Numi no sigue invitando a la prueba
     const confirm = () => (q('diag-decline-confirm') as unknown as { disabled: boolean }).disabled;
     expect(confirm()).toBe(true);
     expect(q('diag-decline-status').getAttribute('aria-live')).toBe('polite');
@@ -1418,7 +1420,43 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     fixture.detectChanges();
     expect(confirm()).toBe(false);
     expect(q('diag-decline-status').textContent?.trim()).toBe('Ya puedes elegir.');
+    expect(q('diag-decline-wait')).toBeNull();
     expect(el.querySelector('[data-testid="diag-offer"]')!.textContent).not.toMatch(/\d/); // sin cuenta atrás
+  });
+
+  it('mientras se guarda el rechazo no se puede volver; guardado, el tema ya no ofrece el test', async () => {
+    let finish!: () => void;
+    const declineDiagnostic = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const { page, fixture } = diagSetup({ declineDiagnostic });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.askDecline();
+    page.declineReady = true; // sin depender del temporizador (la espera se prueba aparte)
+    const saving = page.confirmDecline();
+    fixture.detectChanges();
+    const back = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="diag-decline-back"]') as unknown as { disabled: boolean };
+    expect(back.disabled).toBe(true);
+    await page.confirmDecline(); // un segundo toque no envía otra vez
+    expect(declineDiagnostic).toHaveBeenCalledTimes(1);
+    finish();
+    await saving;
+    expect(page.diag).toBeNull();
+    expect(page.topics.find((t) => t.id === NEW_SKILL.id)?.diagnosticAvailable).toBe(false);
+  });
+
+  it('si el niño cambió de tema mientras se guardaba, no se le cambia la pantalla', async () => {
+    let finish!: () => void;
+    const declineDiagnostic = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const { page } = diagSetup({ declineDiagnostic });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.askDecline();
+    page.declineReady = true; // sin depender del temporizador (la espera se prueba aparte)
+    const saving = page.confirmDecline();
+    page.topic = { ...NEW_SKILL, id: 'otro' };
+    finish();
+    await saving;
+    expect(page.topic.id).toBe('otro');
   });
 
   it('"Volver" regresa a la oferta sin rechazar', async () => {
@@ -1444,7 +1482,7 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     await wait(5);
     await page.confirmDecline();
     expect(page.declineStep).toBe('error');
-    expect(page.declineStatus).toBe('No pudimos guardarlo. Prueba de nuevo.');
+    expect(page.declineStatus).toBe(''); // el error lo lee el foco en su título, sin repetirlo
     expect(page.diag).toBe('offer');
     await page.confirmDecline(); // reintentar
     expect(declineDiagnostic).toHaveBeenCalledTimes(2);
@@ -1793,6 +1831,13 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
       expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
         queryParams: { tema: '1-03' },
       });
+    });
+
+    it('no aparece durante la prueba corta (tocarlo la abandonaría)', async () => {
+      const { page, fixture } = await inTopic('1-13', 1);
+      page.diag = 'running';
+      fixture.detectChanges();
+      expect(page.topicGames).toEqual([]);
     });
 
     it('un tema sin juego no lo muestra', async () => {

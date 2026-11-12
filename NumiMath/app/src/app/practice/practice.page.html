@@ -89,15 +89,19 @@
           <!-- Rechazar es definitivo: se confirma. El botón espera unos segundos, sin cuenta atrás. -->
           <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.declineTitle }}</h2>
           <p class="diag-detail" data-testid="diag-decline-detail">{{ diagMessages.declineDetail }}</p>
+          @if (!declineReady) {
+            <!-- Pista visible, sin cuenta atrás: por qué el botón aún no responde. -->
+            <p class="diag-detail" data-testid="diag-decline-wait">{{ diagMessages.declineWait }}</p>
+          }
           <ion-button expand="block" class="diag-btn" fill="outline" [disabled]="!declineReady || declineBusy"
             (click)="confirmDecline()" data-testid="diag-decline-confirm">{{ diagMessages.declineConfirm }}</ion-button>
-          <ion-button expand="block" class="diag-btn" (click)="cancelDecline()"
+          <ion-button expand="block" class="diag-btn" [disabled]="declineBusy" (click)="cancelDecline()"
             data-testid="diag-decline-back">{{ diagMessages.declineBack }}</ion-button>
         } @else {
           <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.declineError }}</h2>
           <ion-button expand="block" class="diag-btn" [disabled]="declineBusy" (click)="confirmDecline()"
             data-testid="diag-decline-retry">{{ diagMessages.declineRetry }}</ion-button>
-          <ion-button expand="block" class="diag-btn" fill="outline" (click)="startPracticeAnyway()"
+          <ion-button expand="block" class="diag-btn" fill="outline" [disabled]="declineBusy" (click)="startPracticeAnyway()"
             data-testid="diag-practice-anyway">{{ diagMessages.declinePracticeAnyway }}</ion-button>
         }
         <!-- Región viva siempre presente: anuncia cuando ya se puede confirmar (o el error). -->

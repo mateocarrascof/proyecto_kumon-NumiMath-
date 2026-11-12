@@ -1427,4 +1427,28 @@ tiendas. Corregidos en `fix(cu-a21)`:
 ### Pendientes
 1. **Pregunta legal:** ¿el rechazo entra en la exportación de datos (ARCOP)? Ver
    `docs/privacy/pendientes-legales.md`, pregunta 23. No implementado.
+2. **Bajos de la revisión (no implementados):** "Ya puedes elegir." no es exacto ("Volver" siempre
+   se podía usar); el texto de la confirmación sigue algo largo para 1°; sin indicador de "guardando";
+   `ListDto` no declara `skill` (llega porque se copia todo) y `GameInfo.skill` es opcional; las
+   pruebas de la espera usan temporizadores reales y `declineWaitMs` es público para pruebas; el log
+   de rechazos ilegibles reusa `stage="progress"`; `list_topics` lee los rechazos aunque el progreso
+   haya fallado; revisar a 360 px "Empezar a practicar igual"; el número 23 de pendientes legales
+   choca con otra pregunta 23.
+3. **Decisión del dueño (vigente):** el rechazo es irreversible también para el tutor. La revisión
+   child-safety sugiere permitir reactivarlo tras el PIN; si se decide, se podrían quitar la espera
+   y el "no podrás hacerla después".
+
+### Revisión (`code-reviewer` y `child-safety-ai-reviewer`)
+Sin bloqueantes de tiendas. Corregidos en `fix(diagnostico)`:
+- **Alto:** mientras se guarda el rechazo, "Volver" y "Empezar a practicar igual" se desactivan; la
+  confirmación solo se envía desde la confirmación ya disponible o desde el error, una sola vez; si
+  el niño cambió de tema mientras se guardaba, no se le cambia la pantalla.
+- Guardado el rechazo, el tema deja de ofrecer el test en la app sin esperar a recargar los temas.
+- "Aprender jugando" no aparece durante la prueba corta ni su oferta (tocarlo la abandonaba).
+- Textos sin doble negación ni la palabra "prueba" en el error: "¿Practicar sin la prueba?", "No
+  quiero la prueba", "No pudimos guardarlo. Inténtalo de nuevo." e "Intentar otra vez".
+- Numi deja de invitar a la prueba durante la confirmación y el error; pista visible sin cuenta
+  atrás mientras el botón espera ("Léelo con calma. En un momento puedes elegir.").
+- El foco va al título del error (sin repetirlo en la región viva).
+- Pruebas de la API con el estado exacto (403 y 422) y que no se guarda nada.
 

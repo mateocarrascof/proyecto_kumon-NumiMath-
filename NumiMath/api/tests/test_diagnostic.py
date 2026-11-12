@@ -443,8 +443,14 @@ def test_sin_poder_leer_los_rechazos_no_se_ofrece_el_test() -> None:
 
 
 def test_otro_tutor_no_rechaza_por_un_perfil_ajeno() -> None:
-    assert _decline(_client(_gateway()), sub=OTRO_TUTOR).status_code in (403, 404)
+    gateway = _gateway()
+    response = _decline(_client(gateway), sub=OTRO_TUTOR)
+    assert response.status_code == 403
+    assert gateway.declines == {}  # y no se guardó nada
 
 
 def test_un_tema_que_no_es_del_curso_no_se_rechaza() -> None:
-    assert _decline(_client(_gateway()), topic="4-01").status_code in (403, 404, 422)
+    gateway = _gateway()
+    response = _decline(_client(gateway), topic="4-01")
+    assert response.status_code == 422
+    assert gateway.declines == {}

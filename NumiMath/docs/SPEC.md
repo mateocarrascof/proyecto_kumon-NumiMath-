@@ -394,92 +394,74 @@ mucho rato). En el panel: una tarjeta con el tiempo típico general y "⏱ 35 s"
 de 3 intentos con tiempo en un tema se muestra "—".
 
 
-## Perfil del profesor (BORRADOR, pendiente de aprobación)
+## Docentes y administradores
 
-Entrevista del 2026-10-27. Nada de esto está implementado. Cambia dos reglas de base:
-1. Hoy "solo el tutor tiene cuenta". Pasa a ser: **solo adultos tienen cuenta** (tutor o profesor);
-   el alumno sigue sin credenciales. Hay que actualizar CLAUDE.md.
-2. Hoy el papel para calcular no se guarda nunca. Pasa a guardarse una imagen **solo si el alumno
-   está en un curso**. Sin curso, todo sigue igual que hoy.
+Decidido el 2026-11-12 (reemplaza el borrador anterior de "Perfil del profesor", que hablaba de
+cursos, dominios de colegios y fotos de hojas). Todo entra al MVP. Los roles y la base de datos
+están implementados; el resto se construye en el orden de abajo.
 
-### Cuenta del profesor
-- Registro con email en Supabase Auth, eligiendo "Soy profesor". Solo se aceptan emails de
-  **dominios de colegios en una lista permitida** (tabla `teacher_email_domains`, la edita solo un
-  administrador vía service_role). Email verificado obligatorio.
-- Un rol por cuenta: `tutors` o `teachers`. Una persona que es tutor y profesor usa dos emails.
-- Términos y privacidad propios del profesor, con el mismo registro de consentimiento (versión y
-  fecha-hora UTC).
+### Reglas de base
+- **Solo adultos tienen cuenta**: tutor, docente y administrador. El niño nunca (ver `CLAUDE.md`).
+- El rol está en `app_metadata.role` de Supabase Auth (`teacher` o `admin`). Solo lo escribe el
+  servidor; el usuario no puede cambiarlo. Quien no lo tiene es tutor. El administrador es solo ese
+  rol (sin tabla propia).
+- Un docente o administrador **no es tutor**: el alta no le crea fila en `tutors` (y si el rol llega
+  después, se retira esa fila; si ya tenía datos de niños, falla). Las rutas del tutor rechazan
+  tokens de docente o administrador (403); cada rol tiene su dependencia en FastAPI.
+- El docente **no se registra solo**: lo crea el administrador.
 
-### Curso y vínculo
-- El profesor crea un curso (nombre del curso, p. ej. "3°B", y nivel 1° a 4°). Recibe un código
-  corto (6 caracteres, sin letras ambiguas), que puede regenerar.
-- El tutor, **detrás de la puerta parental**, ingresa el código en el perfil del niño, ve el nombre
-  del curso y del profesor, y acepta compartir. Se guarda ese consentimiento (tutor, alumno, curso,
-  versión del texto, fecha-hora UTC).
-- **Un alumno, un curso.** Para cambiar: desvincular e ingresar otro código.
-- El tutor puede desvincular cuando quiera. Al desvincular, el profesor deja de ver todo al
-  instante y las hojas de ese alumno se borran.
-- El profesor ve del alumno solo **apodo y curso** (lo mismo que ya existe). Puede sacar a un
-  alumno de su curso.
+### Autorización = el vínculo
+- **No hay casillas de compartir.** La autorización es el **vínculo** docente–alumno (`teacher_links`)
+  que el tutor crea al ingresar el código del docente y **confirmar un aviso que muestra el nombre del
+  docente** (T25). Queda `accepted_at` (UTC), la versión de los términos aceptada (`terms_version_id`) y el nombre del docente que se mostró (`teacher_name`). Solo se puede crear con consentimiento vigente.
+- El código de vínculo (8 caracteres, sin letras ambiguas, único e inmutable) **solo identifica al
+  docente**; no da acceso por sí solo, y hay límite de intentos.
+- Un docente ve a un niño **solo si** hay vínculo activo, el consentimiento del tutor no está
+  revocado, el perfil no está bloqueado y el rol del docente sigue verificado. Toda lectura pasa por
+  `teacher_can_view`; los docentes no tienen `select` directo sobre tablas de niños.
+- El docente ve **solo apodo, curso, progreso e historial** de esos niños. Nunca la identidad ni el
+  correo del tutor. En el historial **no ve el texto de las tareas que escribió el tutor** (solo "tarea
+  del tutor" y si acertó), ve la fecha sin hora y no ve los segundos de respuesta.
+- El tutor puede quitar el vínculo cuando quiera (T26) y el acceso se corta al instante.
+- **Revocar el consentimiento borra todos los vínculos** del tutor; volver a consentir no los
+  restaura (hay que vincular de nuevo). Eliminar la cuenta del tutor o un perfil los borra en cascada.
+- Los términos y la política nuevos (con la cláusula del docente como tercero) se aceptan al vincular
+  por primera vez, no al registrarse.
+- Borrar un docente no toca datos de niños. Sin contraseñas, correos ni contenido en logs.
 
-### Qué ve el profesor
-- **Por alumno:** ejercicios hechos, % de aciertos por tema, nivel por tema, tiempo típico por
-  tema, racha, y la lista de intentos (fecha, tema, enunciado, respuesta, correcto, tiempo) con la
-  **foto de la hoja** de cada uno.
-- **Por curso:** no pedido en esta etapa.
-- Solo datos desde que el alumno se vinculó al curso, no su historial anterior.
+### Hojas guardadas ("Guardar el papel")
+- Por defecto el papel para calcular no se guarda. Se guarda **solo si el niño tiene un docente
+  vinculado activo** y pulsa "Guardar el papel"; el docente la ve por ese mismo vínculo. No hay casilla
+  aparte de hojas.
+- El tutor puede verlas y borrarlas. Se eliminan al quitar el vínculo, al revocar el consentimiento y
+  al borrar el perfil o la cuenta. No llegan a la IA.
+- Justificación: `docs/privacy/hojas-guardadas-justificacion.md`. **Pendiente de implementar**.
 
-### Foto de la hoja
-- Se envía en **todos los ejercicios** respondidos mientras el alumno está en un curso, **solo si
-  dibujó algo** en el papel.
-- La imagen se genera en el dispositivo desde los trazos (hoja blanca + cuadrícula, recortada a la
-  zona dibujada, WebP o PNG, tope de tamaño). Sin metadatos.
-- Se sube por FastAPI, que comprueba alumno ↔ tutor ↔ curso, y la guarda en un bucket privado de
-  Supabase Storage. El profesor la ve con URL firmada de corta duración.
-- **Retención: 30 días**, borrado automático (cron). Las estadísticas quedan sin la imagen.
-- **No llega a la IA**, no se analiza ni se hace OCR.
-- **Aviso al niño:** con curso, el papel muestra "👀 Tu profe verá esta hoja" en lenguaje simple.
+### Casos de uso y orden de construcción
+1. **Base y roles** (hecho): migración, trigger, `roleGuard`, dependencias por rol, pruebas de RLS.
+2. **AD1** entrada del administrador en `/admin/login`; **AD2** crear docente (`POST /v1/admin/teachers`
+   crea el usuario con la llave de servicio, genera el código y devuelve correo, contraseña y código
+   una sola vez; correo repetido responde 409 sin crear nada).
+3. **D2** entrada del docente; **D3** ver mi código.
+4. **T24–T26** el tutor vincula por código con confirmación del nombre y límite de intentos, ve y quita
+   vínculos (incluye términos y política nuevos). *(T24 ya no es un interruptor: es el aviso previo.)*
+5. **T5** historial del hijo (paginado); **D4** alumnos vinculados; **D5** progreso por habilidad;
+   **D7** historial.
+6. **T8** editar tareas asignadas; **T22** exportar CSV (neutralizando celdas que empiecen con `=`,
+   `+`, `-`, `@`, tab o CR); **D6** evolución.
+7. **AD3** listar docentes (alfabético; estado vacío ofrece crear el primero); **AD4** editar nombre y
+   correo (rechaza correo ya usado; el código no cambia); **AD5** eliminar con confirmación.
+8. **T27 y D8** hojas guardadas.
 
-### Quién ve las hojas
-- Decisión: **solo el profesor** ve las hojas en la app.
-- ⚠️ Pendiente legal: el tutor, como representante del niño, tiene derecho de acceso y supresión
-  (Ley 21.719, ARCOP). Propuesta mínima: el tutor no las ve en el día a día, pero desde la zona de
-  tutor puede "Descargar las hojas de mi hijo/a" y "Borrar todas las hojas". Confirmar.
-
-### Tareas del profesor
-- Igual que "Tareas de tu tutor" (enunciado + respuesta, filtrados por FastAPI), asignadas a todo
-  el curso o a alumnos elegidos. El niño las ve como "Tareas de tu profe".
-
-### Comentarios del profesor
-- Nota corta (máx. 200 caracteres) sobre un intento/hoja. Filtrada por FastAPI igual que las tareas
-  (datos personales, groserías, fuera de matemáticas). El niño la ve en "Mis tareas". Sin
-  respuestas del niño (no es un chat).
-
-### Seguridad y datos
-- Tablas nuevas (`teachers`, `teacher_email_domains`, `courses`, `course_enrollments`,
-  `enrollment_consents`, `sheet_snapshots`, `teacher_assignments`, `teacher_comments`) con RLS:
-  el profesor solo ve alumnos con vínculo activo en sus cursos; el tutor solo lo suyo. Tests pgTAP
-  de que otro profesor y otro tutor no leen ni escriben.
-- Políticas de Storage por curso/alumno, y tests de que otro profesor no obtiene la imagen.
-- Actualizar `docs/privacy/inventario-datos.md` (imagen de la hoja = dato nuevo del niño, datos del
-  profesor), la EIPD y los textos legales del tutor y del profesor.
+### Datos y privacidad
+- Tablas: `teachers` (nombre hasta 60, código, fecha; el correo solo en Auth) y `teacher_links`
+  (docente, perfil, tutor, `accepted_at`, `terms_version_id`, `teacher_name`). RLS: el tutor lee y borra sus vínculos; el
+  docente lee los suyos; solo el servidor inserta. Pruebas pgTAP de que otro tutor y otro docente no
+  leen ni escriben.
+- El docente es un **tercero** (Ley 21.719): inventario de datos, EIPD y textos legales lo reflejan
+  (`docs/privacy/`).
 - Revisores antes del PR: `privacy-cl-auditor`, `child-safety-ai-reviewer`, `security-reviewer`,
   `code-reviewer`, `scalability-reviewer`.
-
-### Lotes propuestos
-1. Cuenta del profesor + dominios permitidos + consentimiento del profesor.
-2. Cursos, código y vínculo con consentimiento del tutor; desvincular.
-3. Estadísticas por alumno para el profesor (reusa progreso, niveles y tiempos).
-4. Foto de la hoja: generación, subida, Storage, aviso al niño, retención 30 días.
-5. Tareas del profesor.
-6. Comentarios del profesor.
-
-### Preguntas abiertas
-- Acceso del tutor a las hojas (ver arriba).
-- ¿Quién llena la lista de dominios de colegios al inicio?
-- ¿El profesor puede ver o descargar datos de alumnos que salieron del curso? (Propuesta: no.)
-- Los colegios podrían querer actuar como responsables del tratamiento: puede requerir un acuerdo
-  con cada colegio. Revisar con asesoría legal.
 
 ## Catálogo curricular: decisiones sobre el mapa (2026-10-27)
 

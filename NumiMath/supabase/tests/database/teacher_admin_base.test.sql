@@ -1,5 +1,5 @@
 begin;
-select plan(31);
+select plan(34);
 update public.legal_document_versions set is_current = false; -- neutraliza la semilla (supabase/seed.sql)
 
 -- Base de docentes y administradores. Tutores A=...01 y B=...02; docentes X=...11 e Y=...12;
@@ -64,34 +64,49 @@ select throws_ok($$insert into public.teachers (id, name, link_code)
 select throws_ok($$update public.teachers set link_code = 'QRST2345'
   where id = 'dd000000-0000-0000-0000-000000000011'$$, '42501', null, 'el código es inmutable');
 
--- Sin vínculo ni autorización, el docente no ve al alumno.
+-- Sin vínculo, el docente no ve al alumno.
 select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001'),
   false, 'sin vínculo no hay acceso');
 
-insert into public.teacher_links (teacher_id, student_id, tutor_id) values
-  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001', 'dd000000-0000-0000-0000-000000000001');
-select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id) values
-  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000001')$$,
+select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001', 'dd000000-0000-0000-0000-000000000001', 'Docente X')$$,
+  '23502', null, 'el vínculo exige la versión de los términos aceptada');
+select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001', 'dd000000-0000-0000-0000-000000000001', 'ffffffff-0000-0000-0000-000000000000', 'Docente X')$$,
+  '23503', null, 'la versión de los términos debe existir en legal_document_versions');
+insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001', 'dd000000-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'Docente X');
+select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'Docente X')$$,
   '23503', null, 'no se puede vincular un alumno de otro tutor');
+select is((select terms_version_id::text from public.teacher_links where teacher_id = 'dd000000-0000-0000-0000-000000000011' and student_id = 'b1000000-0000-0000-0000-000000000001') || ' ' ||
+  ((select accepted_at from public.teacher_links where teacher_id = 'dd000000-0000-0000-0000-000000000011' and student_id = 'b1000000-0000-0000-0000-000000000001') is not null)::text || ' ' ||
+  (select teacher_name from public.teacher_links where teacher_id = 'dd000000-0000-0000-0000-000000000011' and student_id = 'b1000000-0000-0000-0000-000000000001'),
+  '11111111-0000-0000-0000-000000000001 true Docente X',
+  'el vínculo guarda la versión de los términos, la fecha de aceptación y el nombre del docente que se mostró');
 select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001'),
-  false, 'vínculo sin autorización activa: sin acceso');
-
-insert into public.tutor_sharing (tutor_id, teacher_view, terms_version)
-values ('dd000000-0000-0000-0000-000000000001', true, 'tos-2');
-select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001'),
-  true, 'vínculo + consentimiento + autorización + perfil activo: acceso');
+  true, 'vínculo activo + consentimiento vigente + perfil activo + rol verificado: acceso');
 select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000012', 'b1000000-0000-0000-0000-000000000001'),
   false, 'otro docente no ve al alumno');
-select is((select count(*)::int from public.tutor_sharing_events
-  where tutor_id = 'dd000000-0000-0000-0000-000000000001' and setting = 'teacher_view' and enabled and terms_version = 'tos-2'),
-  1, 'activar la vista docente deja un evento con la versión');
-update public.tutor_sharing set teacher_view = false where tutor_id = 'dd000000-0000-0000-0000-000000000001';
+
+-- El rol se verifica: si a la cuenta se le quita el rol de docente, el acceso se corta al instante.
+reset role;
+update auth.users set raw_app_meta_data = '{}' where id = 'dd000000-0000-0000-0000-000000000011';
+set local role service_role;
 select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001'),
-  false, 'apagar la casilla corta el acceso al instante');
-select is((select count(*)::int from public.tutor_sharing_events
-  where tutor_id = 'dd000000-0000-0000-0000-000000000001' and not enabled), 1, 'apagarla deja otro evento');
-select throws_ok($$update public.tutor_sharing_events set enabled = true$$, '42501', null, 'los eventos no se editan');
-update public.tutor_sharing set teacher_view = true where tutor_id = 'dd000000-0000-0000-0000-000000000001';
+  false, 'sin rol de docente verificado no hay acceso');
+reset role;
+update auth.users set raw_app_meta_data = '{"role":"teacher"}' where id = 'dd000000-0000-0000-0000-000000000011';
+set local role service_role;
+select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001'),
+  true, 'con el rol de vuelta, vuelve el acceso');
+
+-- Quitar el vínculo corta el acceso al instante.
+delete from public.teacher_links where teacher_id = 'dd000000-0000-0000-0000-000000000011' and student_id = 'b1000000-0000-0000-0000-000000000001';
+select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001'),
+  false, 'sin vínculo (el tutor lo quitó) no hay acceso');
+insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000001', 'dd000000-0000-0000-0000-000000000001', '11111111-0000-0000-0000-000000000001', 'Docente X');
 
 -- Perfil bloqueado: sin acceso.
 select public.block_student('dd000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'tutor_request');
@@ -102,21 +117,23 @@ select is(public.teacher_can_view('dd000000-0000-0000-0000-000000000011', 'b1000
   true, 'desbloqueado: vuelve el acceso');
 
 -- ===== RLS (como usuario autenticado) =====
-insert into public.teacher_links (teacher_id, student_id, tutor_id) values
-  ('dd000000-0000-0000-0000-000000000012', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000002');
+insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000012', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000001', 'Docente Y');
 
 set local role authenticated;
 select set_config('request.jwt.claims', '{"sub":"dd000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
 select is((select count(*)::int from public.teacher_links), 1, 'el tutor B solo ve sus vínculos');
 select is((select count(*)::int from public.teacher_links where tutor_id = 'dd000000-0000-0000-0000-000000000001'),
   0, 'el tutor B no ve los del tutor A');
-select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id) values
-  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000002')$$,
+select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000011', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000001', 'Docente X')$$,
   '42501', null, 'el tutor no inserta vínculos (solo el servidor)');
-select throws_ok($$update public.tutor_sharing set sheets = true$$, '42501', null, 'el tutor no escribe su autorización por la base (solo el servidor)');
+select throws_ok($$update public.teacher_links set teacher_name = 'otra'$$, '42501', null, 'el tutor no modifica vínculos (solo los lee y los borra)');
 select is((select count(*)::int from public.teachers), 0, 'un tutor no lee docentes');
 
 select set_config('request.jwt.claims', '{"sub":"dd000000-0000-0000-0000-000000000012","role":"authenticated"}', true);
+select is((select count(*)::int from public.teacher_links), 0, 'sin el rol docente en el token no lee ni sus propios vínculos');
+select set_config('request.jwt.claims', '{"sub":"dd000000-0000-0000-0000-000000000012","role":"authenticated","app_metadata":{"role":"teacher"}}', true);
 select is((select count(*)::int from public.teachers), 1, 'el docente lee solo su propia fila');
 select is((select count(*)::int from public.teacher_links), 1, 'el docente lee solo sus vínculos');
 select is((select count(*)::int from public.student_attempts) + (select count(*)::int from public.students), 0,
@@ -127,6 +144,9 @@ reset role;
 select is((select count(*)::int from public.teacher_links where tutor_id = 'dd000000-0000-0000-0000-000000000002'), 1, 'antes de revocar hay vínculo');
 select lives_ok($$select public.revoke_consent('dd000000-0000-0000-0000-000000000002')$$, 'el tutor B revoca su consentimiento');
 select is((select count(*)::int from public.teacher_links where tutor_id = 'dd000000-0000-0000-0000-000000000002'), 0, 'revocar borra los vínculos');
+select throws_ok($$insert into public.teacher_links (teacher_id, student_id, tutor_id, terms_version_id, teacher_name) values
+  ('dd000000-0000-0000-0000-000000000012', 'b1000000-0000-0000-0000-000000000002', 'dd000000-0000-0000-0000-000000000002', '11111111-0000-0000-0000-000000000001', 'Docente Y')$$,
+  '42501', 'consent_required', 'sin consentimiento vigente no se puede crear un vínculo');
 
 select * from finish();
 rollback;

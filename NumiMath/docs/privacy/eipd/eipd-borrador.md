@@ -2,7 +2,7 @@
 
 **Apoyo técnico, no asesoría legal.** Debe revisarlo un abogado o el delegado de protección de datos antes de darlo por válido. Enfoque del art. 15 ter de la Ley 21.719 (verificar contra el texto oficial; el texto de la ley y su fecha de vigencia deben confirmarse: ver sección 8).
 
-**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.2 (borrador) · **Fecha:** 2026-10-12
+**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.3 (borrador) · **Fecha:** 2026-11-12
 **Responsable del tratamiento:** `<razón social y contacto: pendiente>` · **Contacto de privacidad:** `<correo: pendiente>`
 **Basado en:** `docs/privacy/inventario-datos.md`, `docs/adr/0001-contrato-fastapi-consentimiento.md`, `docs/lote-2-propuesta-consentimiento.md` y las migraciones de `supabase/`.
 
@@ -10,9 +10,9 @@
 
 ## Resumen para quien no es experto
 
-- **Qué es la app:** una tutora de matemáticas con mascota para niños de 6 a 10 años. Los niños **no tienen cuenta**: solo el adulto (tutor) se registra y crea perfiles con **apodo y curso**.
+- **Qué es la app:** una tutora de matemáticas con mascota para niños de 6 a 10 años. Los niños **no tienen cuenta**: solo los adultos (tutor, docente y administrador) tienen cuenta. El tutor crea perfiles con **apodo y curso**; si lo decide, vincula a un docente, que pasa a ser un **tercero que ve datos del niño** (apodo, curso, progreso e historial, y más adelante las hojas del papel).
 - **Por qué esta evaluación:** se tratan datos de **menores de 14 años** y una **IA** adapta la dificultad. Eso la hace una evaluación recomendada (la obligatoriedad la confirma un abogado).
-- **Lo que ya está resuelto técnicamente:** solo se guarda apodo y curso del niño; sin consentimiento vigente no se puede crear ni usar un perfil; el consentimiento se puede retirar y bloquea los perfiles; un perfil se puede bloquear por separado; se guarda evidencia mínima y seudonimizada; hay plazos configurables, purgas programadas y alertas; todo está cubierto por 316 pruebas automáticas y una prueba de concurrencia.
+- **Lo que ya está resuelto técnicamente:** del niño se guarda apodo y curso, más sus intentos de práctica, su progreso y (más adelante, solo con docente vinculado) las hojas del papel; sin consentimiento vigente no se puede crear ni usar un perfil; el consentimiento se puede retirar y bloquea los perfiles; un perfil se puede bloquear por separado; se guarda evidencia mínima y seudonimizada; hay plazos configurables, purgas programadas y alertas; todo está cubierto por 316 pruebas automáticas y una prueba de concurrencia.
 - **Lo que falta:** los plazos legales de conservación, los acuerdos con proveedores (Supabase, IA, hosting), la región donde viven los datos, el filtro de la IA y los endpoints de FastAPI (aún no existen), la exportación de datos (portabilidad) y la validación legal.
 - **Riesgo residual global (evaluación preliminar):** **medio**, hasta que se cierren los pendientes de la sección 8. Con los pendientes cerrados se estima **bajo a medio**.
 
@@ -23,7 +23,9 @@
 ### 1.1 Qué hace y quién participa
 | Actor | Rol | Datos |
 |---|---|---|
-| **Tutor** (adulto) | Único con cuenta (Supabase Auth). Acepta términos y política, crea perfiles, ve el progreso, revoca, corrige o borra. | Correo y método de acceso (en Auth), identificador, consentimientos. |
+| **Tutor** (adulto) | Con cuenta (Supabase Auth), igual que el docente y el administrador; el niño nunca tiene cuenta. Acepta términos y política, crea perfiles, ve el progreso, revoca, corrige o borra. | Correo y método de acceso (en Auth), identificador, consentimientos. |
+| **Docente** (adulto) | Cuenta creada por el administrador. Ve **solo** a los niños que el tutor le vinculó: apodo, curso, progreso e historial; nunca la identidad del tutor. **Es un tercero** que recibe datos de menores. | Nombre, correo (en Auth) y código de vínculo. |
+| **Administrador** (adulto) | Crea, edita y elimina cuentas de docentes. No ve datos de niños. | Correo (en Auth). |
 | **Alumno** (6–10 años) | No tiene cuenta ni credenciales. Es un perfil dependiente del tutor. | Solo **apodo y curso**. |
 | **Mascota / IA tutora** | Explica ejercicios. Corre en el servidor (FastAPI) llamando a un proveedor de IA. | El prompt lleva solo curso, tema y ejercicio. |
 
@@ -39,6 +41,10 @@ Detalle completo y vigente en `docs/privacy/inventario-datos.md`. Resumen:
 | Historial de bloqueos y desbloqueos | Tutor / Alumno | PostgreSQL | Se borra con el perfil. |
 | Evidencia seudonimizada (HMAC del id y del correo, versiones, huellas, canal, fecha) | Tutor | PostgreSQL, solo servidor | Sobrevive al borrado de la cuenta. **Sigue siendo dato personal.** |
 | Declaración del adulto archivada (versión, huella, fecha; sin datos del niño) | Tutor | PostgreSQL, solo servidor | Se crea al borrar un perfil. |
+| Cuenta del docente (nombre, código de vínculo; correo en Auth) | Docente | PostgreSQL (`teachers`) y Auth | La crea el administrador. Base de licitud por confirmar. |
+| Vínculo docente–alumno (fecha de aceptación, versión de términos, nombre del docente mostrado) | Tutor / Alumno | PostgreSQL (`teacher_links`) | **Es la autorización.** Se borra al quitarlo, revocar o borrar perfil o cuenta; no queda archivo (pendiente). |
+| Lectura del docente (apodo, curso, progreso, historial sin el texto de las tareas del tutor) | Alumno | FastAPI vía `teacher_can_view` | Comunicación de datos de un menor a un **tercero**. |
+| Hojas del papel (pendiente de implementar) | Alumno | Por definir | Solo con docente vinculado; ver `hojas-guardadas-justificacion.md`. |
 | Prompt a la IA (curso, tema, ejercicio) | — | FastAPI → proveedor de IA | Sin datos personales si el filtro funciona. |
 | Logs técnicos | — | Infraestructura | Sin contenido ni datos personales (regla de diseño). |
 
@@ -51,6 +57,9 @@ App (Ionic)  ──JWT──►  Supabase (Auth, PostgreSQL con RLS por tutor)
      └──────────►  FastAPI  ───┘   (service_role; comprobaciones del ADR 0001)
                       │
                       └──► Proveedor de IA   (solo curso, tema y ejercicio)
+
+Docente ──JWT (rol teacher)──► FastAPI ──► teacher_can_view ──► apodo, curso, progreso, historial
+   (solo con vínculo activo hecho por el tutor; nunca la identidad del tutor)
 ```
 La app **nunca** llama a la IA directamente; las claves viven solo en variables de entorno del servidor.
 
@@ -129,6 +138,10 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R24 | **Perfiles bloqueados antes por otro motivo no se purgan al revocar** y quedan guardados sin plazo ni consentimiento. | Baja | Media | Hoy no hay ruta de la app que bloquee por `tutor_request` o `arcop_claim`; decisión legal pendiente (28.5). |
 | R25 | **Para borrar un solo perfil tras revocar hay que eliminar la cuenta entera** (la interfaz no lo ofrece sin consentimiento). | Media | Media | El texto lo dice con veracidad; la API sí lo permite. Pendiente (28.6). |
 | R26 | **Constancia falsificable o visible en la dirección** (`?revocado=…`). | Baja | Baja | Solo muestra un aviso; plazo absurdo ignorado; no identifica al niño. Mejorar con una consulta al servidor. |
+| R27 | **Un tercero (el docente) ve datos de menores.** La autorización es el vínculo que el tutor crea con un aviso de confirmación (T25); no hay casillas aparte. | Media | Alta | El docente solo accede por `teacher_can_view` (vínculo activo + consentimiento no revocado + perfil no bloqueado + rol verificado); sin `select` directo a tablas de niños; solo apodo, curso, progreso e historial; nunca la identidad del tutor; el tutor lo quita al instante; revocar borra todos los vínculos; se guarda `accepted_at` y `terms_version`. | Términos y política con la cláusula del docente; aviso claro al tutor; procedimiento si un docente abusa. | Medio |
+| R28 | **Vínculo por engaño o por adivinar el código** (el código solo identifica al docente). | Baja | Alta | El acceso lo da el tutor al confirmar viendo el nombre del docente; límite de intentos; el código no da acceso por sí solo. | Probar el límite de intentos al implementarlo. | Bajo |
+| R29 | **Cuenta de docente comprometida** (contraseña débil o robada). | Media | Alta | Cuenta creada por el administrador con contraseña inicial mostrada una sola vez; el rol se verifica en cada llamada; quitar el rol corta el acceso; sin contraseñas ni correos en logs. | Cambio obligatorio de contraseña al primer ingreso (por decidir); recuperación por correo. | Medio |
+| R30 | **Hojas guardadas con datos personales** (el niño puede escribir algo identificable en el papel). | Media | Media | Solo se guardan con vínculo activo y si el niño pulsa "Guardar el papel"; el tutor las ve y las borra; se eliminan al quitar el vínculo, revocar o borrar el perfil. Justificación en `hojas-guardadas-justificacion.md`. | **Aún no implementado**: aviso al niño en lenguaje simple, tope de tamaño y sin metadatos. | Medio hasta implementarlo |
 
 ---
 
@@ -190,6 +203,13 @@ Plazos de referencia a verificar con el texto vigente: respuesta en 30 días cor
 9. **Transferencias internacionales:** garantías exigidas para Supabase, el proveedor de IA y el hosting según región.
 10. **Vigencia:** estado del proyecto que propone postergar la Ley 21.719 al 1-dic-2027 y normas aplicables mientras tanto (Ley 19.628, Ley 21.430).
 11. **Seudonimización y clave:** si destruir una versión de la clave HMAC equivale a anonimizar y qué política de claves se espera.
+
+### 8.1 bis Preguntas para Legal sobre docentes y hojas
+1. ¿El docente es un **tercero receptor** (responsable independiente) o un **encargado** de un colegio? Cambia contratos y la base de licitud de su cuenta.
+2. ¿Basta el consentimiento del tutor en el aviso del vínculo, o hace falta un consentimiento separado con versión y huella propias? ¿Va en un anexo versionado aparte o en la versión global?
+3. Plazo máximo de conservación de las hojas y de los vínculos (¿un año escolar?); resguardos adicionales por ser texto libre de un menor (Ley 21.430).
+4. Evidencia que debe quedar al quitar un vínculo y si el derecho de acceso del tutor incluye saber qué docentes accedieron y cuándo.
+5. ¿Hay que avisar al tutor cuando el administrador cambia el nombre o el correo de un docente vinculado, o cuando se guarda una hoja?
 
 ### 8.2 Decisiones técnicas y de producto abiertas
 - Región de Supabase y del hosting (ADR pendiente); proveedor de IA y su configuración de no retención.

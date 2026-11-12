@@ -7,6 +7,11 @@
 -- Datos personales nuevos (docs/privacy/inventario-datos.md): nombre del docente (hasta 60) y su
 -- código de vínculo. El correo vive solo en Auth. El docente NO tiene acceso directo a tablas de
 -- niños: todo lo suyo pasa por FastAPI y por `teacher_can_view`.
+--
+-- Autorización: NO hay casillas de compartir. La autorización es el VÍNCULO (`teacher_links`) que
+-- el tutor crea al confirmar el aviso (T25), con fecha y versión de los términos. Un docente ve a un
+-- niño solo si hay vínculo activo, el consentimiento del tutor no está revocado, el perfil no está
+-- bloqueado y el docente sigue teniendo el rol verificado.
 
 -- ---------------------------------------------------------------------------
 -- 1. Un docente o admin no es tutor: el trigger de alta lo deja fuera.
@@ -88,76 +93,9 @@ create trigger teachers_immutable_code
   for each row execute function public.teachers_immutable_code();
 
 -- ---------------------------------------------------------------------------
--- 3. tutor_sharing: qué comparte el tutor con los docentes (dos casillas separadas, opt-in).
---    Cada cambio queda como evento con fecha UTC y versión de los términos aceptados.
--- ---------------------------------------------------------------------------
-create table public.tutor_sharing (
-  tutor_id      uuid primary key references public.tutors (id) on delete cascade,
-  teacher_view  boolean not null default false,
-  sheets        boolean not null default false,
-  terms_version text constraint tutor_sharing_terms_version_len
-                check (terms_version is null or char_length(terms_version) between 1 and 40),
-  updated_at    timestamptz not null default now()
-);
-
-create table public.tutor_sharing_events (
-  seq           bigint generated always as identity primary key,
-  tutor_id      uuid not null references public.tutors (id) on delete cascade,
-  setting       text not null check (setting in ('teacher_view', 'sheets')),
-  enabled       boolean not null,
-  terms_version text,
-  occurred_at   timestamptz not null default now()
-);
-
-create index tutor_sharing_events_tutor_idx on public.tutor_sharing_events (tutor_id, seq);
-
-create function public.tutor_sharing_log()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if tg_op = 'INSERT' or new.teacher_view is distinct from old.teacher_view then
-    if tg_op = 'UPDATE' or new.teacher_view then
-      insert into public.tutor_sharing_events (tutor_id, setting, enabled, terms_version)
-      values (new.tutor_id, 'teacher_view', new.teacher_view, new.terms_version);
-    end if;
-  end if;
-  if tg_op = 'INSERT' or new.sheets is distinct from old.sheets then
-    if tg_op = 'UPDATE' or new.sheets then
-      insert into public.tutor_sharing_events (tutor_id, setting, enabled, terms_version)
-      values (new.tutor_id, 'sheets', new.sheets, new.terms_version);
-    end if;
-  end if;
-  return new;
-end;
-$$;
-
-revoke all on function public.tutor_sharing_log() from public, anon, authenticated;
-
-create trigger tutor_sharing_log
-  after insert or update on public.tutor_sharing
-  for each row execute function public.tutor_sharing_log();
-
--- Los eventos son evidencia: no se editan ni se borran (salvo en cascada al borrar la cuenta).
-create function public.tutor_sharing_events_append_only()
-returns trigger
-language plpgsql
-set search_path = ''
-as $$
-begin
-  raise exception 'tutor_sharing_events es de solo anexar' using errcode = '42501';
-end;
-$$;
-
-create trigger tutor_sharing_events_no_update
-  before update on public.tutor_sharing_events
-  for each row execute function public.tutor_sharing_events_append_only();
-
--- ---------------------------------------------------------------------------
--- 4. teacher_links: qué alumnos ve cada docente. El tutor lee y borra; el docente solo lee;
---    los inserta únicamente el servidor (tras confirmar el tutor el nombre del docente).
+-- 3. teacher_links: qué alumnos ve cada docente; el vínculo ES la autorización. El tutor lee y borra;
+--    el docente solo lee; los inserta únicamente el servidor (tras confirmar el tutor el nombre del
+--    docente, con `accepted_at`, `terms_version_id` y `teacher_name`).
 --    La FK compuesta impide vincular un alumno de otro tutor.
 -- ---------------------------------------------------------------------------
 alter table public.students
@@ -167,7 +105,14 @@ create table public.teacher_links (
   teacher_id uuid not null references public.teachers (id) on delete cascade,
   student_id uuid not null,
   tutor_id   uuid not null references public.tutors (id) on delete cascade,
-  created_at timestamptz not null default now(),
+  -- Autorización del tutor: cuándo confirmó el aviso, con qué versión de los términos (mismo patrón
+  -- que `consents`) y qué nombre de docente se le mostró (si el administrador lo cambia después, se
+  -- puede detectar que ya no es el que el tutor vio).
+  accepted_at      timestamptz not null default now(),
+  terms_version_id uuid not null references public.legal_document_versions (id),
+  teacher_name     text not null
+                   constraint teacher_links_teacher_name_len
+                   check (char_length(teacher_name) between 1 and 60),
   primary key (teacher_id, student_id),
   foreign key (student_id, tutor_id)
     references public.students (id, tutor_id) on delete cascade
@@ -176,7 +121,36 @@ create table public.teacher_links (
 create index teacher_links_student_idx on public.teacher_links (student_id);
 create index teacher_links_tutor_idx on public.teacher_links (tutor_id);
 
--- Revocar el consentimiento borra los vínculos; volver a consentir NO los restaura.
+-- Un vínculo solo se crea con consentimiento vigente. Toma el MISMO candado por tutor que usa la
+-- revocación (`on_consent_revoked`), así que no hay carrera: si el tutor revoca a la vez, o este
+-- INSERT espera y ve la revocación (y falla), o la revocación espera y borra el vínculo recién creado.
+-- La comprobación va en una sentencia aparte, tras obtener el candado, para leer lo ya confirmado.
+create function public.teacher_links_require_consent()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_ok boolean;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('tutor_gate:' || new.tutor_id::text, 0));
+  select public.has_active_consent(new.tutor_id) into v_ok;
+  if not v_ok then
+    raise exception 'consent_required' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.teacher_links_require_consent() from public, anon, authenticated;
+
+create trigger teacher_links_require_consent
+  before insert on public.teacher_links
+  for each row execute function public.teacher_links_require_consent();
+
+-- Revocar el consentimiento desactiva TODOS los vínculos del tutor (se borran); volver a consentir
+-- NO los restaura: el tutor debe vincular de nuevo (y los datos que el docente veía dejan de ser suyos).
 create function public.on_consent_revoked_unlink()
 returns trigger
 language plpgsql
@@ -197,8 +171,8 @@ create trigger consents_after_revoke_unlink
   execute function public.on_consent_revoked_unlink();
 
 -- ---------------------------------------------------------------------------
--- 5. teacher_can_view: la ÚNICA puerta de lectura del docente. Exige vínculo, consentimiento
---    activo del tutor, autorización activa (casilla "vista docente") y perfil no bloqueado.
+-- 4. teacher_can_view: la ÚNICA puerta de lectura del docente. Exige vínculo activo, consentimiento
+--    activo del tutor (no revocado), perfil no bloqueado y rol de docente verificado.
 -- ---------------------------------------------------------------------------
 create function public.teacher_can_view(p_teacher_id uuid, p_student_id uuid)
 returns boolean
@@ -211,12 +185,10 @@ as $$
     select 1
     from public.teacher_links l
     join public.students s on s.id = l.student_id and s.tutor_id = l.tutor_id
-    join public.tutor_sharing sh on sh.tutor_id = l.tutor_id
     -- Sigue siendo docente: quitar el rol corta el acceso aunque su token no haya vencido.
     join auth.users u on u.id = l.teacher_id and u.raw_app_meta_data ->> 'role' = 'teacher'
     where l.teacher_id = p_teacher_id
       and l.student_id = p_student_id
-      and sh.teacher_view
       and s.blocked_at is null
       and public.has_active_consent(l.tutor_id)
   );
@@ -226,45 +198,35 @@ revoke all on function public.teacher_can_view(uuid, uuid) from public, anon, au
 grant execute on function public.teacher_can_view(uuid, uuid) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 6. Privilegios y RLS. Escritura de estas tablas: solo service_role (FastAPI), salvo que el
---    tutor puede leer lo suyo y borrar sus vínculos.
+-- 5. Privilegios y RLS. Escritura de estas tablas: solo service_role (FastAPI); el tutor puede leer
+--    sus vínculos y borrarlos (quitar al docente).
 -- ---------------------------------------------------------------------------
-revoke all on public.teachers, public.tutor_sharing, public.tutor_sharing_events,
-  public.teacher_links from public, anon, authenticated;
+revoke all on public.teachers, public.teacher_links from public, anon, authenticated;
 
 grant select on public.teachers to authenticated;
-grant select on public.tutor_sharing, public.tutor_sharing_events to authenticated;
 grant select, delete on public.teacher_links to authenticated;
 
 alter table public.teachers              enable row level security;
-alter table public.tutor_sharing         enable row level security;
-alter table public.tutor_sharing_events  enable row level security;
 alter table public.teacher_links         enable row level security;
 
 alter table public.teachers              force row level security;
-alter table public.tutor_sharing         force row level security;
-alter table public.tutor_sharing_events  force row level security;
 alter table public.teacher_links         force row level security;
 
 create policy teachers_select_own on public.teachers
   for select to authenticated
   using (id = (select auth.uid()));
 
-create policy tutor_sharing_select_own on public.tutor_sharing
-  for select to authenticated
-  using (tutor_id = (select auth.uid()));
-
-create policy tutor_sharing_events_select_own on public.tutor_sharing_events
-  for select to authenticated
-  using (tutor_id = (select auth.uid()));
-
 create policy teacher_links_select_tutor on public.teacher_links
   for select to authenticated
   using (tutor_id = (select auth.uid()));
 
+-- Solo con el rol vigente en el token: una cuenta a la que se le quitó el rol no sigue leyendo.
 create policy teacher_links_select_teacher on public.teacher_links
   for select to authenticated
-  using (teacher_id = (select auth.uid()));
+  using (
+    teacher_id = (select auth.uid())
+    and (select auth.jwt() -> 'app_metadata' ->> 'role') = 'teacher'
+  );
 
 create policy teacher_links_delete_tutor on public.teacher_links
   for delete to authenticated

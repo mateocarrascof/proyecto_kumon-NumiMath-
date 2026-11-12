@@ -84,4 +84,21 @@ describe('MemoryOfflineStore: copia ligada al tutor (CU-A12)', () => {
     expect(await store.profiles()).toEqual([]);
     expect(await store.owner()).toBeNull();
   });
+
+  it('CU-A9: la purga que no borra nada no avisa cambios (no reprograma el aviso de más)', async () => {
+    const store = await storeWith();
+    const listener = vi.fn();
+    store.onChange(listener);
+    await store.purgeExpired(NOW_S);
+    expect(listener).not.toHaveBeenCalled();
+    await store.purgeExpired(NOW_S + PROFILES_TTL_SECONDS);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('CU-A9: la activación del recordatorio en el equipo se borra si entra otro tutor', async () => {
+    const store = await storeWith();
+    await store.setDeviceReminder('p-ana', true);
+    await store.saveProfiles([ANA], { tutorId: 'tutor-2', savedAt: NOW_S });
+    expect(await store.deviceReminders()).toEqual([]);
+  });
 });

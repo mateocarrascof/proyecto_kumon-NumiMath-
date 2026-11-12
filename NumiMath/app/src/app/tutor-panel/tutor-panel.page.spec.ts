@@ -13,6 +13,7 @@ import { AccountPort } from '../core/account/account.port';
 import { AuthPort } from '../core/auth/auth.port';
 import { RevokeConsentComponent } from './revoke-consent.component';
 import { DeleteAccountComponent } from '../core/account/delete-account.component';
+import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
 
@@ -78,7 +79,7 @@ function setup(
       DeleteAccountComponent,
       RevokeConsentComponent,
     ],
-    imports: [IonicModule.forRoot()],
+    imports: [IonicModule.forRoot(), StreakReminderToggleComponent],
     providers: [
       { provide: AssignmentsPort, useValue: assignments },
       { provide: ReportPort, useValue: reports },

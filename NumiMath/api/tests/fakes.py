@@ -108,6 +108,20 @@ class FakeGateway:
         self.offline_batches[student_id] = used + 1
         return "ok"
 
+    # CU-A9: preferencia de recordatorio de racha por perfil
+    streak_reminders: dict[uuid.UUID, bool] = field(default_factory=dict)
+    streak_reminder_error: Exception | None = None
+
+    async def set_streak_reminder(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, enabled: bool
+    ) -> str:
+        if self.streak_reminder_error is not None:
+            raise self.streak_reminder_error
+        if (tutor_id, student_id) not in self.grades:
+            return "student_not_found"
+        self.streak_reminders[student_id] = enabled
+        return "ok"
+
     # CU-A13: intentos sincronizados (imita record_offline_attempts)
     offline_sync_error: Exception | None = None
     offline_sync_calls: list[list[OfflineAttempt]] = field(default_factory=list)

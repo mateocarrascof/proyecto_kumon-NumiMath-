@@ -5,6 +5,7 @@ import { RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
 
 import { CoreModule } from '../core/core.module';
+import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { ProfileFormComponent } from './profile-form.component';
 import { RevokeConsentComponent } from './revoke-consent.component';
 import { TutorPanelPage } from './tutor-panel.page';
@@ -15,6 +16,7 @@ import { TutorPanelPage } from './tutor-panel.page';
     FormsModule,
     IonicModule,
     CoreModule,
+    StreakReminderToggleComponent,
     RouterModule.forChild([{ path: '', component: TutorPanelPage }]),
   ],
   declarations: [TutorPanelPage, ProfileFormComponent, RevokeConsentComponent],

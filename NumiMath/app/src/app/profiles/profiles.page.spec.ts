@@ -211,8 +211,8 @@ describe('ProfilesPage (¿Quién practica?)', () => {
       const { fixture, store } = setup();
       await render(fixture);
       expect(store.cachedProfiles).toEqual([
-        { id: ANA.id, nickname: 'Ana', grade: 2, blocked: false },
-        { id: BETO.id, nickname: 'Beto', grade: 3, blocked: true },
+        { id: ANA.id, nickname: 'Ana', grade: 2, blocked: false, streakReminder: false },
+        { id: BETO.id, nickname: 'Beto', grade: 3, blocked: true, streakReminder: false },
       ]);
       // La copia queda ligada al tutor de la sesión (para borrarla si entra otro).
       expect(store.cachedOwner?.tutorId).toBe('tutor-1');

@@ -33,6 +33,7 @@ import { ConnectivityService } from '../core/offline/connectivity.service';
 import { isOffline } from '../core/offline/offline-access';
 import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 import { OfflineSyncService } from '../core/offline/offline-sync.service';
+import { StreakReminderService } from '../core/reminders/streak-reminder.service';
 import { OfflineError, OfflinePracticeService } from '../core/offline/offline-practice.service';
 import { dailyStreakHint, daysLabel } from '../core/progress/daily-streak';
 import { ProgressPort } from '../core/progress/progress.port';
@@ -200,6 +201,7 @@ export class PracticePage implements OnInit {
   private readonly connectivity = inject(ConnectivityService);
   private readonly offline = inject(OfflinePracticeService);
   private readonly sync = inject(OfflineSyncService);
+  private readonly reminders = inject(StreakReminderService);
   protected readonly mascot = inject(MascotPort);
 
   studentId = '';
@@ -715,6 +717,8 @@ export class PracticePage implements OnInit {
           : await this.practice.answer(this.studentId, this.exercise.token, Number(this.answer));
       }
       this.total += 1;
+      // CU-A9: el recordatorio de racha sabe que este perfil ya practicó hoy (solo en el equipo).
+      void this.reminders.notePractice(this.studentId);
       if (this.result.correct) {
         this.correctCount += 1;
         this.celebrate();

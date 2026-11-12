@@ -2,6 +2,26 @@ import { CachedProfile, OfflineBatch, OfflineOwner, QueuedAttempt } from './offl
 
 /** Almacenamiento local del modo sin conexión (CU-A12). Implementación: IndexedDB. */
 export abstract class OfflineStore {
+  private readonly listeners: (() => void)[] = [];
+
+  /**
+   * CU-A9: avisa cuando cambia lo guardado (cerrar sesión, revocar, otro tutor, borrar o pausar un
+   * perfil, purga). El recordatorio de racha se reprograma o se cancela según lo que quede.
+   */
+  onChange(listener: () => void): void {
+    this.listeners.push(listener);
+  }
+
+  protected notifyChange(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Un oyente que falla no debe romper el guardado.
+      }
+    }
+  }
+
   abstract batch(studentId: string): Promise<OfflineBatch | null>;
   /** Guarda un lote nuevo: reemplaza el anterior del mismo perfil. */
   abstract saveBatch(batch: OfflineBatch): Promise<void>;
@@ -17,6 +37,13 @@ export abstract class OfflineStore {
   /** Perfiles con intentos en cola (para sincronizar todos al volver la red). */
   abstract queuedStudents(): Promise<string[]>;
   abstract profiles(): Promise<CachedProfile[]>;
+  /**
+   * CU-A9: perfiles con el recordatorio activado EN ESTE EQUIPO (por el adulto, desde el panel y
+   * con permiso del sistema). Ligado al tutor dueño de la copia: se borra con `clear`, si entra
+   * otro tutor o si vence la copia. Sin esto el equipo no programa avisos aunque el servidor diga sí.
+   */
+  abstract deviceReminders(): Promise<string[]>;
+  abstract setDeviceReminder(studentId: string, enabled: boolean): Promise<void>;
   /** Tutor dueño de la copia local y cuándo se guardó (null si no hay copia). */
   abstract owner(): Promise<OfflineOwner | null>;
   /**

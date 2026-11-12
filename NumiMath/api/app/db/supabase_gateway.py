@@ -750,6 +750,12 @@ class SupabaseGateway:
             {"p_admin_id": str(admin_id), "p_teacher_id": str(teacher_id)},
         )
 
+    async def admin_is_admin(self, admin_id: uuid.UUID) -> bool:
+        result = await self._rpc("admin_is_admin", {"p_admin_id": str(admin_id)})
+        if not isinstance(result, bool):
+            raise GatewayError("unexpected_result")
+        return result
+
     async def admin_email_in_use(self, email: str, except_id: uuid.UUID) -> bool:
         result = await self._rpc(
             "admin_email_in_use", {"p_email": email, "p_except_id": str(except_id)}

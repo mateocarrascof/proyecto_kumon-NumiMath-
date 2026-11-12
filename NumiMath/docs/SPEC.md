@@ -441,7 +441,8 @@ están implementados; el resto se construye en el orden de abajo.
 - **Solo cuentan los vínculos cuyo texto de autorización describe las hojas** (`covers_sheets`, desde `autorizacion-docente-prov-5`):
   los vínculos con textos anteriores no guardan ni muestran hojas (EIPD R35, solo para hojas; el historial y el progreso
   no cambian). Para no subir trazos sin destinatario, el dispositivo consulta `GET /v1/students/{id}/sheets/enabled`.
-- **Límite por tutor:** 30 guardados por minuto y 500 por día (`sheet_saves_per_minute`, `sheet_saves_per_day`);
+- **Límite por tutor:** 30 guardados por minuto y 100 por día (`sheet_saves_per_minute`, `sheet_saves_per_day`); y un tope de
+  300 hojas por perfil (al pasarse se borran las más antiguas);
   pasado el límite, `429 rate_limited` (el niño no ve error).
 - **Respuesta del niño:** se contrasta que acierte o no con el intento, no el valor exacto (aceptado: solo afecta a
   datos propios del tutor).

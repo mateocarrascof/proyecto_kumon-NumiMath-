@@ -182,3 +182,49 @@ def test_crear_y_listar_docentes_contra_el_auth_real(base: str) -> None:
         auth.delete(f"/users/{admin_id}")
         if teacher_id:
             auth.delete(f"/users/{teacher_id}")
+
+
+def test_un_admin_degradado_con_token_vigente_no_borra_docentes(base: str) -> None:
+    """Con el Auth real: quitarle el rol a un admin corta el borrado aunque tenga token vigente."""
+    run = uuid.uuid4().hex[:10]
+    admin_email = f"admin-deg-{run}@example.test"
+    auth = _service(base, "/auth/v1/admin")
+    rest = _service(base, "/rest/v1")
+    admin_id = auth.post(
+        "/users",
+        json={
+            "email": admin_email,
+            "password": _PASSWORD,
+            "email_confirm": True,
+            "app_metadata": {"role": "admin"},
+        },
+    ).json()["id"]
+    teacher_id = ""
+    try:
+        token = _login(base, admin_email, _PASSWORD)
+        with _api(base) as api:
+            created = api.post(
+                "/v1/admin/teachers",
+                json={
+                    "name": "Profe Degradado",
+                    "email": f"docente-deg-{run}@example.test",
+                    "password": _PASSWORD,
+                },
+                headers=_bearer(token),
+            )
+            assert created.status_code == 201, created.text
+            teacher_id = created.json()["id"]
+
+            # Se le quita el rol al admin; el token que ya tenía sigue diciendo "admin".
+            demoted = auth.put(f"/users/{admin_id}", json={"app_metadata": {"role": None}})
+            assert demoted.status_code == 200, demoted.text
+
+            refused = api.delete(f"/v1/admin/teachers/{teacher_id}", headers=_bearer(token))
+            assert refused.status_code == 403
+            # El docente sigue existiendo, en Auth y en la base.
+            assert auth.get(f"/users/{teacher_id}").status_code == 200
+            assert rest.get("/teachers", params={"id": f"eq.{teacher_id}"}).json() != []
+    finally:
+        for user_id in (teacher_id, admin_id):
+            if user_id:
+                auth.delete(f"/users/{user_id}")

@@ -44,6 +44,7 @@ class Gw:
     fail: set[str] = field(default_factory=set)
     updates: list[tuple[uuid.UUID, uuid.UUID, str, bool]] = field(default_factory=list)
     recorded: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
+    is_admin: bool = True  # el rol vigente en la base (el del token puede estar desactualizado)
 
     def _maybe(self, name: str) -> None:
         if name in self.fail:
@@ -74,6 +75,10 @@ class Gw:
         self._maybe("update")
         self.updates.append((admin_id, teacher_id, name, email_changed))
         return self.update_result
+
+    async def admin_is_admin(self, admin_id: uuid.UUID) -> bool:
+        self._maybe("is_admin")
+        return self.is_admin
 
     async def admin_record_teacher_deleted(
         self, admin_id: uuid.UUID, teacher_id: uuid.UUID
@@ -314,6 +319,20 @@ def test_eliminar_borra_la_cuenta_y_deja_constancia() -> None:
     assert response.status_code == 204
     assert auth.deleted == [TEACHER]
     assert gw.recorded == [(ADMIN, TEACHER)]
+
+
+def test_un_admin_degradado_con_token_vigente_no_puede_eliminar() -> None:
+    # El token todavía dice "admin", pero en la base ya no lo es: no se borra nada en Auth.
+    gw, auth = Gw(is_admin=False), Auth()
+    response = _delete(_client(gw, auth))
+    assert response.status_code == 403
+    assert auth.deleted == [] and gw.recorded == []
+
+
+def test_si_no_se_puede_comprobar_el_rol_en_la_base_no_se_borra() -> None:
+    gw, auth = Gw(fail={"is_admin"}), Auth()
+    assert _delete(_client(gw, auth)).status_code == 503
+    assert auth.deleted == [] and gw.recorded == []
 
 
 def test_eliminar_un_docente_que_no_existe_es_404_y_no_borra() -> None:

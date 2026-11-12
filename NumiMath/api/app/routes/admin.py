@@ -290,10 +290,16 @@ async def delete_teacher(teacher_id: uuid.UUID, admin: CurrentAdmin, request: Re
     gateway: Gateway = request.app.state.gateway
     auth_admin: AuthAdmin = request.app.state.auth_admin
     try:
-        current = await gateway.admin_get_teacher(teacher_id)
+        # Borrar una cuenta de Auth no se puede deshacer: antes se comprueba EN LA BASE que quien
+        # lo pide sigue siendo administrador (su token puede ser vigente aunque ya no lo sea).
+        still_admin = await gateway.admin_is_admin(admin.tutor_id)
+        current = await gateway.admin_get_teacher(teacher_id) if still_admin else None
     except GatewayError as exc:
         log_event(logger, "admin.delete_failed", stage="read", code=f"gateway_{exc.reason}")
         raise ApiError(503, "service_unavailable") from None
+    if not still_admin:
+        log_event(logger, "admin.delete_failed", stage="role", code="not_admin")
+        raise ApiError(403, "forbidden")
     if current is None:
         raise ApiError(404, "not_found", message="Ese docente no existe.")
 

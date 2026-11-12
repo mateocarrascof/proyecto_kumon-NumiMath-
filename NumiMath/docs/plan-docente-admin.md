@@ -38,6 +38,24 @@ Lo que quedó fuera de la base de roles y vínculos, asignado al paso del orden 
 - **Límite de frecuencia antes de autenticar:** el servidor lee el cuerpo (hasta 256 KB) de `/sheet` antes de validar la
   sesión; el límite por tutor se aplica después.
 
+## Pendientes tras la revisión previa al PR (feat/docente-admin contra main)
+Los cinco revisores del CLAUDE.md corrieron una vez; sus hallazgos críticos y altos ya se corrigieron
+(`20261113150000_review_hardening`). Queda esto, sin bloquear el PR:
+- **BLOQUEA EL USO CON FAMILIAS REALES: la política de privacidad `privacidad-prov-2` no nombra al docente como
+  destinatario ni habla de las hojas.** Hasta que Legal la resuelva (nueva versión de la política y del
+  consentimiento), la app no debe usarse con familias reales. Está pendiente en la mitigación de EIPD R27.
+- **Paginación** de `admin_list_teachers` y `teacher_students` (hoy sin tope; alcanza para pocos docentes).
+- **Token de vínculo de 8 minutos** reutilizable tras quitar al docente (ya anotado más abajo).
+- **Zona horaria de la purga:** `purge_expired_student_sheets` limpia los contadores con `current_date` del servidor y no
+  con la hora de Santiago (el límite diario sí usa Santiago).
+- **Dibujo libre con datos personales** escritos a mano (R30): no hay filtro posible; mitigación = aviso al niño y plazo.
+- **Aviso al niño** de que su docente verá la hoja (ya anotado).
+- **Cobertura no revisada:** `EXPLAIN` sobre una base poblada, y el visor de hojas en equipos de gama baja.
+- **Lo que debe validar un abogado:** los 90 días de las hojas, `admin_audit` sin purga, el docente como tercero y su acceso
+  desde fuera de Chile, y los términos del docente.
+- **Administradores degradados:** `admin_list_teachers` y las demás rutas del administrador solo confían en el rol del token
+  (vence en minutos); borrar un docente ya lo comprueba en la base.
+
 ## Para más adelante
 - **PRIORIDAD ALTA: registro de lecturas del docente** (EIPD R38). Hacerlo si sobra tiempo después
   de T8, T22 y D6. Tabla de solo anexar con docente, perfil, recurso (D4, D5, D7) y **día**, sin contenido;

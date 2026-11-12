@@ -511,6 +511,10 @@ class Gateway(Protocol):
         """Constancia de la baja de un docente (solo ids)."""
         ...
 
+    async def admin_is_admin(self, admin_id: uuid.UUID) -> bool:
+        """¿Sigue siendo administrador en la base? (el rol del token puede estar desactualizado)."""
+        ...
+
     async def admin_email_in_use(self, email: str, except_id: uuid.UUID) -> bool:
         """¿Otra cuenta ya usa este correo?"""
         ...

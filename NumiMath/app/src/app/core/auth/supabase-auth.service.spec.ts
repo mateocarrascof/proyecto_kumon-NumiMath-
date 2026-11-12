@@ -78,7 +78,20 @@ describe('SupabaseAuthService', () => {
   it('con sesión guardada expone id y correo', async () => {
     const s = service({ session: { user: { id: 'u1', email: 'a@b.test' } } });
     await s.ready();
-    expect(s.user()).toEqual({ id: 'u1', email: 'a@b.test' });
+    expect(s.user()).toEqual({ id: 'u1', email: 'a@b.test', role: 'tutor' });
+  });
+
+  it('el rol sale de app_metadata; user_metadata y valores raros no dan rol', async () => {
+    const roleFor = async (user: Record<string, unknown>) => {
+      TestBed.resetTestingModule();
+      const s = service({ session: { user: { id: 'u1', email: 'a@b.test', ...user } } });
+      await s.ready();
+      return s.user()?.role;
+    };
+    expect(await roleFor({ app_metadata: { role: 'teacher' } })).toBe('teacher');
+    expect(await roleFor({ app_metadata: { role: 'admin' } })).toBe('admin');
+    expect(await roleFor({ user_metadata: { role: 'admin' } })).toBe('tutor');
+    expect(await roleFor({ app_metadata: { role: 'root' } })).toBe('tutor');
   });
 
   it('entrega el token de acceso para llamar a la API, o null sin sesión', async () => {

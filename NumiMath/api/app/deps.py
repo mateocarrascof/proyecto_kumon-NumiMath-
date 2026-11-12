@@ -18,7 +18,7 @@ from app.parental import InvalidParentalToken, verify_parental_token
 logger = get_logger("mathtutor.auth")
 
 
-async def get_current_tutor(request: Request) -> AuthenticatedTutor:
+async def _authenticate(request: Request) -> AuthenticatedTutor:
     """Comprobación 1 del ADR 0001: JWT válido; `tutor_id` es el `sub` del token.
 
     Responde siempre 401 genérico: no se explica qué falló.
@@ -38,8 +38,32 @@ async def get_current_tutor(request: Request) -> AuthenticatedTutor:
         raise ApiError(401, "unauthorized") from None
 
 
+def _require_role(user: AuthenticatedTutor, role: str | None) -> AuthenticatedTutor:
+    if user.app_role != role:
+        log_event(logger, "auth.rejected", code="wrong_app_role")
+        raise ApiError(403, "forbidden")
+    return user
+
+
+async def get_current_tutor(request: Request) -> AuthenticatedTutor:
+    """Solo tutores: un token de docente o de administrador no entra a las rutas del tutor."""
+    return _require_role(await _authenticate(request), None)
+
+
+async def get_current_teacher(request: Request) -> AuthenticatedTutor:
+    """Solo docentes (`app_metadata.role == "teacher"`). `tutor_id` es aquí el id del docente."""
+    return _require_role(await _authenticate(request), "teacher")
+
+
+async def get_current_admin(request: Request) -> AuthenticatedTutor:
+    """Solo administradores (`app_metadata.role == "admin"`). `tutor_id` es aquí el id del admin."""
+    return _require_role(await _authenticate(request), "admin")
+
+
 # Uso en rutas: `async def ruta(tutor: CurrentTutor): ...`
 CurrentTutor = Annotated[AuthenticatedTutor, Depends(get_current_tutor)]
+CurrentTeacher = Annotated[AuthenticatedTutor, Depends(get_current_teacher)]
+CurrentAdmin = Annotated[AuthenticatedTutor, Depends(get_current_admin)]
 
 
 async def get_authorized_student(

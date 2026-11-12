@@ -329,7 +329,9 @@ con la misma pantalla de práctica (solo números, papel para calcular, confeti)
 | Responder otra vez | 409 (`already_answered`) |
 | Borrar una pendiente | Se borra |
 | Borrar una respondida | No se puede (404) |
-| Editar | No existe: se borra y se crea otra |
+| Editar una pendiente (T8, `PATCH`) | Mismo filtro que al crear, **PIN recién verificado** (2 min); 204 |
+| Editar una respondida | 409 (`already_answered`) |
+| Editar la tarea de otro tutor | 404 |
 
 ### Seguridad y privacidad
 - El texto pasa por `check_input` (datos personales, groserías, temas inseguros, intentos de

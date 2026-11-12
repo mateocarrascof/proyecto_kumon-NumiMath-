@@ -421,6 +421,28 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def update_assignment(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        assignment_id: uuid.UUID,
+        text: str,
+        answer: int,
+    ) -> str:
+        result = await self._rpc(
+            "update_assignment",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_assignment_id": str(assignment_id),
+                "p_text": text,
+                "p_answer": answer,
+            },
+        )
+        if result not in ("ok", "not_found", "answered"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def delete_assignment(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, assignment_id: uuid.UUID
     ) -> str:

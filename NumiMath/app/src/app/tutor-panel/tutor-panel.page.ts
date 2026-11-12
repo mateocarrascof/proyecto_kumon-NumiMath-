@@ -250,6 +250,70 @@ export class TutorPanelPage implements OnInit {
     }
   }
 
+  // T8: editar una tarea pendiente. Pide el PIN de nuevo (el servidor exige que sea reciente).
+  editing: Assignment | null = null;
+  editText = '';
+  editAnswer = '';
+  editPin = '';
+  editBusy = false;
+  editError = '';
+
+  startEdit(task: Assignment): void {
+    if (task.status !== 'pending') return;
+    this.editing = task;
+    this.editText = task.text;
+    this.editAnswer = String(task.answer);
+    this.editPin = '';
+    this.editError = '';
+  }
+
+  cancelEdit(): void {
+    this.editing = null;
+    this.editPin = '';
+    this.editError = '';
+  }
+
+  get canSaveEdit(): boolean {
+    return (
+      !!this.editing &&
+      !this.editBusy &&
+      this.editText.trim().length > 0 &&
+      this.editAnswer.length > 0 &&
+      this.editPin.length === 4
+    );
+  }
+
+  async saveEdit(): Promise<void> {
+    const target = this.editing;
+    if (!target || !this.canSaveEdit) return;
+    this.editBusy = true;
+    this.editError = '';
+    try {
+      await this.parental.verify(this.editPin);
+      this.editPin = '';
+      await this.assignments.update(
+        this.studentId,
+        target.id,
+        this.editText.trim(),
+        Number(this.editAnswer),
+      );
+      this.editing = null;
+      this.formOk = 'Tarea actualizada.';
+      await this.loadTasks();
+    } catch (error) {
+      this.editPin = '';
+      this.editError =
+        error instanceof TutorError && error.code === 'already_answered'
+          ? 'Esa tarea ya fue respondida: no se puede editar.'
+          : error instanceof TutorError
+            ? this.message(error)
+            : pinMessage(error);
+    } finally {
+      this.editBusy = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   async remove(task: Assignment): Promise<void> {
     if (task.status !== 'pending') return;
     this.tasksError = '';

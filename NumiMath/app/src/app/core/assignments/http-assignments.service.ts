@@ -101,6 +101,14 @@ export class HttpAssignmentsService extends AssignmentsPort {
     }, true);
   }
 
+  update(studentId: string, id: string, text: string, answer: number): Promise<void> {
+    return this.call(async (headers) => {
+      await firstValueFrom(
+        this.http.patch(this.url(studentId, `/${encodeURIComponent(id)}`), { text, answer }, { headers }),
+      );
+    }, true);
+  }
+
   remove(studentId: string, id: string): Promise<void> {
     return this.call(async (headers) => {
       await firstValueFrom(

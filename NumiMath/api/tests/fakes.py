@@ -364,6 +364,35 @@ class FakeGateway:
         self.assignments[row.id] = (tutor_id, student_id, row)
         return "ok"
 
+    async def update_assignment(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        assignment_id: uuid.UUID,
+        text: str,
+        answer: int,
+    ) -> str:
+        if self.assignment_error is not None:
+            raise self.assignment_error
+        found = self.assignments.get(assignment_id)
+        if found is None or found[:2] != (tutor_id, student_id):
+            return "not_found"
+        if found[2].answered_at:
+            return "answered"
+        self.assignments[assignment_id] = (
+            found[0],
+            found[1],
+            AssignmentRow(
+                found[2].id,
+                text,
+                answer,
+                found[2].created_at,
+                found[2].answered_at,
+                found[2].correct,
+            ),
+        )
+        return "ok"
+
     async def delete_assignment(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, assignment_id: uuid.UUID
     ) -> str:

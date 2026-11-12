@@ -61,6 +61,8 @@ export abstract class AssignmentsPort {
   /** Para el tutor (con PIN): todas, con respuesta y estado. */
   abstract all(studentId: string): Promise<Assignment[]>;
   abstract create(studentId: string, text: string, answer: number): Promise<void>;
+  /** T8: corrige una tarea pendiente (el filtro y el PIN reciente los exige el servidor). */
+  abstract update(studentId: string, id: string, text: string, answer: number): Promise<void>;
   abstract remove(studentId: string, id: string): Promise<void>;
   /** El niño abre una tarea: ticket firmado para que el servidor mida el tiempo. */
   abstract start(studentId: string, id: string): Promise<string>;

@@ -396,6 +396,17 @@ class Gateway(Protocol):
         """Crea una tarea ya filtrada. `ok`, `student_not_found` o `limit` (20 pendientes)."""
         ...
 
+    async def update_assignment(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        assignment_id: uuid.UUID,
+        text: str,
+        answer: int,
+    ) -> str:
+        """T8: corrige una tarea PENDIENTE ya filtrada. `ok`, `not_found` o `answered`."""
+        ...
+
     async def delete_assignment(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, assignment_id: uuid.UUID
     ) -> str:

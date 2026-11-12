@@ -117,6 +117,18 @@ describe('HttpAssignmentsService', () => {
     expect(await answered).toEqual({ correct: true, correctAnswer: 4 });
   });
 
+  it('edita con PATCH, el texto y la respuesta, y el token del PIN (T8)', async () => {
+    const { service, http } = setup();
+    const done = service.update('perfil-1', 'a', '3 + 3 = ?', 6);
+    await tick();
+    const req = http.expectOne(`${BASE}/a`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ text: '3 + 3 = ?', answer: 6 });
+    expect(req.request.headers.has('X-Parental-Token')).toBe(true);
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await done;
+  });
+
   it('un rechazo del filtro trae el mensaje para el adulto', async () => {
     const { service, http } = setup();
     const result = service.create('perfil-1', 'x', 1).catch((e: TutorError) => e);

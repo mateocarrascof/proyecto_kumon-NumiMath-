@@ -57,6 +57,7 @@ Los cinco revisores del CLAUDE.md corrieron una vez; sus hallazgos críticos y a
   (vence en minutos); borrar un docente ya lo comprueba en la base.
 
 ## Pendientes de D6, T8 y T22
+- **T8:** editar pide el PIN de nuevo (reciente) aunque el panel ya esté abierto con PIN.
 - **D6:** umbral de "pocos ejercicios" = 5 en total; ajustar con la experiencia de uso.
 
 ## Para más adelante

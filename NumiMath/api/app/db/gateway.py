@@ -78,6 +78,16 @@ class AssignmentAnswer:
 
 
 @dataclass(frozen=True)
+class TeacherRow:
+    """Docente para la lista del administrador (cuenta de adulto; nunca datos de niños)."""
+
+    id: uuid.UUID
+    name: str
+    email: str
+    link_code: str
+
+
+@dataclass(frozen=True)
 class PinState:
     """Estado del PIN del tutor. `pin_hash` es argon2id; nunca sale del servidor."""
 
@@ -271,3 +281,16 @@ class Gateway(Protocol):
         ...
 
     async def aclose(self) -> None: ...
+
+    async def admin_create_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, link_code: str
+    ) -> str:
+        """Registra al docente y deja constancia en una transacción. `ok` o `code_taken`.
+
+        La base comprueba que `admin_id` es administrador y que la cuenta ya tiene el rol docente.
+        """
+        ...
+
+    async def admin_list_teachers(self) -> list[TeacherRow]:
+        """Docentes en orden alfabético, con correo y código. Solo lectura."""
+        ...

@@ -40,6 +40,16 @@ Abre http://localhost:8100 en Chrome.
 4. **Practicar** → elige un tema → responde con números. La mascota reacciona.
 5. **Progreso**: aciertos por tema, racha y últimos intentos.
 
+## Crear un administrador (solo la empresa, nunca desde la app)
+
+Con Supabase local en marcha (`supabase start`) y la API configurada (`api/.env` con
+`SUPABASE_SERVICE_ROLE_KEY`):
+```bash
+api/.venv/Scripts/python api/scripts/create_admin.py correo@empresa.cl
+```
+Pide la contraseña (mínimo 8) dos veces, sin mostrarla. Luego entra en http://localhost:8100/admin/login.
+Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra una sola vez.
+
 ## Pruebas
 
 | Qué | Comando |

@@ -1,0 +1,47 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="dark">
+    <ion-title>Administración</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <main style="max-width: 28rem; margin: 0 auto">
+    <h1 data-testid="admin-login-title">Entrar como administrador</h1>
+    <form (ngSubmit)="submit()" novalidate>
+      <ion-input
+        label="Correo"
+        labelPlacement="stacked"
+        fill="outline"
+        style="margin-bottom: 1rem"
+        type="email"
+        name="email"
+        autocomplete="username"
+        [(ngModel)]="email"
+      ></ion-input>
+      <ion-input
+        label="Contraseña"
+        labelPlacement="stacked"
+        fill="outline"
+        style="margin-bottom: 1rem"
+        [type]="showPassword ? 'text' : 'password'"
+        name="password"
+        autocomplete="current-password"
+        [(ngModel)]="password"
+      ></ion-input>
+      <ion-checkbox
+        labelPlacement="end"
+        justify="start"
+        [checked]="showPassword"
+        (ionChange)="showPassword = $event.detail.checked"
+      >Mostrar contraseña</ion-checkbox>
+
+      @if (error) {
+        <p class="error" role="alert" data-testid="admin-login-error">{{ error }}</p>
+      }
+
+      <ion-button type="submit" expand="block" [disabled]="busy" data-testid="admin-login-submit">
+        {{ busy ? 'Un momento…' : 'Entrar' }}
+      </ion-button>
+    </form>
+  </main>
+</ion-content>

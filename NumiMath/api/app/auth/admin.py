@@ -34,6 +34,11 @@ class AuthAdmin(Protocol):
         """Correo del usuario, o `None` si el usuario no existe."""
         ...
 
+    async def create_user(self, email: str, password: str, role: str) -> uuid.UUID:
+        """Crea un usuario ya confirmado con `app_metadata.role`. Falla con `email_exists` si el
+        correo ya tiene cuenta (no se crea nada)."""
+        ...
+
     async def ban(self, user_id: uuid.UUID) -> None:
         """Bloquea el acceso del usuario por poco tiempo (congelar la cuenta mientras se borra)."""
         ...
@@ -88,6 +93,35 @@ class GoTrueAdmin:
         except (ValueError, AttributeError):
             raise AuthAdminError("bad_json") from None
         return email if isinstance(email, str) and email else None
+
+    async def create_user(self, email: str, password: str, role: str) -> uuid.UUID:
+        if not self._key:
+            raise AuthAdminError("not_configured")
+        try:
+            response = await self._get_client().post(
+                "/users",
+                json={
+                    "email": email,
+                    "password": password,
+                    "email_confirm": True,
+                    "app_metadata": {"role": role},
+                },
+            )
+        except httpx.HTTPError:
+            raise AuthAdminError("transport") from None
+        if response.status_code in (400, 409, 422):
+            try:
+                error_code = response.json().get("error_code")
+            except (ValueError, AttributeError):
+                error_code = None
+            if error_code in ("email_exists", "user_already_exists"):
+                raise AuthAdminError("email_exists")
+        if response.status_code not in (200, 201):
+            raise AuthAdminError(f"status_{response.status_code}")
+        try:
+            return uuid.UUID(str(response.json()["id"]))
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise AuthAdminError("bad_json") from None
 
     async def _set_ban(self, user_id: uuid.UUID, duration: str) -> None:
         response = await self._call("PUT", user_id, json={"ban_duration": duration})

@@ -9,6 +9,8 @@ import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { AccountPort } from './core/account/account.port';
 import { HttpAccountService } from './core/account/http-account.service';
+import { AdminPort } from './core/admin/admin.port';
+import { HttpAdminService } from './core/admin/http-admin.service';
 import { AuthPort } from './core/auth/auth.port';
 import { SupabaseAuthService } from './core/auth/supabase-auth.service';
 import { ConsentRevocationPort } from './core/consent/consent-revocation.port';
@@ -44,6 +46,7 @@ import { HttpExplanationService } from './core/explanation/http-explanation.serv
     { provide: ConsentRevocationPort, useExisting: HttpConsentRevocationService },
     { provide: ProfilesPort, useExisting: SupabaseProfilesService },
     { provide: AccountPort, useExisting: HttpAccountService },
+    { provide: AdminPort, useExisting: HttpAdminService },
     { provide: PracticePort, useExisting: HttpPracticeService },
     { provide: ProgressPort, useExisting: HttpProgressService },
     { provide: AssignmentsPort, useExisting: HttpAssignmentsService },

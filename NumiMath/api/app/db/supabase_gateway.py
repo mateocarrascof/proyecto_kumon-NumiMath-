@@ -24,6 +24,7 @@ from app.db.gateway import (
     DiagnosticItem,
     GatewayError,
     PinState,
+    TeacherRow,
 )
 from app.exercises.levels import BLOCK_SIZE, MAX_LEVEL, MIN_LEVEL, SkillProgress
 from app.streaks import DailyStreakRow
@@ -582,3 +583,36 @@ class SupabaseGateway:
     async def aclose(self) -> None:
         if self._client is not None:
             await self._client.aclose()
+
+    async def admin_create_teacher(
+        self, admin_id: uuid.UUID, teacher_id: uuid.UUID, name: str, link_code: str
+    ) -> str:
+        result = await self._rpc(
+            "admin_create_teacher",
+            {
+                "p_admin_id": str(admin_id),
+                "p_teacher_id": str(teacher_id),
+                "p_name": name,
+                "p_link_code": link_code,
+            },
+        )
+        if result not in ("ok", "code_taken"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
+    async def admin_list_teachers(self) -> list[TeacherRow]:
+        result = await self._rpc("admin_list_teachers", {})
+        try:
+            if not isinstance(result, list):
+                raise TypeError
+            return [
+                TeacherRow(
+                    id=uuid.UUID(str(row["id"])),
+                    name=str(row["name"]),
+                    email=str(row["email"] or ""),
+                    link_code=str(row["link_code"]),
+                )
+                for row in result
+            ]
+        except (TypeError, KeyError, ValueError):
+            raise GatewayError("unexpected_result") from None

@@ -427,7 +427,7 @@ están implementados; el resto se construye en el orden de abajo.
   restaura (hay que vincular de nuevo). Eliminar la cuenta del tutor o un perfil los borra en cascada.
 - Los términos y la política nuevos (con la cláusula del docente como tercero) se aceptan al vincular
   por primera vez, no al registrarse.
-- Borrar un docente no toca datos de niños. Sin contraseñas, correos ni contenido en logs.
+- Borrar un docente borra sus vínculos; no toca perfiles, progreso ni hojas de niños. Sin contraseñas, correos ni contenido en logs.
 
 ### Hojas guardadas ("Guardar el papel")
 - Por defecto el papel para calcular no se guarda. Se guarda **solo si el niño tiene un docente
@@ -437,11 +437,33 @@ están implementados; el resto se construye en el orden de abajo.
   al borrar el perfil o la cuenta. No llegan a la IA.
 - Justificación: `docs/privacy/hojas-guardadas-justificacion.md`. **Pendiente de implementar**.
 
+### Administrador (AD1 a AD5)
+El administrador gestiona **cuentas de adultos (docentes)**. Nunca ve datos de niños ni hojas, y cada
+cambio suyo queda registrado (quién, qué, cuándo) sin datos personales de niños (`admin_audit`). Hoy registra
+altas de docentes (`teacher_created`); AD4 y AD5 agregarán `teacher_updated` y `teacher_deleted`. Consultar la lista
+no genera registro.
+- **AD1 Iniciar sesión como administrador:** ruta propia (`/admin/login`) con correo y contraseña;
+  llega a la lista de docentes. Su cuenta **no se crea desde la app**: la crea la empresa directamente en
+  Supabase (`api/scripts/create_admin.py`, ver `docs/como-correrlo.md`). Credenciales incorrectas: se
+  informa y puede reintentar; una cuenta válida que no sea de administrador recibe el mismo mensaje.
+- **AD2 Crear cuenta de docente:** el administrador escribe nombre (hasta 60), correo y contraseña
+  inicial (mínimo 8). El sistema crea la cuenta (`POST /v1/admin/teachers`, con la llave de servicio y
+  `app_metadata.role = teacher`) y genera el código de vínculo de 8 caracteres; la app muestra correo,
+  contraseña y código **una sola vez** (con "Copiar") para que la empresa los entregue. La contraseña
+  no se guarda en la base ni en logs. Pendiente (decisión): aviso de privacidad para el docente, cambio
+  obligatorio de contraseña en el primer ingreso y canal de entrega definido. Reemplaza al antiguo CU-D1. Correo ya registrado: 409 y no se
+  crea nada. Si falla el guardado del perfil tras crear la cuenta, se borra esa cuenta (503).
+- **AD3 Consultar docentes:** lista de solo lectura (`GET /v1/admin/teachers`), orden alfabético, con
+  nombre, correo y código; desde cada fila se podrá editar o eliminar; sin docentes se ofrece crear el
+  primero. *Hecho: la lista de solo lectura con el estado vacío; las acciones por fila llegan con AD4 y AD5.*
+- **AD4 Editar docente:** cambia nombre y/o correo; el código no cambia y se conservan los vínculos.
+  Correo usado por otra cuenta: no se cambia.
+- **AD5 Eliminar docente:** pantalla de confirmación que explica qué se borra (la cuenta y sus
+  vínculos); los datos de los niños y las hojas no se tocan; el docente deja de poder entrar.
+
 ### Casos de uso y orden de construcción
 1. **Base y roles** (hecho): migración, trigger, `roleGuard`, dependencias por rol, pruebas de RLS.
-2. **AD1** entrada del administrador en `/admin/login`; **AD2** crear docente (`POST /v1/admin/teachers`
-   crea el usuario con la llave de servicio, genera el código y devuelve correo, contraseña y código
-   una sola vez; correo repetido responde 409 sin crear nada).
+2. **AD1 y AD2** (hecho) y la lista mínima de **AD3** (ver arriba).
 3. **D2** entrada del docente; **D3** ver mi código.
 4. **T24–T26** el tutor vincula por código con confirmación del nombre y límite de intentos, ve y quita
    vínculos (incluye términos y política nuevos). *(T24 ya no es un interruptor: es el aviso previo.)*
@@ -449,8 +471,8 @@ están implementados; el resto se construye en el orden de abajo.
    **D7** historial.
 6. **T8** editar tareas asignadas; **T22** exportar CSV (neutralizando celdas que empiecen con `=`,
    `+`, `-`, `@`, tab o CR); **D6** evolución.
-7. **AD3** listar docentes (alfabético; estado vacío ofrece crear el primero); **AD4** editar nombre y
-   correo (rechaza correo ya usado; el código no cambia); **AD5** eliminar con confirmación.
+7. **AD3** acciones por fila; **AD4** editar nombre y correo (rechaza correo ya usado; el código no
+   cambia); **AD5** eliminar con confirmación.
 8. **T27 y D8** hojas guardadas.
 
 ### Datos y privacidad

@@ -44,6 +44,7 @@ describe('Zona del tutor: el PIN se pide otra vez al salir por cualquier camino'
           { path: 'pin', component: BlankComponent },
           { path: 'panel', component: BlankComponent, canActivate: [parentalGuard] },
           { path: 'bloqueada', component: BlankComponent, canActivate: [() => false] },
+          { path: '**', redirectTo: 'home' }, // como en app-routing.module.ts
         ]),
         provideLocationMocks(),
         { provide: AuthPort, useValue: auth },
@@ -125,6 +126,14 @@ describe('Zona del tutor: el PIN se pide otra vez al salir por cualquier camino'
     expect(session.isUnlocked()).toBe(false);
   });
 
+  it('el mismo tutor con un objeto de sesión nuevo (renovación del token) NO borra el token', async () => {
+    const { session, auth, settle, enterPanel } = await setup();
+    await enterPanel();
+    auth.user.set({ id: 'tutor-1', email: 't@example.test' }); // objeto nuevo, mismo id
+    await settle();
+    expect(session.isUnlocked()).toBe(true);
+  });
+
   it('pasar a segundo plano: borra el token y, al volver, lleva del panel a /pin', async () => {
     const { router, session, set, settle, enterPanel, expectPinAgain } = await setup();
     await enterPanel();
@@ -160,6 +169,15 @@ describe('Zona del tutor: el PIN se pide otra vez al salir por cualquier camino'
     expect(await router.navigateByUrl('/bloqueada')).toBe(false); // un guard la cancela
     expect(router.url).toBe('/panel');
     expect(session.isUnlocked()).toBe(false);
+  });
+
+  it('una URL de la zona que termina redirigida fuera (/panel/x → /home) también borra el token', async () => {
+    const { harness, router, session, enterPanel, expectPinAgain } = await setup();
+    await enterPanel();
+    await harness.navigateByUrl('/panel/x');
+    expect(router.url).toBe('/home');
+    expect(session.isUnlocked()).toBe(false);
+    await expectPinAgain();
   });
 
   it('dejar de vigilar', async () => {

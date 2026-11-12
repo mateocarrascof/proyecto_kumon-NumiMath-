@@ -1,5 +1,6 @@
 import { Injectable, Injector, effect, inject } from '@angular/core';
-import { NavigationStart, Router } from '@angular/router';
+import { NavigationEnd, NavigationStart, Router } from '@angular/router';
+import { NavController } from '@ionic/angular/lazy';
 
 import { AuthPort } from '../auth/auth.port';
 import { ParentalSession } from './parental-session';
@@ -36,6 +37,7 @@ function inPanel(url: string): boolean {
 @Injectable({ providedIn: 'root' })
 export class ParentalZoneWatcher {
   private readonly router = inject(Router);
+  private readonly nav = inject(NavController);
   private readonly session = inject(ParentalSession);
   private readonly auth = inject(AuthPort);
   private readonly injector = inject(Injector);
@@ -45,6 +47,11 @@ export class ParentalZoneWatcher {
   ): () => void {
     const navigation = this.router.events.subscribe((event) => {
       if (event instanceof NavigationStart && !inTutorZone(event.url)) this.session.end();
+      // Y si una URL de la zona termina redirigida fuera en la misma navegación (`/panel/x` → `**`
+      // → `/home`), no hay otro NavigationStart: se mira la URL final (revisión de seguridad).
+      if (event instanceof NavigationEnd && !inTutorZone(event.urlAfterRedirects)) {
+        this.session.end();
+      }
     });
 
     let lastUser: string | null | undefined;
@@ -62,8 +69,9 @@ export class ParentalZoneWatcher {
       if (doc.visibilityState === 'hidden') {
         this.session.end();
       } else if (doc.visibilityState === 'visible' && inPanel(this.router.url)) {
-        // replaceUrl: "volver" desde el PIN no regresa al panel (igual lo pediría el guard).
-        void this.router.navigateByUrl('/pin', { replaceUrl: true });
+        // navigateRoot vacía la pila de Ionic: el panel (con los datos del niño) no queda vivo
+        // y oculto debajo, y "volver" desde el PIN no regresa a él (revisión de código).
+        void this.nav.navigateRoot('/pin');
       }
     };
     doc?.addEventListener('visibilitychange', onVisibility);

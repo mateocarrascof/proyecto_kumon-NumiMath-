@@ -176,7 +176,8 @@ cualquier camino, desde un solo lugar:
 - **Zona del tutor:** `/panel` y `/pin` (`/pin` es zona porque "Cambiar PIN" usa el token). Las
   pestañas de perfil dentro del panel no son salidas.
 - **Navegación:** el token se borra al INICIAR una navegación hacia fuera de la zona, aunque
-  después se cancele (en el peor caso se pide el PIN una vez más). Cubre "Inicio", volver
+  después se cancele (en el peor caso se pide el PIN una vez más), y también si una URL de la
+  zona termina redirigida fuera (`/panel/x` → `/home`). Cubre "Inicio", volver
   (navegador o botón atrás de Android), cambiar de perfil (ir desde `/home` a la pantalla de un
   niño), cerrar sesión y cualquier enlace futuro.
 - **Sesión:** también se borra si se cierra la sesión o cambia el tutor, aunque no haya navegación.
@@ -188,13 +189,29 @@ cualquier camino, desde un solo lugar:
 
 Pendientes:
 1. **Verificar en un equipo real (Android e iOS)** el paso a segundo plano: la prueba en
-   navegador solo simula `visibilitychange`. Revisar también si la miniatura del selector de apps
-   muestra el panel (se toma al ocultarse, antes de volver a `/pin`).
+   navegador solo simula `visibilitychange`, y no está comprobado que el WebView de Android y
+   WKWebView lo disparen. Revisar también:
+   - si la miniatura del selector de apps muestra el panel (se toma al ocultarse, antes de volver
+     a `/pin`);
+   - si el diálogo de permiso de notificaciones del recordatorio de racha dispara `hidden` (el
+     guardado siguiente saldría sin token y pediría el PIN).
+   Si hiciera falta un respaldo, `@capacitor/app` (`appStateChange`) ya está en `package.json`
+   aunque no se usa; decidir con el dueño.
 2. **Revocar el token en el servidor:** hoy es una firma sin estado; una copia seguiría siendo
    válida hasta 10 minutos. Vive solo en memoria de la app, así que se deja para después (haría
    falta una tabla y una migración).
 3. Si la app pasa a segundo plano durante "Cambiar PIN" (`/pin?cambiar=1`), al volver el cambio
    ya no tiene token: el servidor lo rechaza y hay que salir y escribir el PIN otra vez.
+4. **Bajos de la revisión (no implementados):** `if (!doc)` sobrante en el vigilante; la regex de
+   la zona repetida (un `pathOf(url)`); el `session.end()` de "Salir del panel" ya sobra (se deja
+   explícito); la prueba de "cerrar sesión" pasa por el efecto y por la navegación a la vez; "dejar
+   de vigilar" no comprueba que se quite el evento de visibilidad; ninguna prueba comprueba el
+   registro en `app.module.ts`.
+
+Revisión (`security-reviewer` y `code-reviewer`): sin altos. Corregidos en `fix(pin)`: al volver a
+primer plano se usa `NavController.navigateRoot('/pin')` (el panel sale de la pila de Ionic); una
+URL de la zona redirigida fuera (`/panel/x` → `/home`) también borra el token; prueba de que el
+mismo tutor con una sesión renovada no pierde el token.
 
 ## Explicación con IA en práctica
 

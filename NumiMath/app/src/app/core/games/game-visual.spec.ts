@@ -140,9 +140,15 @@ describe('GameVisualComponent (CU-A21)', () => {
     const rows = q('visual-picto')!.querySelectorAll('tr');
     expect(rows.length).toBe(2);
     expect(rows[0].querySelector('th')!.textContent).toContain('manzanas');
-    expect(rows[0].querySelector('[aria-hidden="true"]')!.textContent).toBe('🍎 🍎 🍎');
+    expect(rows[0].querySelector('[aria-hidden="true"]')!.textContent!.trim()).toBe('🍎🍎🍎');
     expect(rows[0].querySelector('.sr-only')!.textContent).toBe('3');
     expect(q('visual-picto')!.querySelector('caption')!.textContent).toContain('Pictograma');
+  });
+
+  it('pictograma: 8 emoji van en grupos de 5 y 3, que pueden pasar a otra línea sin cortarse (360 px)', () => {
+    const { q } = render(base({ picto: [{ glyph: '⭐', name: 'estrellas', count: 8 }] }));
+    const groups = [...q('visual-picto')!.querySelectorAll('.five')].map((g) => g.textContent);
+    expect(groups).toEqual(['⭐⭐⭐⭐⭐', '⭐⭐⭐']);
   });
 
   it('medición: lo medido tiene el mismo largo que la fila de clips, y cada clip se puede contar', () => {

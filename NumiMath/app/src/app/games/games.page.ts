@@ -84,6 +84,11 @@ export class GamesPage implements OnInit {
   }
 
   /** Enunciado separado: los emoji repetidos se resumen para el lector de pantalla. */
+  /** Grupos de emoji del enunciado ("Junta y cuenta" trae dos): cada uno se dibuja en su recuadro. */
+  get glyphGroups(): string[] {
+    return this.prompt.glyphs.trim().split(/\s+/).filter(Boolean);
+  }
+
   get prompt(): { before: string; glyphs: string; spoken: string } {
     return splitEmojiRun(this.exercise?.text ?? '');
   }

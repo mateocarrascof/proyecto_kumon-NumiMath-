@@ -1315,3 +1315,28 @@ es la única forma accesible de describirlas y se acepta.
    queda cubierto por `cuantos-1`, hasta 10).
 2. Variedad: "delante" y "detrás" en la escena; "¿de cuál hay más?" en el pictograma; restas en
    "Junta y cuenta"; relacionar 3D con 2D.
+3. **Bajos de la revisión (no implementados):** en `fill` las tarjetas fijas son botones
+   desactivados con el mismo estilo (el lector dice "atenuado") y al corregir también llevan ✓;
+   tarjetas de 47 × 52 px con 6 lugares (sobre el mínimo de 44, bajo los 64 del proyecto); "5 = 3 +
+   ?" sin texto para lector de pantalla ("5 es igual a 3 más ¿cuántas?"); "las…" y "¿Cuántas…" fijos
+   en femenino (falla si se agrega un objeto masculino) y "¿Cuántos faltan?" no concuerda con
+   "cuántas faltan"; ícono 👆 en vez de 🔢 para `fill` en la lista; comentario viejo en
+   `order-cards` ("solo ordenar"); `max_length=6` de la respuesta es justo el largo del camino;
+   la prueba de "dibujo distinto" compara el SVG como texto, no lo que se ve; **confirmar con el
+   dueño** si medir con clips calza mejor con 2B-OA19 que con 1-19 (por ahora 1-19, decisión 7).
+4. Prueba manual a 360 px de los 10 temas (no se pudo hacer en esta sesión).
+
+### Revisión antes del PR
+`code-reviewer` y `child-safety-ai-reviewer` sobre `03bb270..6b44d4f`. Sin bloqueantes de
+tiendas. Corregidos en `fix(cu-a21)`:
+- **Alto:** el pictograma con 7 u 8 emoji no cabía en 360 px y se cortaban íconos. Ahora van en
+  grupos de 5 que pasan enteros a la línea siguiente.
+- **Medio:** "Toca la figura" podía tener dos respuestas (un cuadrado también es rectángulo) o
+  parejas que se confunden (círculo y esfera, cuadrado y cubo). Ahora van 3 figuras de familias
+  distintas, y la pedida sale pareja entre las 7 formas. El juego no estaba publicado: se cambió
+  su generador y su salida guardada.
+- **Medio:** en "Junta y cuenta" los dos grupos se mezclaban al pasar de línea. Ahora cada grupo
+  va en su recuadro.
+- **Medio:** un patrón de 7 figuras dejaba el "?" solo en otra línea. Ahora las figuras miden
+  36 px y caben en una línea.
+- Prueba nueva: completar rechaza una tarjeta fija puesta también en un hueco.

@@ -412,5 +412,21 @@ describe('GamesPage (CU-A21)', () => {
     const prompt = q('game-prompt')!;
     expect(prompt.querySelector('.glyphs')?.getAttribute('aria-hidden')).toBe('true');
     expect(prompt.querySelector('.sr-only')?.textContent).toContain('3 manzanas');
+    // Un solo grupo: sin recuadro.
+    expect(prompt.querySelector('[data-testid="glyph-group"]')!.classList).not.toContain('boxed');
+  });
+
+  it('juntar: cada grupo de emoji va en su recuadro (a 360 px no se mezclan)', async () => {
+    const { page, q, render } = setup({
+      exercise: vi.fn(async () => ({ ...CHOICE, text: 'Junta las flores. ¿Cuántas hay? 🌸🌸🌸🌸🌸🌸🌸🌸🌸 🌸🌸🌸🌸🌸🌸🌸🌸🌸' })),
+    });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame(GROUPS[0].games[0]);
+    await page.start();
+    await render();
+    const groups = [...q('game-prompt')!.querySelectorAll('[data-testid="glyph-group"]')];
+    expect(groups.map((g) => g.textContent)).toEqual(['🌸'.repeat(9), '🌸'.repeat(9)]);
+    expect(groups.every((g) => g.classList.contains('boxed'))).toBe(true);
+    expect(q('game-prompt')!.querySelector('.sr-only')?.textContent).toContain('9 flores y 9 flores');
   });
 });

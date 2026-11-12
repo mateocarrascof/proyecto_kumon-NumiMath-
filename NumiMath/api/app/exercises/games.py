@@ -300,6 +300,15 @@ _COLORS: dict[str, tuple[str, str]] = {
     "amarillo": ("amarillo", "amarilla"),
     "morado": ("morado", "morada"),
 }
+# Familias de formas que se confunden: un cuadrado también es rectángulo, la esfera se dibuja como
+# un círculo con ecuador y el cubo muestra un cuadrado de frente. En "Toca la figura" va a lo más
+# una forma de cada familia, así la respuesta es una sola (revisión de código, CU-A21 parte 3).
+_SHAPE_FAMILIES: tuple[tuple[str, ...], ...] = (
+    ("cuadrado", "rectangulo", "cubo"),
+    ("circulo", "esfera"),
+    ("triangulo",),
+    ("cilindro",),
+)
 # Patrones con 3 formas planas bien distintas (cuadrado y rectángulo se parecen en chico).
 _PATTERN_SHAPES = ("circulo", "cuadrado", "triangulo")
 # Unidades de patrón (1-14): AB, ABC, AAB y ABB.
@@ -327,9 +336,13 @@ def _figure_next(rng: random.Random) -> GameExercise:
 
 
 def _touch_figure(rng: random.Random) -> GameExercise:
-    """Figuras 2D y 3D (tema 7): "Toca el cilindro" entre 4 figuras de formas distintas."""
-    shapes = rng.sample(sorted(_SHAPES), 4)
-    colors = rng.sample(sorted(_COLORS), 4)
+    """Figuras 2D y 3D (tema 7): "Toca el cilindro" entre 3 figuras de familias distintas (sin
+    parejas que se confundan, como cuadrado y rectángulo)."""
+    # La pedida sale pareja entre las 7 formas; las otras dos, de otras familias.
+    target = rng.choice(sorted(_SHAPES))
+    others = rng.sample([f for f in _SHAPE_FAMILIES if target not in f], 2)
+    shapes = [target, *(rng.choice(f) for f in others)]
+    colors = rng.sample(sorted(_COLORS), 3)
     figures = [_figure(s, c) for s, c in zip(shapes, colors, strict=True)]
     name, feminine = _SHAPES[shapes[0]]
     return GameExercise(

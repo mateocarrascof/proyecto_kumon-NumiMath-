@@ -438,13 +438,20 @@ def test_figura_que_sigue_es_valida_en_miles_de_ejercicios() -> None:
 
 
 def test_toca_la_figura_es_valida_en_miles_de_ejercicios() -> None:
+    # Parejas que se confunden (un cuadrado también es rectángulo): nunca juntas.
+    confusable = [{"cuadrado", "rectangulo"}, {"cuadrado", "cubo"}, {"rectangulo", "cubo"}]
+    confusable.append({"circulo", "esfera"})
+    seen: set[str] = set()
     for e in _many("toca-figura-1"):
         shapes = [_shape(o.id) for o in e.options]
-        assert len(set(shapes)) == 4 and all(o.kind == "figure" for o in e.options)
+        assert len(set(shapes)) == 3 and all(o.kind == "figure" for o in e.options)
+        assert not any(pair <= set(shapes) for pair in confusable), shapes
+        seen.update(shapes)
         right = next(o for o in e.options if o.id == e.solution[0])
         name = right.label.split()[0]
         assert e.text in (f"Toca el {name}.", f"Toca la {name}.")
         assert sum(o.label.startswith(name + " ") for o in e.options) == 1
+    assert len(seen) == 7  # igual salen las 7 formas
 
 
 def test_donde_esta_es_valido_en_miles_de_ejercicios() -> None:
@@ -527,7 +534,7 @@ def test_completar_el_ejercicio_trae_los_lugares_fijos_sin_la_solucion() -> None
     assert [s for s in body["slots"] if s is not None] == [s for s in e.slots if s is not None]
 
 
-@pytest.mark.parametrize("break_it", ["mover", "faltar", "repetir", "ajena"])
+@pytest.mark.parametrize("break_it", ["mover", "faltar", "repetir", "ajena", "fija-en-hueco"])
 def test_completar_rechaza_si_una_tarjeta_fija_se_mueve_o_falta(break_it: str) -> None:
     client = _client(_gateway())
     token, e = _fill_token(client)
@@ -541,6 +548,8 @@ def test_completar_rechaza_si_una_tarjeta_fija_se_mueve_o_falta(break_it: str) -
     elif break_it == "repetir":
         other = next(i for i, s in enumerate(e.slots) if s is None and i != gap_i)
         answer[other] = answer[gap_i]
+    elif break_it == "fija-en-hueco":
+        answer[gap_i] = e.slots[fixed_i]  # una fija también puesta en un hueco
     else:
         answer[gap_i] = "n:999"
     assert _answer(client, token, answer).status_code == 422

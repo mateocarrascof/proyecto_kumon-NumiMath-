@@ -35,7 +35,11 @@ export const MEASURE_UNIT_PX = 34;
           <tr>
             <th scope="row">{{ row.name }}</th>
             <td>
-              <span class="icons" aria-hidden="true">{{ repeat(row.glyph, row.count) }}</span>
+              <span class="icons" aria-hidden="true">
+                @for (n of fives(row.count); track $index) {
+                  <span class="five">{{ repeat(row.glyph, n) }}</span>
+                }
+              </span>
               <span class="sr-only">{{ row.count }}</span>
             </td>
           </tr>
@@ -91,15 +95,15 @@ export const MEASURE_UNIT_PX = 34;
         flex-wrap: wrap;
         justify-content: center;
         align-items: center;
-        gap: 4px;
+        gap: 3px; /* 7 figuras y el "?" caben en una línea a 360 px: 8 × 36 + 7 × 3 = 309 px */
       }
       .fig {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
       }
       .next {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border: 3px dashed #4a5568;
         border-radius: 10px;
         display: inline-flex;
@@ -121,9 +125,15 @@ export const MEASURE_UNIT_PX = 34;
       .picto th {
         font-weight: 700;
       }
+      /* Grupos de 5 (como al contar con palitos): si no caben en 360 px, el grupo pasa entero a la
+         línea siguiente y ningún emoji se corta. */
       .icons {
-        font-size: 1.4rem;
-        letter-spacing: 2px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        font-size: 1.25rem;
+      }
+      .five {
         white-space: nowrap;
       }
       .measure {
@@ -169,7 +179,12 @@ export class GameVisualComponent {
   }
 
   protected repeat(glyph: string, count: number): string {
-    return Array.from({ length: count }, () => glyph).join(' ');
+    return Array.from({ length: count }, () => glyph).join('');
+  }
+
+  /** 8 → [5, 3]. */
+  protected fives(count: number): number[] {
+    return Array.from({ length: Math.ceil(count / 5) }, (_, i) => Math.min(5, count - i * 5));
   }
 
   protected units(length: number): number[] {

@@ -50,6 +50,10 @@ api/.venv/Scripts/python api/scripts/create_admin.py correo@empresa.cl
 Pide la contraseña (mínimo 8) dos veces, sin mostrarla. Luego entra en http://localhost:8100/admin/login.
 Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra una sola vez.
 
+**Cómo se llega a cada acceso:** en el inicio de sesión del tutor (`/login`) hay un enlace discreto "Acceso para
+docentes" que lleva a `/docente/login` (y ahí un "Volver"). **No hay ningún enlace al administrador dentro de la
+app**: el administrador entra por la versión web escribiendo la dirección `/admin/login`.
+
 ### Probar docentes a mano (sin escribir contraseñas en ningún chat)
 1. Entra como administrador en http://localhost:8100/admin/login.
 2. **Crear docente:** "Crear el primer docente" (o "Crear docente"), con nombre, correo y una contraseña

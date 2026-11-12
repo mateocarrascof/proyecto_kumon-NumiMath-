@@ -119,5 +119,11 @@
     <ion-button fill="clear" size="small" (click)="toggleMode()">
       {{ mode === 'signin' ? '¿Primera vez aquí? Crea tu cuenta' : '¿Ya tienes cuenta? Entra aquí' }}
     </ion-button>
+
+    @if (mode === 'signin') {
+      <ion-button fill="clear" size="small" color="medium" routerLink="/docente/login" data-testid="teacher-access-link">
+        Acceso para docentes
+      </ion-button>
+    }
   </main>
 </ion-content>

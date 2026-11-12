@@ -81,6 +81,30 @@ describe('roleGuard', () => {
   });
 });
 
+describe('guards de invitado con los enlaces de acceso (tutor <-> docente)', () => {
+  const tutor: AuthUser = { id: 'u', email: 'a@b.test' };
+  const teacher: AuthUser = { id: 'u', email: 'a@b.test', role: 'teacher' };
+
+  it('ver /docente/login con sesión de tutor no hace bucle: se deja ver', async () => {
+    expect(await run(roleGuestGuard('teacher'), tutor)).toBe(true);
+  });
+
+  it('ver /login con sesión de docente se deja ver; con sesión de tutor va a /home', async () => {
+    expect(await run(guestGuard, teacher)).toBe(true);
+    expect(await run(guestGuard, tutor)).toEqual({ to: '/home' });
+  });
+
+  it('con sesión de docente, /docente/login lleva a su zona; sin sesión se deja ver', async () => {
+    expect(await run(roleGuestGuard('teacher'), teacher)).toEqual({ to: '/docente' });
+    expect(await run(roleGuestGuard('teacher'), null)).toBe(true);
+  });
+
+  it('/docente sigue protegido: sin sesión va a su entrada y un tutor va a /home', async () => {
+    expect(await run(roleGuard('teacher'), null)).toEqual({ to: '/docente/login' });
+    expect(await run(roleGuard('teacher'), tutor)).toEqual({ to: '/home' });
+  });
+});
+
 describe('guards sin conexión (CU-A12)', () => {
   afterEach(() => vi.restoreAllMocks());
 

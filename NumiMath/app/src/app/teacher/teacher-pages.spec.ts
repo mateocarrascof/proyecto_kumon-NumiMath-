@@ -65,6 +65,26 @@ describe('TeacherLoginPage (D2)', () => {
   });
 });
 
+describe('TeacherLoginPage: enlace de vuelta', () => {
+  it('"Volver" lleva al inicio de sesión del tutor y no hay ningún enlace al administrador', () => {
+    TestBed.configureTestingModule({
+      declarations: [TeacherLoginPage],
+      imports: [IonicModule.forRoot(), FormsModule],
+      providers: [
+        { provide: AuthPort, useValue: { signIn: vi.fn(), signOut: vi.fn(), user: signal(null) } },
+        { provide: NavController, useValue: { navigateRoot: vi.fn() } },
+      ],
+    });
+    const fixture = TestBed.createComponent(TeacherLoginPage);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const back = root.querySelector('[data-testid="teacher-back-link"]') as HTMLElement;
+    expect(back.textContent).toContain('Volver');
+    expect(back.getAttribute('routerLink')).toBe('/login');
+    expect(root.innerHTML).not.toMatch(/\/admin|administrador/i);
+  });
+});
+
 describe('TeacherHomePage (D3)', () => {
   async function setup(result: TeacherProfileResult) {
     const getProfile = vi.fn(async () => result);

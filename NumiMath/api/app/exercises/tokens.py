@@ -10,6 +10,11 @@ Garantías:
 - caduca pronto (`exp`);
 - no se puede alterar (firma comparada en tiempo constante);
 - una vez respondido no cuenta de nuevo (restricción única en la base, por `jti`).
+
+Diagnóstico inicial (CU-A2): con `step` (0 a 5) el token lleva además el paso de la prueba y se
+firma con OTRO dominio. Así un token de práctica no sirve para el diagnóstico ni al revés: el
+niño no puede llevar al diagnóstico un ejercicio fácil de práctica (ni responder en práctica, con
+racha y bloque, un ejercicio del diagnóstico).
 """
 
 from __future__ import annotations
@@ -53,6 +58,7 @@ class VerifiedExercise:
     level: int
     exercise: Exercise
     issued_at: int
+    step: int | None = None  # paso del diagnóstico (0 a 5); None en la práctica
 
 
 def _b64(data: bytes) -> str:
@@ -63,8 +69,9 @@ def _unb64(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def _sign(key: bytes, payload: bytes) -> bytes:
-    return hmac.new(key, b"exercise-token|" + payload, hashlib.sha256).digest()
+def _sign(key: bytes, payload: bytes, diagnostic: bool = False) -> bytes:
+    domain = b"diagnostic-token|" if diagnostic else b"exercise-token|"
+    return hmac.new(key, domain + payload, hashlib.sha256).digest()
 
 
 def _rng(key: bytes, exercise_id: uuid.UUID) -> random.Random:
@@ -80,8 +87,11 @@ def issue(
     ttl_seconds: int,
     now: float | None = None,
     level: int = MIN_LEVEL,
+    step: int | None = None,
 ) -> IssuedExercise | None:
-    """Crea un ejercicio nuevo. `None` si el tema no tiene generador o el nivel no existe."""
+    """Crea un ejercicio nuevo. `None` si el tema no tiene generador o el nivel no existe.
+
+    Con `step` es un ejercicio del diagnóstico (firma de otro dominio)."""
     if not MIN_LEVEL <= level <= MAX_LEVEL:
         return None
     exercise_id = uuid.uuid4()
@@ -90,33 +100,38 @@ def issue(
         return None
     issued_at = int(time.time() if now is None else now)
     expires_at = issued_at + ttl_seconds
-    payload = json.dumps(
-        {
-            "v": _VERSION,
-            "j": str(exercise_id),
-            "s": str(student_id),
-            "t": topic,
-            "l": level,
-            "i": issued_at,
-            "e": expires_at,
-        },
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode()
-    token = f"{_b64(payload)}.{_b64(_sign(key, payload))}"
+    data: dict[str, object] = {
+        "v": _VERSION,
+        "j": str(exercise_id),
+        "s": str(student_id),
+        "t": topic,
+        "l": level,
+        "i": issued_at,
+        "e": expires_at,
+    }
+    if step is not None:
+        data["d"] = step
+    payload = json.dumps(data, separators=(",", ":"), sort_keys=True).encode()
+    token = f"{_b64(payload)}.{_b64(_sign(key, payload, diagnostic=step is not None))}"
     return IssuedExercise(token, exercise_id, topic, level, exercise, expires_at)
 
 
 def verify(
-    key: bytes, token: str, student_id: uuid.UUID, now: float | None = None
+    key: bytes,
+    token: str,
+    student_id: uuid.UUID,
+    now: float | None = None,
+    diagnostic: bool = False,
 ) -> VerifiedExercise:
+    """Comprueba un token. Con `diagnostic=True` solo acepta tokens del diagnóstico (y exige el
+    paso); sin él, solo de práctica."""
     try:
         payload_b64, signature_b64 = token.split(".")
         payload = _unb64(payload_b64)
         signature = _unb64(signature_b64)
     except (ValueError, TypeError):
         raise InvalidExercise from None
-    if not hmac.compare_digest(signature, _sign(key, payload)):
+    if not hmac.compare_digest(signature, _sign(key, payload, diagnostic=diagnostic)):
         raise InvalidExercise
     try:
         data = json.loads(payload)
@@ -127,6 +142,7 @@ def verify(
         version = int(data["v"])
         level = int(data["l"])
         issued_at = int(data["i"])
+        step = int(data["d"]) if diagnostic else None
     except (ValueError, KeyError, TypeError):
         raise InvalidExercise from None
     if version != _VERSION or owner != student_id or not MIN_LEVEL <= level <= MAX_LEVEL:
@@ -136,4 +152,4 @@ def verify(
     exercise = generate(topic, _rng(key, exercise_id), level)
     if exercise is None:
         raise InvalidExercise
-    return VerifiedExercise(exercise_id, topic, level, exercise, issued_at)
+    return VerifiedExercise(exercise_id, topic, level, exercise, issued_at, step)

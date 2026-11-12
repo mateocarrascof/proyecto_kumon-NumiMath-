@@ -21,6 +21,7 @@ from app.db.gateway import (
     AssignmentRow,
     AttemptRow,
     ConsentSummary,
+    DiagnosticItem,
     GatewayError,
     PinState,
 )
@@ -176,6 +177,36 @@ class SupabaseGateway:
             raise GatewayError("unexpected_result")
         return str(result)
 
+    async def save_diagnostic(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        topic: str,
+        level: int,
+        items: list[DiagnosticItem],
+    ) -> str:
+        result = await self._rpc(
+            "save_diagnostic",
+            {
+                "p_tutor_id": str(tutor_id),
+                "p_student_id": str(student_id),
+                "p_topic": topic,
+                "p_level": level,
+                "p_attempts": [
+                    {
+                        "exercise_id": str(item.exercise_id),
+                        "exercise": item.exercise,
+                        "correct": item.correct,
+                        "level": item.level,
+                    }
+                    for item in items
+                ],
+            },
+        )
+        if result not in ("ok", "not_available", "student_not_found"):
+            raise GatewayError("unexpected_result")
+        return str(result)
+
     async def list_attempts(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, limit: int
     ) -> list[AttemptRow]:
@@ -189,6 +220,8 @@ class SupabaseGateway:
                     "select": "topic,correct,answered_at,duration_s",
                     "student_id": f"eq.{student_id}",
                     "tutor_id": f"eq.{tutor_id}",
+                    # El diagnóstico (CU-A2) no cuenta para progreso, informe ni gráficos.
+                    "activity": "eq.practice",
                     "order": "answered_at.desc",
                     "limit": str(limit),
                 },
@@ -253,6 +286,8 @@ class SupabaseGateway:
                 "student_id": f"eq.{student_id}",
                 "tutor_id": f"eq.{tutor_id}",
                 "topic": f"eq.{topic}",
+                # El bloque de 10 es solo de práctica: el diagnóstico no cuenta.
+                "activity": "eq.practice",
                 "order": "answered_at.desc",
                 "limit": str(limit),
             },

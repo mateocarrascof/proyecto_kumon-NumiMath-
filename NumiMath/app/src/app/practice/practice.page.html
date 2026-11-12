@@ -57,7 +57,45 @@
       }
     }
 
-    @if (topic) {
+    @if (topic && diag === 'offer') {
+      <!-- Diagnóstico inicial (CU-A2): opcional. Decir que no parte en el nivel 1, como siempre. -->
+      <section class="diag-card" data-testid="diag-offer">
+        <h2 class="diag-title" tabindex="-1" data-testid="diag-title">{{ diagMessages.offer }}</h2>
+        <p class="diag-detail">{{ diagMessages.offerDetail }}</p>
+        <ion-button expand="block" class="diag-btn" (click)="startDiagnostic()" data-testid="diag-start">Sí, probar</ion-button>
+        <ion-button expand="block" class="diag-btn" fill="outline" (click)="declineDiagnostic()"
+          data-testid="diag-skip">No, empezar a practicar</ion-button>
+      </section>
+    }
+
+    @if (topic && (diag === 'saving' || diag === 'done')) {
+      <section class="diag-card" data-testid="diag-done">
+        @if (diag === 'saving') {
+          <ion-spinner name="dots" aria-label="Guardando"></ion-spinner>
+        } @else {
+          @if (diagNotice) {
+            <p class="diag-title" tabindex="-1" role="status" data-testid="diag-title">{{ diagNotice }}</p>
+          } @else {
+            <h2 class="diag-title" tabindex="-1" data-testid="diag-title">
+              {{ diagMessages.done }} Empiezas en el nivel {{ diagLevel }}
+            </h2>
+            <p class="diag-stars" [attr.aria-label]="'Nivel ' + diagLevel + ' de 3'" data-testid="diag-level">
+              <span aria-hidden="true">{{ levelStars(diagLevel) }}</span>
+            </p>
+          }
+          <ion-button expand="block" class="diag-btn" color="secondary" (click)="startAfterDiagnostic()"
+            data-testid="diag-continue">Empezar a practicar</ion-button>
+        }
+      </section>
+    }
+
+    @if (topic && (!diag || diag === 'running')) {
+      @if (diag === 'running') {
+        <!-- Avance de la prueba. Sin "correcto" ni "casi": cada respuesta se guarda y se sigue. -->
+        <p class="score diag-progress" role="status" aria-live="polite" data-testid="diag-progress">
+          Prueba corta: {{ diagStep + 1 }} de {{ diagSteps }}
+        </p>
+      } @else {
       <div class="topic-bar">
         <div class="stars" role="img" [attr.aria-label]="streak + ' seguidas'">
           @for (s of starSlots; track s) {
@@ -72,6 +110,7 @@
           <span class="medals" [attr.aria-label]="medals + ' medallas'"><span aria-hidden="true">🏅</span> {{ medals }}</span>
         }
       </div>
+      }
 
       @if (medalNow) {
         <div class="medal" role="status">
@@ -110,10 +149,12 @@
               <span class="level" [attr.aria-label]="'Nivel ' + exercise.level + ' de 3'" data-testid="level">
                 <span aria-hidden="true">{{ levelStars(exercise.level) }}</span>
               </span>
+              @if (!diag) {
               <span class="block" data-testid="block"
                 [attr.aria-label]="'Ejercicio ' + ((exercise.blockDone ?? 0) + 1) + ' de ' + (exercise.blockSize ?? 10) + ' de este nivel'">
                 <span aria-hidden="true">🎯 {{ (exercise.blockDone ?? 0) + 1 }}/{{ exercise.blockSize ?? 10 }}</span>
               </span>
+              }
             }
           </p>
           <p class="exercise" [class.long]="exercise.text.length > 24" data-testid="exercise-text"><app-math-text [text]="exercise.text"></app-math-text></p>

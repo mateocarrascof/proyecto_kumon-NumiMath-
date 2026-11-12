@@ -47,6 +47,16 @@ class AttemptRow:
 
 
 @dataclass(frozen=True)
+class DiagnosticItem:
+    """Un ejercicio del diagnóstico ya corregido por el servidor (nunca la respuesta del niño)."""
+
+    exercise_id: uuid.UUID
+    exercise: str
+    correct: bool
+    level: int
+
+
+@dataclass(frozen=True)
 class AssignmentRow:
     """Ejercicio propio del tutor. `answer` solo se expone en la vista del tutor."""
 
@@ -137,10 +147,26 @@ class Gateway(Protocol):
         """Racha diaria guardada del perfil (sin ajustar a hoy). Acotado al tutor."""
         ...
 
+    async def save_diagnostic(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        topic: str,
+        level: int,
+        items: list[DiagnosticItem],
+    ) -> str:
+        """Guarda los 6 intentos del diagnóstico y el nivel de entrada, en una transacción.
+
+        Devuelve `ok`, `not_available` (la habilidad ya tiene intentos o progreso) o
+        `student_not_found`.
+        """
+        ...
+
     async def list_attempts(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, limit: int
     ) -> list[AttemptRow]:
-        """Últimos intentos del perfil, del más reciente al más antiguo. Acotado al tutor."""
+        """Últimos intentos de PRÁCTICA del perfil (sin el diagnóstico), del más reciente al más
+        antiguo. Acotado al tutor."""
         ...
 
     async def list_skill_progress(
@@ -153,8 +179,9 @@ class Gateway(Protocol):
     async def list_recent_exercises(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, topic: str, limit: int
     ) -> list[str]:
-        """Enunciados de los últimos intentos del perfil en un tema, del más nuevo al más viejo.
-        Acotado al tutor. Sirve para no repetir ejercicios dentro del bloque en curso."""
+        """Enunciados de los últimos intentos de PRÁCTICA del perfil en un tema, del más nuevo al
+        más viejo. Acotado al tutor. Sirve para no repetir ejercicios dentro del bloque en curso
+        (el diagnóstico no es parte del bloque)."""
         ...
 
     async def create_assignment(

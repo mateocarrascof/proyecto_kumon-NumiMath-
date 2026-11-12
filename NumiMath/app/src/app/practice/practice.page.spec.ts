@@ -1002,3 +1002,172 @@ describe('PracticePage: Numi baja a explicar', () => {
     expect(page.explainState).toBe('done');
   });
 });
+
+describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
+  const NEW_SKILL: Topic = { id: '1-06', label: 'Sumas hasta 10', diagnosticAvailable: true };
+  const diagExercise = (step: number): Exercise => ({
+    token: `d${step}`,
+    topic: NEW_SKILL.id,
+    text: `${step} + 1 = ?`,
+    level: (Math.floor(step / 2) + 1) as 1 | 2 | 3,
+    expiresIn: 600,
+  });
+
+  function diagSetup(overrides: Partial<PracticePort> = {}) {
+    return setup({
+      topics: vi.fn(async () => [NEW_SKILL]),
+      diagnosticExercise: vi.fn(async (_s: string, _t: string, step: number) => diagExercise(step)),
+      submitDiagnostic: vi.fn(async () => 2 as const),
+      ...overrides,
+    });
+  }
+
+  async function answerAll(page: PracticePage, count: number) {
+    for (let i = 0; i < count; i++) {
+      page.onAnswerInput(String(i + 1));
+      await page.submit();
+    }
+  }
+
+  it('en una habilidad sin intentos ofrece la prueba y no pide ejercicio de práctica', async () => {
+    const { page, port, fixture } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    fixture.detectChanges();
+    expect(page.diag).toBe('offer');
+    expect(port.newExercise).not.toHaveBeenCalled();
+    expect(query(fixture, '[data-testid="diag-offer"]')?.textContent).toContain(
+      'No importa si te equivocas',
+    );
+  });
+
+  it('no se ofrece en una habilidad ya practicada', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose({ ...NEW_SKILL, diagnosticAvailable: false });
+    expect(page.diag).toBeNull();
+    expect(port.newExercise).toHaveBeenCalled();
+  });
+
+  it('"No, empezar a practicar" sigue con la práctica normal', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.declineDiagnostic();
+    expect(page.diag).toBeNull();
+    expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
+    expect(port.diagnosticExercise).not.toHaveBeenCalled();
+  });
+
+  it('hace 6 ejercicios en orden, sin decir si estaban bien, y envía todo al final', async () => {
+    const { page, port, fixture } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="diag-progress"]')?.textContent).toContain('1 de 6');
+
+    await answerAll(page, 5);
+    expect(page.result).toBeNull();
+    expect(port.answer).not.toHaveBeenCalled();
+    expect(port.submitDiagnostic).not.toHaveBeenCalled();
+
+    page.onAnswerInput('9');
+    await page.submit();
+    const steps = (port.diagnosticExercise as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[2]);
+    expect(steps).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(port.submitDiagnostic).toHaveBeenCalledWith(
+      'perfil-1',
+      NEW_SKILL.id,
+      [1, 2, 3, 4, 5, 9].map((answer, i) => ({ token: `d${i}`, answer })),
+    );
+    fixture.detectChanges();
+    expect(page.diag).toBe('done');
+    expect(query(fixture, '[data-testid="diag-title"]')?.textContent).toContain('nivel 2');
+    // Sin medallas ni marcador: el diagnóstico no es práctica.
+    expect(page.total).toBe(0);
+    expect(page.streak).toBe(0);
+  });
+
+  it('"Empezar a practicar" sigue con la práctica en el nivel guardado', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 6);
+    await page.startAfterDiagnostic();
+    expect(page.diag).toBeNull();
+    expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
+  });
+
+  it('abandonar a la mitad no envía nada', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 3);
+    page.changeTopic();
+    expect(page.diag).toBeNull();
+    expect(port.submitDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('salir de la pantalla a la mitad también lo abandona', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 2);
+    page.ionViewWillLeave();
+    expect(page.diag).toBeNull();
+    expect(page.topic).toBeNull();
+    expect(port.submitDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('si la prueba no se puede guardar, avisa sin culpa y parte en nivel 1', async () => {
+    const { page, fixture } = diagSetup({
+      submitDiagnostic: vi.fn(async () => {
+        throw new PracticeError('expired');
+      }),
+    });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 6);
+    fixture.detectChanges();
+    expect(page.diag).toBe('done');
+    expect(page.diagLevel).toBe(1);
+    expect(query(fixture, '[data-testid="diag-title"]')?.textContent).toContain('nivel 1');
+    expect(TestBed.inject(MascotPort).state()).not.toBe('sad');
+  });
+
+  it('si ya no está disponible (409), sigue directo con la práctica', async () => {
+    const { page, port } = diagSetup({
+      submitDiagnostic: vi.fn(async () => {
+        throw new PracticeError('already_answered');
+      }),
+    });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 6);
+    await Promise.resolve();
+    expect(page.diag).toBeNull();
+    expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
+  });
+
+  it('si falla un ejercicio a la mitad, no envía nada y parte en nivel 1', async () => {
+    const { page, port } = diagSetup({
+      diagnosticExercise: vi.fn(async (_s: string, _t: string, step: number) => {
+        if (step === 2) throw new PracticeError('network');
+        return diagExercise(step);
+      }),
+    });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 2);
+    expect(page.diag).toBe('done');
+    expect(page.diagLevel).toBe(1);
+    expect(port.submitDiagnostic).not.toHaveBeenCalled();
+  });
+});

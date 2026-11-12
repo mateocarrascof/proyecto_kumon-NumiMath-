@@ -41,6 +41,9 @@ import { ParentalSession } from '../core/parental/parental-session';
             sin acceso, durante un plazo limitado (te diremos la fecha al confirmar). Pasado ese
             plazo se borran para siempre, con su progreso. Puedes borrarlos antes eliminando tu
             cuenta.</p>
+          <p data-testid="revoke-offline-note"><strong>En un equipo sin internet,</strong> el borrado
+            de lo guardado para practicar sin conexión ocurre al conectarse (esos datos dejan de
+            usarse a los 7 días).</p>
           <p><strong>Tu cuenta sigue activa</strong> hasta que la elimines. Dejamos constancia de tu
             revocación con su fecha y hora, y ese registro se conserva mientras exista tu cuenta.</p>
           <p><strong>Aceptar los términos otra vez no reactiva</strong> los perfiles que ya quedaron

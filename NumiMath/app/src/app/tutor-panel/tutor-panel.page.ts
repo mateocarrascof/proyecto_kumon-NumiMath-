@@ -6,6 +6,7 @@ import {
   AssignmentsPort,
   TutorError,
 } from '../core/assignments/assignments.port';
+import { requestPersistentStorage } from '../core/offline/persistent-storage';
 import { ParentalSession } from '../core/parental/parental-session';
 import { ParentalPort, PinError } from '../core/parental/parental.port';
 import { Avatar, avatarFor } from '../core/profiles/avatar';
@@ -105,6 +106,9 @@ export class TutorPanelPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    // CU-A12: pedir que el navegador no borre la cola sin conexión. Aquí, en la zona del tutor,
+    // porque el navegador puede mostrar un diálogo que un niño no debe ver.
+    void requestPersistentStorage();
     await this.loadProfiles();
     this.loading = false;
     this.cdr.markForCheck();

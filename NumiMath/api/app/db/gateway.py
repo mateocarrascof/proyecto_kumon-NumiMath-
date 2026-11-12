@@ -108,6 +108,13 @@ class Gateway(Protocol):
         """
         ...
 
+    async def consume_offline_batch(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, daily_limit: int
+    ) -> str:
+        """Cuenta una descarga del lote sin conexión (CU-A12). Devuelve `ok`, `limit` (ya hubo
+        `daily_limit` descargas hoy; no se registra nada) o `student_not_found`."""
+        ...
+
     async def get_student_grade(self, tutor_id: uuid.UUID, student_id: uuid.UUID) -> int | None:
         """Curso (1 a 4) del perfil, leído de la base. `None` si el perfil no es del tutor.
 

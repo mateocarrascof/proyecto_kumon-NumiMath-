@@ -7,6 +7,9 @@ import { ApiHealthService, ApiStatus } from '../core/api/api-health.service';
 import { AuthPort } from '../core/auth/auth.port';
 import { pickPhrase } from '../core/mascot/mascot-phrases';
 import { MascotPort } from '../core/mascot/mascot.port';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { isOffline } from '../core/offline/offline-access';
+import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 
 @Component({
   selector: 'app-home',
@@ -23,6 +26,24 @@ export class HomePage implements OnInit {
   protected readonly greeting = pickPhrase('greet');
   private readonly cdr = inject(ChangeDetectorRef);
   protected readonly auth = inject(AuthPort);
+  private readonly connectivity = inject(ConnectivityService);
+  /** Aviso si "Panel del tutor" no puede abrirse sin conexión. */
+  offlineNotice = '';
+
+  /**
+   * Sin conexión se oculta "Cerrar sesión": borraría los intentos guardados sin enviar y dejaría
+   * al niño fuera de la app sin poder volver a entrar hasta tener internet.
+   */
+  protected offline(): boolean {
+    return isOffline(this.connectivity);
+  }
+
+  async openPanel(): Promise<void> {
+    this.offlineNotice = '';
+    const opened = await this.nav.navigateForward('/panel');
+    if (!opened && isOffline(this.connectivity)) this.offlineNotice = OFFLINE_MESSAGES.needsInternet;
+    this.cdr.markForCheck();
+  }
 
   constructor() {
     addIcons({ alertCircle, checkmarkCircle });

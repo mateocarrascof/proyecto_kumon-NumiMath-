@@ -3,5 +3,8 @@
 -- y su huella aquí (las versiones publicadas son inmutables).
 insert into public.legal_document_versions (kind, version, content_sha256, is_current) values
   ('terms',             'terminos-prov-1',   'def710ab867f2ae040068bf8e21c1a629ed33ce5dbcf83791dd6c5d070591f14', true),
-  ('privacy',           'privacidad-prov-1', 'c6cec82fbc4a2f629c13c869d8f7978491c9fb861435860006bea99f42341aea', true),
+  -- privacidad-prov-2 (CU-A12): agrega el guardado local para practicar sin internet. Al cambiar la
+  -- versión vigente, la app vuelve a pedir el consentimiento a todos los tutores.
+  ('privacy',           'privacidad-prov-1', 'c6cec82fbc4a2f629c13c869d8f7978491c9fb861435860006bea99f42341aea', false),
+  ('privacy',           'privacidad-prov-2', 'a796179b399dff97b9f6c87f6041e090f9c1a92125e506d18a43d174a8d69958', true),
   ('adult_declaration', 'declaracion-prov-1','4d5a426f45ea49294af2b8f7883810341e804f9aa6adc6096f4d97e23a989d27', true);

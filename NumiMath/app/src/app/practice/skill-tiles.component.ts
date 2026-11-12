@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { Topic } from '../core/practice/practice.port';
+import { OFFLINE_MESSAGES } from '../core/offline/offline-notice.component';
 import { TopicGroup, moduleStyle, tileLabel, topicIcon } from './practice.page';
 
 /**
@@ -35,7 +36,10 @@ import { TopicGroup, moduleStyle, tileLabel, topicIcon } from './practice.page';
                 <span class="tile-icon" aria-hidden="true">{{ icon(t.label) }}</span>
                 <span class="tile-name">{{ t.label }}</span>
                 <span class="tile-foot" aria-hidden="true">
-                  @if (t.mastered) {
+                  @if (t.exhausted) {
+                    <!-- CU-A12: sin conexión, ya no quedan ejercicios guardados de este tema. -->
+                    <span class="tile-exhausted" data-testid="tile-exhausted">📴 {{ exhaustedText }}</span>
+                  } @else if (t.mastered) {
                     <span class="tile-mastered" data-testid="tile-mastered">✅ Dominada</span>
                   } @else {
                     <span class="tile-stars">{{ stars(t.level ?? 1) }}</span>
@@ -63,6 +67,7 @@ export class SkillTilesComponent {
 
   protected readonly icon = topicIcon;
   protected readonly label = tileLabel;
+  protected readonly exhaustedText = OFFLINE_MESSAGES.exhaustedTile;
 
   protected tone(topic: Topic): string {
     return moduleStyle(topic.module).tone;

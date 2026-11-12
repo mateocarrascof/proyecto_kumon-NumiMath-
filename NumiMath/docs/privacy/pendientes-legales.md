@@ -273,6 +273,25 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 
 # P3 — Después, con fecha
 
+## 29. Modo sin conexión (CU-A12): datos en el dispositivo y revocación sin red
+**Contexto.** Para practicar sin internet, la app guarda en el teléfono o la tablet, sin cifrar, el
+apodo y el curso de cada perfil, un lote de ejercicios y las respuestas hechas sin conexión (ADR
+0002; EIPD R27 y R28). Si el tutor revoca, pausa o borra desde otro equipo, un dispositivo sin red
+sigue permitiendo practicar hasta conectarse o hasta que pasen 7 días. Los datos vencidos dejan de
+usarse a los 7 días y se borran la próxima vez que se abre la app.
+**Preguntas.**
+1. ¿Es aceptable que, tras revocar el consentimiento, el tratamiento local (práctica sin red) siga
+   hasta 7 días, si está informado de antemano en la política y en la pantalla de revocación?
+2. ¿Basta con que los datos queden inaccesibles a los 7 días y se borren la próxima vez que se abre
+   la app, o hay que garantizar el borrado en un plazo fijo aunque la app no se abra (lo que
+   técnicamente no es posible)?
+3. ¿Guardar apodo, curso y respuestas del niño sin cifrar en el dispositivo del tutor es una medida
+   de seguridad suficiente? ¿La Ley 21.719 o la Ley 21.430 exigen cifrarlos?
+4. Cambiar la versión de la política borra en cada equipo los intentos hechos sin conexión que aún
+   no se enviaron. ¿Tiene esto alguna implicancia frente al tutor?
+**Estado actual.** Decisión 8 del ADR 0002 aceptada para esta etapa, pendiente de revisión.
+**Respuesta:** _pendiente_
+
 ## 19. Información al niño (Ley 21.430)
 **Pregunta.** ¿Corresponde informar al niño, en lenguaje adecuado a su autonomía progresiva, de que su perfil fue bloqueado o suprimido?
 **Estado actual.** Solo se notifica al tutor (a futuro).

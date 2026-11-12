@@ -13,6 +13,11 @@
       <app-mascot [state]="mascot.state()" [message]="message"></app-mascot>
     </div>
 
+    @if (offlineMode) {
+      <!-- CU-A12: sin conexión se practica con los ejercicios guardados. -->
+      <app-offline-notice [text]="offlineMessages.profiles" testId="offline-banner"></app-offline-notice>
+    }
+
     @if (loading) {
       <ion-spinner name="dots"></ion-spinner>
     }
@@ -55,7 +60,8 @@
                 @if (i === active && !c.profile.blocked) {
                   <button type="button" class="go-btn" (click)="practice(c); $event.stopPropagation()"
                     data-testid="practice-btn">¡A practicar!</button>
-                  <button type="button" class="progress-btn" (click)="progress(c, $event)">
+                  <!-- Sin conexión sigue visible, pero al tocarlo avisa "Esto necesita internet". -->
+                  <button type="button" class="progress-btn" (click)="progress(c, $event)" data-testid="progress-btn">
                     <span aria-hidden="true">⭐</span> Mi progreso
                   </button>
                 }
@@ -63,6 +69,9 @@
             </li>
           }
         </ul>
+        <!-- Justo bajo la tarjeta, cerca de "Mi progreso". Región siempre presente (vacía si no
+             hay aviso) para que el lector de pantalla la lea al cambiar. -->
+        <app-offline-notice [text]="offlineNotice" testId="offline-needs-internet"></app-offline-notice>
         @if (cards.length > 1) {
           <!-- Navegación bajo las tarjetas: ‹ puntos › (no tapan ninguna tarjeta). -->
           <div class="nav-row">

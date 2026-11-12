@@ -166,6 +166,15 @@
   font-size: 0.9rem;
 }
 
+// CU-A12: lote agotado sin conexión (mismos colores del aviso: más de 12:1).
+.tile-exhausted {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: #fff3cd;
+  color: #3d2c00;
+  font-size: 1rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile { transition: none; }
 }

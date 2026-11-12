@@ -233,3 +233,28 @@ async def test_record_attempt_envia_el_nivel() -> None:
     )
     assert outcome == "ok"
     assert json.loads(route.calls.last.request.content)["p_level"] == 3
+
+
+# ---- Lote sin conexión (CU-A12): límite diario de descargas ----------------------------------
+
+OFFLINE_RPC = f"{URL}/rest/v1/rpc/consume_offline_batch"
+
+
+@respx.mock
+@pytest.mark.parametrize("codigo", ["ok", "limit", "student_not_found"])
+async def test_consume_offline_batch_envia_el_limite_y_devuelve_el_codigo(codigo: str) -> None:
+    route = respx.post(OFFLINE_RPC).mock(return_value=httpx.Response(200, json=codigo))
+    assert await _gateway().consume_offline_batch(TUTOR, PERFIL, 5) == codigo
+    assert json.loads(route.calls.last.request.content) == {
+        "p_tutor_id": str(TUTOR),
+        "p_student_id": str(PERFIL),
+        "p_daily_limit": 5,
+    }
+
+
+@respx.mock
+@pytest.mark.parametrize("cuerpo", ["student_limit", True, None, {"ok": True}])
+async def test_consume_offline_batch_falla_cerrado_con_respuestas_raras(cuerpo: object) -> None:
+    respx.post(OFFLINE_RPC).mock(return_value=httpx.Response(200, json=cuerpo))
+    with pytest.raises(GatewayError):
+        await _gateway().consume_offline_batch(TUTOR, PERFIL, 5)

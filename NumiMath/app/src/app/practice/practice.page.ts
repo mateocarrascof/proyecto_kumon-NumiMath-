@@ -784,10 +784,18 @@ export class PracticePage implements OnInit {
     this.paperOpen = !this.paperOpen;
   }
 
-  /** Guardado manual de la hoja (el automático ya ocurrió al responder). "Guardado" solo si resultó. */
+  /**
+   * Guardado manual de la hoja (el automático ya ocurrió al responder). Dice "Guardado" si resultó; si
+   * no, un aviso suave (sin vínculo, sin red o un fallo del servidor): nunca un error alarmante.
+   */
   async savePaper(): Promise<void> {
-    if (!(await this.saveSheet())) return;
-    this.sheetNotice = 'Guardado';
+    const drawn = !!this.paper?.snapshot();
+    const saved = await this.saveSheet();
+    this.sheetNotice = saved
+      ? 'Guardado'
+      : drawn
+        ? 'No se pudo guardar ahora.'
+        : 'Dibuja algo en el papel para guardarlo.';
     if (this.sheetNoticeTimer) clearTimeout(this.sheetNoticeTimer);
     this.sheetNoticeTimer = setTimeout(() => {
       this.sheetNotice = '';

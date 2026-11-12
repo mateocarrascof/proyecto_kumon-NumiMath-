@@ -592,14 +592,29 @@ describe('PracticePage', () => {
       expect(query(fixture, '[data-testid="sheet-notice"]')?.textContent).toContain('Guardado');
     });
 
-    it('si el guardado manual no resulta (sin vínculo o sin red) no dice nada', async () => {
+    it('si el guardado manual no resulta (sin vínculo, sin red o fallo) da un aviso suave, no un error', async () => {
       const { page, fixture, sheets } = await withPaper(true);
       page.onAnswerInput('12');
       await page.submit();
       sheets.savePractice.mockResolvedValue(false);
       await page.savePaper();
       fixture.detectChanges();
-      expect(query(fixture, '[data-testid="sheet-notice"]')).toBeNull();
+      const notice = query(fixture, '[data-testid="sheet-notice"]');
+      expect(notice?.textContent).toContain('No se pudo guardar ahora');
+      expect(notice?.getAttribute('role')).toBe('status'); // no es una alerta
+      expect(page.error).toBe('');
+    });
+
+    it('si el papel está vacío, el guardado manual lo dice con suavidad', async () => {
+      const { page, fixture, sheets } = await withPaper(false);
+      page.onAnswerInput('12');
+      await page.submit();
+      await page.savePaper();
+      fixture.detectChanges();
+      expect(sheets.savePractice).not.toHaveBeenCalled();
+      expect(query(fixture, '[data-testid="sheet-notice"]')?.textContent).toContain(
+        'Dibuja algo en el papel',
+      );
     });
 
     it('sin conexión (modo sin conexión de CU-A12) no se guarda ni se encola', async () => {

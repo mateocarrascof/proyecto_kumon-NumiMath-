@@ -1,5 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
+
+import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
@@ -11,6 +13,7 @@ import { TutorPanelPage } from './tutor-panel.page';
 
 @NgModule({
   imports: [
+    StreakReminderToggleComponent,
     CommonModule,
     FormsModule,
     IonicModule,

@@ -91,6 +91,8 @@ export interface CachedProfile {
   nickname: string;
   grade: Grade;
   blocked: boolean;
+  /** CU-A9: recordatorio de racha activado por el tutor (para reprogramar sin internet). */
+  streakReminder?: boolean;
 }
 
 /** Plazo para sincronizar un intento después de que caduca su token (ADR 0002, decisión 3). */

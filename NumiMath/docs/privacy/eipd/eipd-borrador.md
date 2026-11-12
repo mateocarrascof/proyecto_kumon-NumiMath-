@@ -1,8 +1,8 @@
-# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.4
+# Evaluación de Impacto en Protección de Datos (EIPD) — borrador 0.5
 
 **Apoyo técnico, no asesoría legal.** Debe revisarlo un abogado o el delegado de protección de datos antes de darlo por válido. Enfoque del art. 15 ter de la Ley 21.719 (verificar contra el texto oficial; el texto de la ley y su fecha de vigencia deben confirmarse: ver sección 8).
 
-**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.4 (borrador) · **Fecha:** 2026-11-13 (0.3: modo sin conexión, CU-A12; 0.4: sincronización, CU-A13)
+**Proyecto:** App de matemáticas para niños (1° a 4° básico) con mascota animada e IA tutora · **Versión:** 0.5 (borrador) · **Fecha:** 2026-11-12 (0.3: modo sin conexión, CU-A12; 0.4: sincronización, CU-A13; 0.5: recordatorio de racha, CU-A9)
 **Responsable del tratamiento:** `<razón social y contacto: pendiente>` · **Contacto de privacidad:** `<correo: pendiente>`
 **Basado en:** `docs/privacy/inventario-datos.md`, `docs/adr/0001-contrato-fastapi-consentimiento.md`, `docs/lote-2-propuesta-consentimiento.md` y las migraciones de `supabase/`.
 
@@ -131,6 +131,7 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 | R25 | **Para borrar un solo perfil tras revocar hay que eliminar la cuenta entera** (la interfaz no lo ofrece sin consentimiento). | Media | Media | El texto lo dice con veracidad; la API sí lo permite. Pendiente (28.6). |
 | R26 | **Constancia falsificable o visible en la dirección** (`?revocado=…`). | Baja | Baja | Solo muestra un aviso; plazo absurdo ignorado; no identifica al niño. Mejorar con una consulta al servidor. |
 | R27 | **Datos del niño sin cifrar en el dispositivo** (modo sin conexión): apodo, curso y respuestas quedan en IndexedDB; en un equipo compartido, quien lo use sin cerrar sesión puede verlos. | Media | Media | Decisión 6 del ADR 0002 (sin cifrado: datos mínimos y vida corta). Solo apodo, curso y respuestas numéricas; nada va a la IA. Plazos: copia de perfiles 7 días, lote 7, cola hasta ~21; vencidos dejan de usarse y se borran la próxima vez que se abre la app o vuelve a primer plano (no se puede borrar si la app no se abre). Se borra al cerrar sesión, al revocar, si la sesión termina sin cerrar sesión (`SIGNED_OUT`), si entra otro tutor, al borrar o pausar un perfil y ante un 403. "Cerrar sesión" no se ofrece sin red para no perder intentos. `storage.persist()` solo en la web y desde el panel del tutor. | Política `privacidad-prov-2` (cambio aparte). Evaluar cifrado si Legal lo pide (pendientes-legales, 29). | Medio |
+| R29 | **Aviso dirigido de hecho a un menor** (recordatorio de racha, CU-A9): visible en la pantalla de bloqueo; podría aparecer en un equipo donde ningún adulto lo decidió, o tarde. | Baja | Baja | ADR 0003: apagado por defecto; solo el tutor lo activa con PIN; un aviso al día como máximo a las 18:00; texto genérico sin apodo ni culpa; sin push, sin terceros ni datos que salgan del equipo (plugin oficial de Capacitor, revisado en el código: sin FCM/APNs); respeta "no molestar"; se cancela al desactivar, cerrar sesión, revocar, pausar o borrar el perfil. | Validar en un equipo real (permisos, reinicio, "no molestar"); informar en `privacidad-prov-3` (pendientes-legales, 30). | Bajo |
 | R28 | **Excepción a la revocación sin red**: si el tutor revoca o pausa desde otro equipo, un dispositivo **sin conexión** sigue permitiendo practicar con su lote hasta conectarse (máx. 7 días). | Media | Media | Decisión 8 del ADR 0002, aceptada **para esta etapa** y **pendiente de revisión por Adolfo y `privacy-cl-auditor`**. Al conectarse, el dispositivo lo detecta (consentimiento `missing` o 403) y borra todo; la copia deja de usarse a los 7 días aunque nunca se conecte y se borra la próxima vez que se abre la app. La pantalla de revocación lo avisa ("en un equipo sin internet, el borrado ocurre al conectarse"). Lo que se practicó no cuenta hasta que el servidor lo acepte: CU-A13 (implementado, con pruebas) responde 403 a perfiles bloqueados o sin consentimiento y el dispositivo borra lo suyo. | Validar con Legal (pendientes-legales, 29). Política `privacidad-prov-2` (cambio aparte). | Medio |
 
 ---
@@ -159,6 +160,11 @@ Escala: Probabilidad e Impacto = Baja / Media / Alta. **Evaluación preliminar d
 vencimiento de 7 días; borrado ante `SIGNED_OUT`, cambio de tutor, revocación detectada con red y
 403; perfil en pausa no se abre sin red ni por dirección directa; el service worker no guarda
 respuestas de la API (sin `dataGroups`) y solo se registra en la web.
+
+**Recordatorio de racha (CU-A9, implementadas con pruebas):** preferencia sí/no por perfil,
+escrita solo por FastAPI con PIN; el aviso es local (sin servidor de notificaciones ni push) con
+texto genérico; un aviso al día; se cancela en los casos de la fila R29. Pendiente: validar en el
+build nativo que el plugin no use FCM/APNs ni pida permisos de más.
 
 **Sincronización (CU-A13, implementadas con pruebas):** el servidor vuelve a corregir con el token
 (ignora lo que diga el dispositivo sobre si acertó, el nivel o el tema); el token va ligado al

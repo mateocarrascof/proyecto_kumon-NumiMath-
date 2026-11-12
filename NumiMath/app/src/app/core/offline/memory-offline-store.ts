@@ -69,17 +69,20 @@ export class MemoryOfflineStore extends OfflineStore {
       nickname: p.nickname,
       grade: p.grade,
       blocked: p.blocked,
+      streakReminder: p.streakReminder === true,
     }));
     this.cachedOwner = { tutorId: owner.tutorId, savedAt: owner.savedAt };
     const active = new Set(profiles.filter((p) => !p.blocked).map((p) => p.id));
     for (const id of [...this.batches.keys()]) if (!active.has(id)) this.batches.delete(id);
     this.dropAttempts((a) => !active.has(a.studentId));
+    this.notifyChange();
   }
 
   async forgetStudent(studentId: string): Promise<void> {
     this.batches.delete(studentId);
     this.cachedProfiles = this.cachedProfiles.filter((p) => p.id !== studentId);
     this.dropAttempts((a) => a.studentId === studentId);
+    this.notifyChange();
   }
 
   async purgeExpired(nowS: number): Promise<void> {
@@ -90,6 +93,7 @@ export class MemoryOfflineStore extends OfflineStore {
       this.cachedProfiles = [];
       this.cachedOwner = null;
     }
+    this.notifyChange();
   }
 
   async clear(): Promise<void> {
@@ -97,6 +101,7 @@ export class MemoryOfflineStore extends OfflineStore {
     this.attempts.length = 0;
     this.cachedProfiles = [];
     this.cachedOwner = null;
+    this.notifyChange();
   }
 
   private dropAttempts(drop: (a: QueuedAttempt) => boolean): void {

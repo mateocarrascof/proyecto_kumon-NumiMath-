@@ -2,6 +2,26 @@ import { CachedProfile, OfflineBatch, OfflineOwner, QueuedAttempt } from './offl
 
 /** Almacenamiento local del modo sin conexión (CU-A12). Implementación: IndexedDB. */
 export abstract class OfflineStore {
+  private readonly listeners: (() => void)[] = [];
+
+  /**
+   * CU-A9: avisa cuando cambia lo guardado (cerrar sesión, revocar, otro tutor, borrar o pausar un
+   * perfil, purga). El recordatorio de racha se reprograma o se cancela según lo que quede.
+   */
+  onChange(listener: () => void): void {
+    this.listeners.push(listener);
+  }
+
+  protected notifyChange(): void {
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // Un oyente que falla no debe romper el guardado.
+      }
+    }
+  }
+
   abstract batch(studentId: string): Promise<OfflineBatch | null>;
   /** Guarda un lote nuevo: reemplaza el anterior del mismo perfil. */
   abstract saveBatch(batch: OfflineBatch): Promise<void>;

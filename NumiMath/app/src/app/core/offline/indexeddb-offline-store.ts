@@ -134,8 +134,8 @@ export class IndexedDbOfflineStore extends OfflineStore {
     });
   }
 
-  saveProfiles(profiles: CachedProfile[], owner: OfflineOwner): Promise<void> {
-    return this.tx(ALL, 'readwrite', async (tx) => {
+  async saveProfiles(profiles: CachedProfile[], owner: OfflineOwner): Promise<void> {
+    await this.tx(ALL, 'readwrite', async (tx) => {
       const meta = tx.objectStore(META);
       const previous = (await IndexedDbOfflineStore.read(meta.get(OWNER_KEY))) as
         | OfflineOwner
@@ -152,7 +152,13 @@ export class IndexedDbOfflineStore extends OfflineStore {
       store.clear();
       // Solo apodo y curso (y si está en pausa): nada más del perfil.
       for (const p of profiles) {
-        store.put({ id: p.id, nickname: p.nickname, grade: p.grade, blocked: p.blocked });
+        store.put({
+          id: p.id,
+          nickname: p.nickname,
+          grade: p.grade,
+          blocked: p.blocked,
+          streakReminder: p.streakReminder === true,
+        });
       }
       meta.put({ tutorId: owner.tutorId, savedAt: owner.savedAt }, OWNER_KEY);
       // Perfiles borrados o en pausa: fuera su lote y su cola.
@@ -162,20 +168,22 @@ export class IndexedDbOfflineStore extends OfflineStore {
       const attempts = (await IndexedDbOfflineStore.read(queue.getAll())) as QueuedAttempt[];
       for (const a of attempts) if (!active.has(a.studentId)) queue.delete(a.id);
     });
+    this.notifyChange();
   }
 
-  forgetStudent(studentId: string): Promise<void> {
-    return this.tx([BATCHES, QUEUE, PROFILES], 'readwrite', async (tx) => {
+  async forgetStudent(studentId: string): Promise<void> {
+    await this.tx([BATCHES, QUEUE, PROFILES], 'readwrite', async (tx) => {
       tx.objectStore(BATCHES).delete(studentId);
       tx.objectStore(PROFILES).delete(studentId);
       const queue = tx.objectStore(QUEUE);
       const keys = await IndexedDbOfflineStore.read(queue.index('studentId').getAllKeys(studentId));
       for (const key of keys) queue.delete(key);
     });
+    this.notifyChange();
   }
 
-  purgeExpired(nowS: number): Promise<void> {
-    return this.tx(ALL, 'readwrite', async (tx) => {
+  async purgeExpired(nowS: number): Promise<void> {
+    await this.tx(ALL, 'readwrite', async (tx) => {
       const batches = tx.objectStore(BATCHES);
       const allBatches = (await IndexedDbOfflineStore.read(batches.getAll())) as OfflineBatch[];
       for (const b of allBatches) if (b.expiresAt <= nowS) batches.delete(b.studentId);
@@ -192,11 +200,13 @@ export class IndexedDbOfflineStore extends OfflineStore {
         meta.delete(OWNER_KEY);
       }
     });
+    this.notifyChange();
   }
 
-  clear(): Promise<void> {
-    return this.tx(ALL, 'readwrite', (tx) => {
+  async clear(): Promise<void> {
+    await this.tx(ALL, 'readwrite', (tx) => {
       for (const name of ALL) tx.objectStore(name).clear();
     });
+    this.notifyChange();
   }
 }

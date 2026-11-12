@@ -131,6 +131,13 @@ class Gateway(Protocol):
         `daily_limit` descargas hoy; no se registra nada) o `student_not_found`."""
         ...
 
+    async def set_streak_reminder(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, enabled: bool
+    ) -> str:
+        """Guarda la preferencia de recordatorio de racha del perfil (CU-A9). Devuelve `ok` o
+        `student_not_found` (perfil ajeno o inexistente; no cambia nada)."""
+        ...
+
     async def record_offline_attempts(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID, attempts: list[OfflineAttempt]
     ) -> dict[uuid.UUID, str] | None:

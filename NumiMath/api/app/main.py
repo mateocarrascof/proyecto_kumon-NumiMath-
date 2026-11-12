@@ -30,6 +30,7 @@ from app.routes import (
     offline_sync,
     pin,
     progress,
+    reminders,
     report,
     students,
 )
@@ -96,6 +97,7 @@ def create_app(
     app.include_router(offline.router)
     app.include_router(offline_sync.router)
     app.include_router(progress.router)
+    app.include_router(reminders.router)
     app.include_router(account.router)
     app.include_router(consent.router)
     app.include_router(assignments.router)

@@ -4,6 +4,7 @@ import { MemoryOfflineStore } from './app/core/offline/memory-offline-store';
 import { OfflineBatchError, OfflineBatchPort } from './app/core/offline/offline-batch.port';
 import { OfflineStore } from './app/core/offline/offline-store.port';
 import { OfflineSyncError, OfflineSyncPort } from './app/core/offline/offline-sync.port';
+import { ReminderNotifier } from './app/core/reminders/reminder-notifier.port';
 
 // Polyfills for running unit tests under jsdom (the default Vitest environment).
 // Ionic components such as ion-menu and ion-split-pane query `window.matchMedia`,
@@ -36,6 +37,18 @@ function offlineDefaults(): void {
           download: async () => {
             throw new OfflineBatchError('network');
           },
+        },
+      },
+      // CU-A9: sin plugin de avisos (como en la web): el recordatorio no hace nada.
+      {
+        provide: ReminderNotifier,
+        useValue: {
+          supported: () => false,
+          requestPermission: async () => false,
+          pending: async () => null,
+          schedule: async () => undefined,
+          cancel: async () => undefined,
+          onTap: () => undefined,
         },
       },
       // CU-A13: el envío de la cola también falla por red por defecto.

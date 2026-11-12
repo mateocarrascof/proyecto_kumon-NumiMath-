@@ -46,7 +46,8 @@ Solo una fila por perfil: largo de la racha y último día local. Sin historial.
   seguidos" y la frase de ánimo si aún no practicó hoy. Tras la primera respuesta del día, un aviso
   "¡N días seguidos!". Si la racha no se puede leer, la insignia no aparece y la práctica sigue.
 - Progreso: la racha y una frase de ánimo si aún no practicó hoy.
-- Nunca se dice que la racha "se perdió" ni se culpa al niño. Sin notificaciones push ni recordatorios.
+- Nunca se dice que la racha "se perdió" ni se culpa al niño. Sin notificaciones push. El
+  recordatorio de racha es local, opcional y lo activa solo el tutor (CU-A9, ADR 0003).
 
 ### Límite conocido
 Cambiando el reloj del dispositivo se puede ganar como máximo un día extra (por la tolerancia de ±1 día).
@@ -894,3 +895,50 @@ sobre `13834dd..604b2f2`. Corregido (decisiones del dueño en **negrita**):
   `http-offline-sync.service.spec.ts`, `offline-purge.spec.ts` (sincronizar antes de purgar),
   `offline-practice.service.spec.ts` (no renueva con cola) y `practice.page.spec.ts` (envía antes de
   leer el progreso; aviso sin culpa).
+
+## Recibir notificación de racha (CU-A9)
+
+RF-10, ADR 0003. Recordatorio **local**, **opcional** y **apagado por defecto**, que solo el tutor
+activa por perfil en el panel (con PIN vigente). No hay servidor de notificaciones ni push.
+
+### Reglas
+| Tema | Regla |
+|---|---|
+| Activar | Panel del tutor → "Recordatorio de racha" por perfil. Al activarlo se pide el permiso del sistema ahí mismo; si el adulto lo niega, no se guarda y se le explica. Un perfil en pausa no se puede cambiar |
+| Guardar | `PUT /v1/students/{id}/streak-reminder` con el token del PIN (`ParentalStudentDep`) → `set_streak_reminder` (solo `service_role`). El cliente no puede escribir `students.streak_reminder`. La copia local de perfiles guarda el sí o no para reprogramar sin internet |
+| Aviso | **Uno por dispositivo y por día**, a las **18:00** (hora fija). Texto: "Numi tiene ejercicios listos para practicar un ratito." (título "NumiMath"). Sin apodo, sin decir quién no practicó, sin culpa, sin emoji. Textos en `core/reminders/streak-reminder.messages.ts` |
+| Cuándo | 18:00 de hoy si aún no pasa; si ya pasó, o si se sabe que todos los perfiles con recordatorio ya practicaron hoy, 18:00 de mañana. Se programa **solo el próximo aviso** (nunca una serie) |
+| Reprogramar | Al abrir la app, al volver a primer plano, al cargar "¿Quién practica?" (con la racha del servidor), tras cada respuesta (con o sin red) y cuando cambia lo guardado sin conexión |
+| Cancelar | Si se desactiva en todos los perfiles, al cerrar sesión, si entra otro tutor, al revocar el consentimiento, si el perfil se borra o se pausa, o si la purga elimina la copia local (vencida a los 7 días) |
+| Al tocarlo | Abre "¿Quién practica?" |
+| Web/PWA | No se ofrece: "Disponible en la app del teléfono o tablet" |
+| Sistema | Respeta "no molestar". Android: canal de importancia normal, alarma inexacta (sin `SCHEDULE_EXACT_ALARM`), permiso `POST_NOTIFICATIONS` (13+). iOS: autorización del sistema |
+
+### Limitaciones conocidas
+- En Android el aviso puede llegar **unos minutos tarde** (alarma inexacta).
+- Al **reiniciar el teléfono** el aviso programado puede perderse hasta que se abra la app.
+- Con varios perfiles, el aviso es uno para el equipo: si un niño practicó y otro no, igual llega.
+- Si el tutor activa el recordatorio en un equipo, otro equipo lo programa recién cuando carga los
+  perfiles con conexión.
+
+### Pendientes (no implementados; revisar)
+1. Elegir la hora del aviso en el panel (hoy 18:00 fija).
+2. Crear los proyectos nativos (`npx cap add android` / `ios`) y probar en dispositivo real
+   permisos, "no molestar", reinicio y el toque del aviso.
+3. Un perfil en pausa no se puede desactivar desde la API (exige perfil usable); igual no recibe
+   avisos. Duda inline en la migración para Adolfo.
+4. **Política `privacidad-prov-3` (no se sube ahora; decisión del dueño):** se revisó
+   `privacidad-prov-2` y la EIPD y no hay contradicción con el recordatorio. La próxima versión debe
+   incluir en una sola vez: (1) el párrafo del recordatorio local (opcional, activado por el tutor
+   por equipo, sin envío de datos del niño, texto genérico, preferencia sí/no guardada en el servidor
+   por perfil) y (2) lo que el servidor guarda al recibir la cola de CU-A13. Pregunta a Adolfo y
+   Legal: ¿es un cambio sustancial que exige nuevo consentimiento? (pendientes-legales, 30).
+
+### Pruebas
+- Servidor: `api/tests/test_streak_reminder.py` (con y sin PIN, perfil ajeno, en pausa, sin
+  consentimiento, cuerpo inválido, falla de la base, log sin datos, RPC).
+- Base: `supabase/tests/database/streak_reminder.test.sql` (columna apagada por defecto, el cliente
+  no la escribe, función solo `service_role`, perfil ajeno, RLS de otro tutor).
+- App: `streak-reminder.service.spec.ts` (hora, un aviso, texto, quién practicó, pausa, web,
+  cancelaciones, copia vencida, toque, activar con y sin permiso, PIN vencido) y
+  `streak-reminder-toggle.component.spec.ts`.

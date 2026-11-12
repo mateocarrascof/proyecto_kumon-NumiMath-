@@ -122,7 +122,8 @@
           <p class="medal"><span aria-hidden="true">🏅</span> {{ text.medals(medals) }}</p>
         }
         <div class="actions">
-          <button type="button" class="big primary" (click)="start()" data-testid="game-again">{{ text.playAgain }}</button>
+          <!-- Los tres con el mismo peso (decisión del dueño): no se empuja a seguir jugando. -->
+          <button type="button" class="big" (click)="start()" data-testid="game-again">{{ text.playAgain }}</button>
           <button type="button" class="big" (click)="otherGame()" data-testid="game-other">{{ text.otherGame }}</button>
           <button type="button" class="big" (click)="backToPractice()" data-testid="game-back">{{ text.backToPractice }}</button>
         </div>

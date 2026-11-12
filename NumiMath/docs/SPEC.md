@@ -1110,10 +1110,10 @@ tiendas. Medios corregidos en `fix(cu-a21)`:
    en el servidor. El tema 1 de 1° ("completa el camino") lo necesitará en la parte 3.
 2. Figuras SVG propias (parte 3).
 3. Voz de Numi (CU-A20, no construido).
-4. **Decisiones del dueño (child-safety):** "Jugar de nuevo" es el botón destacado del resumen y las
-   medallas se acumulan entre partidas, sin límite diario (leve empuje a seguir jugando): ¿mismo peso
-   a los tres botones o sugerir una pausa tras N partidas?; el ícono 🎲 evoca el azar (🧩 sería más
-   neutro).
+4. **Decisiones del dueño (child-safety, 2026-11-12):** en el resumen, "Jugar de nuevo", "Otro
+   juego" y "Volver a practicar" tienen el mismo peso visual; el ícono de "Jugar" es 🧩 (🎲 evocaba
+   el azar). **Pendiente a decidir con Adolfo:** sugerir una pausa tras N partidas o un límite
+   diario de juego (hoy las medallas se acumulan sin límite).
 5. **Bajos de la revisión (no implementados):** tras perder la red al responder se puede tocar otra
    opción con el mismo token; `session`, `forbidden` y `not_found` ofrecen un reintento que no
    sirve (mejor "pide ayuda a un adulto" sin reintento); un ejercicio vencido se reemplaza sin

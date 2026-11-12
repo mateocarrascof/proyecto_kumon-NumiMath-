@@ -8,7 +8,7 @@ import pytest
 import respx
 
 from app.config import Settings
-from app.db.gateway import GatewayError
+from app.db.gateway import DiagnosticItem, GatewayError
 from app.db.supabase_gateway import SupabaseGateway
 from app.exercises.levels import SkillProgress
 
@@ -175,6 +175,44 @@ async def test_list_recent_exercises_acota_por_tutor_perfil_y_tema() -> None:
     assert params["topic"] == "eq.1-08"
     assert params["select"] == "exercise"
     assert params["limit"] == "3"
+    # El bloque de 10 es solo de práctica: el diagnóstico (CU-A2) no cuenta.
+    assert params["activity"] == "eq.practice"
+
+
+@respx.mock
+async def test_list_attempts_no_trae_el_diagnostico() -> None:
+    route = respx.get(ATTEMPTS).mock(return_value=httpx.Response(200, json=[]))
+    assert await _gateway().list_attempts(TUTOR, PERFIL, 500) == []
+    params = route.calls.last.request.url.params
+    assert params["activity"] == "eq.practice"
+    assert params["tutor_id"] == f"eq.{TUTOR}"
+    assert params["student_id"] == f"eq.{PERFIL}"
+
+
+@respx.mock
+async def test_save_diagnostic_envia_los_6_intentos() -> None:
+    route = respx.post(f"{URL}/rest/v1/rpc/save_diagnostic").mock(
+        return_value=httpx.Response(200, json="ok")
+    )
+    items = [
+        DiagnosticItem(uuid.uuid4(), "2 + 3 = ?", step % 2 == 0, step // 2 + 1) for step in range(6)
+    ]
+    assert await _gateway().save_diagnostic(TUTOR, PERFIL, "1-08", 2, items) == "ok"
+    body = json.loads(route.calls.last.request.content)
+    assert body["p_tutor_id"] == str(TUTOR) and body["p_student_id"] == str(PERFIL)
+    assert body["p_topic"] == "1-08" and body["p_level"] == 2
+    assert [a["level"] for a in body["p_attempts"]] == [1, 1, 2, 2, 3, 3]
+    assert body["p_attempts"][0]["exercise_id"] == str(items[0].exercise_id)
+
+
+@respx.mock
+@pytest.mark.parametrize("cuerpo", ["otra_cosa", 1, None])
+async def test_save_diagnostic_falla_cerrado_con_resultados_raros(cuerpo: object) -> None:
+    respx.post(f"{URL}/rest/v1/rpc/save_diagnostic").mock(
+        return_value=httpx.Response(200, json=cuerpo)
+    )
+    with pytest.raises(GatewayError):
+        await _gateway().save_diagnostic(TUTOR, PERFIL, "1-08", 1, [])
 
 
 @respx.mock

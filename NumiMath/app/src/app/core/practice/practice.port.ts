@@ -16,6 +16,8 @@ export interface Topic {
   blockDone?: number;
   blockSize?: number;
   mastered?: boolean;
+  /** CU-A2: la habilidad aún no tiene intentos y se puede ofrecer la prueba corta inicial. */
+  diagnosticAvailable?: boolean;
 }
 
 export type AnswerKind = 'integer' | 'fraction';
@@ -43,6 +45,14 @@ export interface AnswerResult {
   simplified?: { num: number; den: number };
 }
 
+/** Respuesta de un ejercicio del diagnóstico: se guarda en memoria y se envía al final. */
+export interface DiagnosticAnswer {
+  token: string;
+  answer: number;
+  /** Solo en fracciones (`answer` es el numerador). */
+  answerDen?: number;
+}
+
 export type PracticeErrorCode =
   | 'expired'
   | 'session'
@@ -68,4 +78,12 @@ export abstract class PracticePort {
     answer: number,
     answerDen?: number,
   ): Promise<AnswerResult>;
+  /** Ejercicio `step` (0 a 5) del diagnóstico. El nivel lo decide el servidor según el paso. */
+  abstract diagnosticExercise(studentId: string, topic: string, step: number): Promise<Exercise>;
+  /** Envía las 6 respuestas juntas. Devuelve el nivel de entrada que guardó el servidor. */
+  abstract submitDiagnostic(
+    studentId: string,
+    topic: string,
+    answers: DiagnosticAnswer[],
+  ): Promise<Level>;
 }

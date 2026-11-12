@@ -1,3 +1,5 @@
+import { WeekStat } from '../report/report.port';
+
 export interface TopicProgress {
   topic: string;
   label: string;
@@ -23,6 +25,8 @@ export interface Progress {
   practicedToday: boolean;
   byTopic: TopicProgress[];
   recent: RecentAttempt[];
+  /** Evolución (CU-A23): 8 semanas que terminan hoy, de la más antigua a la actual. */
+  weeks: WeekStat[];
 }
 
 /** Puerto del progreso: el cálculo vive en el servidor; la app solo lo muestra. */

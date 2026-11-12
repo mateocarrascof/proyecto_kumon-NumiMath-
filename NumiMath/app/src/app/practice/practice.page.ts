@@ -21,7 +21,9 @@ import { PhraseKind, pickPhrase } from '../core/mascot/mascot-phrases';
 import { MascotPort } from '../core/mascot/mascot.port';
 import {
   AnswerResult,
+  DiagnosticAnswer,
   Exercise,
+  Level,
   PracticeError,
   PracticePort,
   Topic,
@@ -147,6 +149,22 @@ export function tileLabel(topic: Topic): string {
   return parts.join(', ');
 }
 
+/** Ejercicios del diagnóstico inicial (CU-A2): 2 por nivel. */
+export const DIAGNOSTIC_STEPS = 6;
+
+/**
+ * Textos del diagnóstico: cortos, sin presión de tiempo y sin hablar de errores. Si la prueba no
+ * se puede terminar, el niño sigue practicando en el nivel 1 (excepción de la ficha CU-A2).
+ */
+export const DIAGNOSTIC_MESSAGES = {
+  offer: '¿Hacemos una prueba corta?',
+  offerDetail: 'Son 6 ejercicios para empezar en tu nivel. No importa si te equivocas.',
+  done: '¡Listo!',
+  fallback: 'Esta vez la prueba no se pudo guardar. Empiezas en el nivel 1.',
+} as const;
+
+export type DiagnosticState = 'offer' | 'running' | 'saving' | 'done' | null;
+
 /** Aciertos seguidos que dan una medalla. */
 export const MEDAL_EVERY = 5;
 
@@ -230,6 +248,16 @@ export class PracticePage implements OnInit {
   explainNotice = '';
   private explainRetry = false;
   private explainCtrl: AbortController | null = null;
+
+  // Diagnóstico inicial (CU-A2). Las respuestas viven SOLO en memoria hasta el final: si el niño
+  // sale a la mitad no se envía nada y la habilidad queda en nivel 1.
+  diag: DiagnosticState = null;
+  diagStep = 0;
+  diagLevel: Level = 1;
+  diagNotice = '';
+  private diagAnswers: DiagnosticAnswer[] = [];
+  protected readonly diagSteps = DIAGNOSTIC_STEPS;
+  protected readonly diagMessages = DIAGNOSTIC_MESSAGES;
 
   constructor() {
     this.destroyRef.onDestroy(() => this.cancelExplanation());
@@ -328,7 +356,151 @@ export class PracticePage implements OnInit {
     this.lastLevel = null;
     this.lastMastered = null;
     this.tasksDone = false;
+    this.resetDiagnostic();
+    // Primera vez en esta habilidad: se ofrece la prueba corta (opcional). Nunca en las tareas.
+    if (topic.diagnosticAvailable && topic.id !== TASKS_TOPIC.id) {
+      this.exercise = null;
+      this.result = null;
+      this.diag = 'offer';
+      this.message = DIAGNOSTIC_MESSAGES.offer;
+      this.mascot.set('happy');
+      this.focusDiagnosticTitle();
+      return;
+    }
     await this.next();
+  }
+
+  /** "No, empezar a practicar": parte en el nivel 1, como siempre. */
+  async declineDiagnostic(): Promise<void> {
+    this.resetDiagnostic();
+    await this.next();
+  }
+
+  /** "Sí, probar": 6 ejercicios seguidos, sin decir si cada uno estaba bien. */
+  async startDiagnostic(): Promise<void> {
+    if (!this.topic || this.diag !== 'offer') return;
+    this.diag = 'running';
+    this.diagStep = 0;
+    this.diagAnswers = [];
+    await this.nextDiagnostic();
+  }
+
+  /** "Empezar a practicar" tras la prueba: sigue la práctica normal (CU-A1) en el nivel guardado. */
+  async startAfterDiagnostic(): Promise<void> {
+    this.resetDiagnostic();
+    await this.next();
+  }
+
+  private async nextDiagnostic(): Promise<void> {
+    if (!this.topic) return;
+    const topic = this.topic;
+    this.busy = true;
+    this.error = '';
+    this.answer = '';
+    this.fraction = { num: '', den: '' };
+    this.message = '';
+    this.mascot.set('idle');
+    try {
+      const exercise = await this.practice.diagnosticExercise(this.studentId, topic.id, this.diagStep);
+      // Si el niño salió mientras llegaba, se descarta.
+      if (this.diag !== 'running' || this.topic !== topic) return;
+      this.exercise = exercise;
+    } catch (error) {
+      if (this.diag !== 'running' || this.topic !== topic) return;
+      this.diagnosticFailed(error);
+    } finally {
+      this.busy = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /** Guarda la respuesta en memoria y pasa al siguiente; tras el sexto, envía todo. */
+  private async answerDiagnostic(): Promise<void> {
+    if (!this.exercise) return;
+    this.diagAnswers.push(
+      this.fractionMode
+        ? {
+            token: this.exercise.token,
+            answer: Number(this.fraction.num),
+            answerDen: Number(this.fraction.den),
+          }
+        : { token: this.exercise.token, answer: Number(this.answer) },
+    );
+    this.paperOpen = false;
+    this.diagStep += 1;
+    if (this.diagStep < DIAGNOSTIC_STEPS) {
+      await this.nextDiagnostic();
+      return;
+    }
+    await this.finishDiagnostic();
+  }
+
+  private async finishDiagnostic(): Promise<void> {
+    if (!this.topic) return;
+    const topic = this.topic;
+    this.diag = 'saving';
+    this.exercise = null;
+    this.busy = true;
+    this.mascot.set('thinking');
+    this.cdr.markForCheck();
+    try {
+      const level = await this.practice.submitDiagnostic(this.studentId, topic.id, this.diagAnswers);
+      if (this.diag !== 'saving' || this.topic !== topic) return;
+      this.diagAnswers = [];
+      this.diagLevel = level;
+      this.diag = 'done';
+      this.message = DIAGNOSTIC_MESSAGES.done;
+      this.mascot.set('happy');
+      this.focusDiagnosticTitle();
+    } catch (error) {
+      if (this.diag !== 'saving' || this.topic !== topic) return;
+      this.diagnosticFailed(error);
+    } finally {
+      this.busy = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  /**
+   * La prueba no se pudo terminar (venció, sin red…): no se guardó nada y la habilidad queda en
+   * nivel 1. Si ya tenía práctica (409), se sigue directo con la práctica, en su nivel.
+   */
+  private diagnosticFailed(error: unknown): void {
+    this.diagAnswers = [];
+    this.exercise = null;
+    if (error instanceof PracticeError && error.code === 'already_answered') {
+      this.resetDiagnostic();
+      this.busy = false;
+      void this.next();
+      return;
+    }
+    if (error instanceof PracticeError && error.code === 'session') {
+      this.resetDiagnostic();
+      this.fail(error);
+      return;
+    }
+    this.diag = 'done';
+    this.diagLevel = 1;
+    this.diagNotice = DIAGNOSTIC_MESSAGES.fallback;
+    this.message = '';
+    // Sin tristeza: no es culpa del niño y la práctica sigue.
+    this.mascot.set('idle');
+    this.focusDiagnosticTitle();
+  }
+
+  /** Olvida la prueba en curso (al salir, cambiar de tema o terminar). Nada se envía. */
+  private resetDiagnostic(): void {
+    this.diag = null;
+    this.diagStep = 0;
+    this.diagAnswers = [];
+    this.diagLevel = 1;
+    this.diagNotice = '';
+  }
+
+  /** Lleva el foco del lector de pantalla al título de la oferta o del resultado. */
+  private focusDiagnosticTitle(): void {
+    this.cdr.detectChanges();
+    this.host.nativeElement.querySelector<HTMLElement>('[data-testid="diag-title"]')?.focus();
   }
 
   /** Empieza las tareas del tutor (una por una, en orden). */
@@ -337,7 +509,7 @@ export class PracticePage implements OnInit {
   }
 
   async next(): Promise<void> {
-    if (!this.topic || this.busy) return;
+    if (!this.topic || this.busy || this.diag) return;
     this.cancelExplanation();
     if (this.taskMode) {
       this.nextTask();
@@ -391,6 +563,10 @@ export class PracticePage implements OnInit {
 
   async submit(): Promise<void> {
     if (!this.exercise || !this.canSubmit) return;
+    if (this.diag === 'running') {
+      await this.answerDiagnostic();
+      return;
+    }
     this.busy = true;
     this.error = '';
     try {
@@ -519,6 +695,12 @@ export class PracticePage implements OnInit {
   /** Ionic guarda la pantalla al navegar: se corta la explicación al salir. */
   ionViewWillLeave(): void {
     this.cancelExplanation();
+    // Salir a la mitad del diagnóstico es abandonarlo: se olvida y no se envía nada.
+    if (this.diag) {
+      this.resetDiagnostic();
+      this.topic = null;
+      this.exercise = null;
+    }
   }
 
   /** Corta la petición en curso y olvida el texto. */
@@ -546,6 +728,7 @@ export class PracticePage implements OnInit {
 
   changeTopic(): void {
     this.cancelExplanation();
+    this.resetDiagnostic();
     this.topic = null;
     this.exercise = null;
     this.result = null;

@@ -22,6 +22,7 @@ from app.routes import (
     account,
     assignments,
     consent,
+    diagnostic,
     exercises,
     explanations,
     health,
@@ -89,6 +90,7 @@ def create_app(
     app.include_router(students.router)
     app.include_router(explanations.router)
     app.include_router(exercises.router)
+    app.include_router(diagnostic.router)
     app.include_router(progress.router)
     app.include_router(account.router)
     app.include_router(consent.router)

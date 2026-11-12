@@ -12,6 +12,7 @@ from app.db.gateway import (
     AssignmentRow,
     AttemptRow,
     ConsentSummary,
+    DiagnosticItem,
     GatewayError,
     PinState,
 )
@@ -58,6 +59,11 @@ class FakeGateway:
     progress: dict[uuid.UUID, dict[str, SkillProgress]] = field(default_factory=dict)
     exercises: list[tuple[uuid.UUID, str, str]] = field(default_factory=list)
     durations: list[int | None] = field(default_factory=list)
+    # diagnósticos guardados: (perfil, tema, nivel de entrada, ejercicios) y fallo al guardar
+    diagnostics: list[tuple[uuid.UUID, str, int, list[DiagnosticItem]]] = field(
+        default_factory=list
+    )
+    diagnostic_error: Exception | None = None
 
     # ejercicios propios del tutor: id -> (tutor, perfil, fila)
     assignments: dict[uuid.UUID, tuple[uuid.UUID, uuid.UUID, AssignmentRow]] = field(
@@ -161,6 +167,28 @@ class FakeGateway:
             elif day > row.last_day:
                 length = row.current_len + 1 if day == row.last_day + timedelta(days=1) else 1
                 self.streaks[student_id] = DailyStreakRow(length, day)
+        return "ok"
+
+    async def save_diagnostic(
+        self,
+        tutor_id: uuid.UUID,
+        student_id: uuid.UUID,
+        topic: str,
+        level: int,
+        items: list[DiagnosticItem],
+    ) -> str:
+        # Imita save_diagnostic: solo si la habilidad no tiene intentos ni progreso; guarda el
+        # nivel de entrada con bloque vacío y NO toca racha, bloque ni intentos de práctica.
+        if self.diagnostic_error is not None:
+            raise self.diagnostic_error
+        if (tutor_id, student_id) not in self.grades:
+            return "student_not_found"
+        practiced = any(s == student_id and t == topic for s, t, _ in self.exercises)
+        diagnosed = any(s == student_id and t == topic for s, t, _, _ in self.diagnostics)
+        if practiced or diagnosed or topic in self.progress.get(student_id, {}):
+            return "not_available"
+        self.diagnostics.append((student_id, topic, level, list(items)))
+        self.progress.setdefault(student_id, {})[topic] = SkillProgress(level)
         return "ok"
 
     async def get_daily_streak(

@@ -41,6 +41,7 @@ interface ExerciseDto {
   picto?: GamePictoRow[] | null;
   measure?: GameMeasure | null;
   blocks?: { tens: number; ones: number } | null;
+  removed?: { tens: number; ones: number } | null;
   figure?: GameOption | null;
   clock?: { hour: number; minute: number } | null;
   scale?: number | null;
@@ -144,6 +145,7 @@ export class HttpGamesService extends GamesPort {
             }
           : null,
         blocks: dto.blocks ? { tens: dto.blocks.tens, ones: dto.blocks.ones } : null,
+        removed: dto.removed ? { tens: dto.removed.tens, ones: dto.removed.ones } : null,
         figure: dto.figure ? { id: dto.figure.id, kind: dto.figure.kind, label: dto.figure.label } : null,
         clock: dto.clock ? { hour: dto.clock.hour, minute: dto.clock.minute } : null,
         scale: typeof dto.scale === 'number' ? dto.scale : null,

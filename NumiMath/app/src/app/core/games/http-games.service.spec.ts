@@ -65,7 +65,15 @@ describe('HttpGamesService (CU-A21)', () => {
       token: 'tb', game_id: 'arma-numero-2', kind: 'choice', text: '¿Qué número?', options: [],
       blocks: { tens: 4, ones: 7 },
     });
-    expect(await blocks).toMatchObject({ blocks: { tens: 4, ones: 7 }, scene: null, figure: null, clock: null, scale: null });
+    expect(await blocks).toMatchObject({ blocks: { tens: 4, ones: 7 }, removed: null, scene: null, figure: null, clock: null, scale: null });
+
+    const takeAway = service.exercise('p1', 'resta-bloques-2');
+    await tick();
+    http.expectOne(`${BASE}/games/resta-bloques-2/exercise`).flush({
+      token: 'tr', game_id: 'resta-bloques-2', kind: 'choice', text: '56 − 23 = ?', options: [],
+      blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 },
+    });
+    expect(await takeAway).toMatchObject({ blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 } });
 
     const drawn = service.exercise('p1', 'lee-reloj-2');
     await tick();

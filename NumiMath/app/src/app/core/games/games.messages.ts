@@ -48,6 +48,15 @@ export const GAME_TEXT = {
   },
   blocksLabel: (tens: number, ones: number) =>
     `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`,
+  /** Restas: lo que se ve y lo que está tachado, sin decir cuánto queda (la respuesta). */
+  blocksTakeAwayLabel: (tens: number, ones: number, goneTens: number, goneOnes: number) => {
+    const gone = [
+      goneTens ? `${goneTens} ${goneTens === 1 ? 'barra' : 'barras'}` : '',
+      goneOnes ? `${goneOnes} ${goneOnes === 1 ? 'cubito' : 'cubitos'}` : '',
+    ].filter(Boolean);
+    const blocks = `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`;
+    return `${blocks}. Tachados, para quitar: ${gone.join(' y ')}.`;
+  },
   measureClips: 'Clips',
   measureSteps: 'Pasos',
   /** `name` viene con artículo ("el lápiz"): "El lápiz y, debajo, clips en fila." */

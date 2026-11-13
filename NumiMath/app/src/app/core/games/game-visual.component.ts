@@ -63,20 +63,34 @@ export const MEASURE_UNIT_PX = 34;
     } @else if (exercise.blocks; as b) {
       <!-- Bloques: barras de diez (con sus 10 cuadritos) y cubitos sueltos. La forma los
            distingue (barra larga y cubito), no solo el color. -->
-      <div class="blocks" role="img" [attr.aria-label]="text.blocksLabel(b.tens, b.ones)" data-testid="visual-blocks">
+      <!-- Restas (removed): los ÚLTIMOS bloques se dibujan tachados. Siguen viéndose (misma forma y
+           color, más tenues) con borde punteado y una ✕ gruesa encima: "se quita", no "no hay". -->
+      <div class="blocks" role="img" [attr.aria-label]="blocksAria(b)" data-testid="visual-blocks">
         <div class="rods">
           @for (r of units(b.tens); track r) {
-            <svg class="rod" viewBox="0 0 14 104" aria-hidden="true" focusable="false">
+            @let gone = r >= b.tens - (exercise.removed?.tens ?? 0);
+            <svg class="rod" [class.gone]="gone" viewBox="0 0 14 104" aria-hidden="true" focusable="false"
+              [attr.data-gone]="gone ? '' : null">
               @for (i of units(10); track i) {
                 <rect x="2" [attr.y]="2 + i * 10" width="10" height="10" fill="#90cdf4" stroke="#1a202c" stroke-width="1.5" />
+              }
+              @if (gone) {
+                <line x1="1" y1="1" x2="13" y2="103" class="cross" />
+                <line x1="13" y1="1" x2="1" y2="103" class="cross" />
               }
             </svg>
           }
         </div>
         <div class="cubes">
           @for (c of units(b.ones); track c) {
-            <svg class="cube" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+            @let gone = c >= b.ones - (exercise.removed?.ones ?? 0);
+            <svg class="cube" [class.gone]="gone" viewBox="0 0 14 14" aria-hidden="true" focusable="false"
+              [attr.data-gone]="gone ? '' : null">
               <rect x="2" y="2" width="10" height="10" fill="#faf089" stroke="#1a202c" stroke-width="1.5" />
+              @if (gone) {
+                <line x1="1" y1="1" x2="13" y2="13" class="cross" />
+                <line x1="13" y1="1" x2="1" y2="13" class="cross" />
+              }
             </svg>
           }
         </div>
@@ -210,6 +224,16 @@ export const MEASURE_UNIT_PX = 34;
         width: 14px;
         height: 14px;
       }
+      /* Tachado: el bloque sigue ahí (más tenue, borde punteado) y una ✕ oscura lo cruza. */
+      .gone rect {
+        fill-opacity: 0.45;
+        stroke-dasharray: 2 1.5;
+      }
+      .cross {
+        stroke: #9b2c2c;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+      }
       .measure {
         margin: 0 auto;
         display: flex;
@@ -250,6 +274,14 @@ export class GameVisualComponent {
 
   protected get patternLabel(): string {
     return GAME_TEXT.patternRow((this.exercise.pattern ?? []).map((f) => f.label));
+  }
+
+  /** Etiqueta de los bloques: en las restas dice además qué está tachado (nunca cuánto queda). */
+  protected blocksAria(b: { tens: number; ones: number }): string {
+    const gone = this.exercise.removed;
+    return gone
+      ? GAME_TEXT.blocksTakeAwayLabel(b.tens, b.ones, gone.tens, gone.ones)
+      : GAME_TEXT.blocksLabel(b.tens, b.ones);
   }
 
   protected readonly hours = Array.from({ length: 12 }, (_, i) => i + 1);

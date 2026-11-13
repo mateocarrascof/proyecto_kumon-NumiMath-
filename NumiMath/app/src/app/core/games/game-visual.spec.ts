@@ -190,6 +190,33 @@ describe('GameVisualComponent (CU-A21)', () => {
     expect(blocks.getAttribute('aria-label')).not.toContain('41');
   });
 
+  it('resta: los últimos bloques van tachados (siguen viéndose) y la etiqueta no dice cuánto queda', () => {
+    // 56 − 23: 5 barras y 6 cubitos; se tachan 2 barras y 3 cubitos.
+    const { q } = render(base({ blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 } }));
+    const blocks = q('visual-blocks')!;
+    const rods = [...blocks.querySelectorAll('.rod')];
+    const cubes = [...blocks.querySelectorAll('.cube')];
+    expect(rods.length).toBe(5); // lo tachado se sigue dibujando: no desaparece
+    expect(cubes.length).toBe(6);
+    expect(rods.map((r) => r.hasAttribute('data-gone'))).toEqual([false, false, false, true, true]);
+    expect(cubes.map((c) => c.hasAttribute('data-gone'))).toEqual([false, false, false, true, true, true]);
+    for (const gone of blocks.querySelectorAll('[data-gone]')) {
+      expect(gone.querySelectorAll('line.cross').length).toBe(2); // la ✕
+      expect(gone.querySelectorAll('rect').length).toBeGreaterThan(0); // y el bloque debajo
+    }
+    const label = blocks.getAttribute('aria-label')!;
+    expect(label).toBe('5 barras de diez y 6 cubitos. Tachados, para quitar: 2 barras y 3 cubitos.');
+    expect(label).not.toMatch(/33|treinta/); // el resultado
+  });
+
+  it('resta sin decenas que quitar: solo cubitos tachados', () => {
+    const { q } = render(base({ blocks: { tens: 3, ones: 9 }, removed: { tens: 0, ones: 8 } }));
+    const blocks = q('visual-blocks')!;
+    expect(blocks.querySelectorAll('.rod[data-gone]').length).toBe(0);
+    expect(blocks.querySelectorAll('.cube[data-gone]').length).toBe(8);
+    expect(blocks.getAttribute('aria-label')).toBe('3 barras de diez y 9 cubitos. Tachados, para quitar: 8 cubitos.');
+  });
+
   it('medición: lo medido tiene el mismo largo que la fila de clips, y cada clip se puede contar', () => {
     const { q } = render(
       base({ measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 5 } }),

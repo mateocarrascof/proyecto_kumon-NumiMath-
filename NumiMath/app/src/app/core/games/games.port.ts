@@ -48,6 +48,8 @@ export interface GameExercise {
   measure?: GameMeasure | null;
   /** 2°: decenas y unidades dibujadas como bloques. */
   blocks?: { tens: number; ones: number } | null;
+  /** 2°, restas: de `blocks`, las decenas y unidades que se quitan (se dibujan tachadas). */
+  removed?: { tens: number; ones: number } | null;
   /** 2°: una figura grande sobre las opciones (lados y vértices). */
   figure?: GameOption | null;
   /** 2°: reloj dibujado (hora 1 a 12, minuto 0 o 30). */

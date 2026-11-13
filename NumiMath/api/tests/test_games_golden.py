@@ -665,6 +665,32 @@ GOLDEN = {
             None,
         ),
     ],
+    "resta-bloques-2": [
+        (
+            "choice",
+            "43 − 41 = ? Quita los bloques tachados.",
+            ("n:12", "n:84", "n:2"),
+            ("n:2",),
+            None,
+            ("blocks", 4, 3, "removed", 4, 1),
+        ),
+        (
+            "choice",
+            "39 − 8 = ? Quita los bloques tachados.",
+            ("n:31", "n:41", "n:47"),
+            ("n:31",),
+            None,
+            ("blocks", 3, 9, "removed", 0, 8),
+        ),
+        (
+            "choice",
+            "86 − 4 = ? Quita los bloques tachados.",
+            ("n:92", "n:82", "n:90"),
+            ("n:82",),
+            None,
+            ("blocks", 8, 6, "removed", 0, 4),
+        ),
+    ],
     "suma-bloques-2": [
         (
             "choice",
@@ -725,7 +751,8 @@ def _visual(e: GameExercise) -> object:
     if e.pattern is not None:
         return tuple(p.id for p in e.pattern)
     if e.blocks is not None:
-        return ("blocks", *e.blocks)
+        removed = () if e.removed is None else ("removed", *e.removed)
+        return ("blocks", *e.blocks, *removed)
     if e.figure is not None:
         return ("figure", e.figure.id)
     if e.clock is not None:

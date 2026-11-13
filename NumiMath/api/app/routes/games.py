@@ -124,6 +124,8 @@ class GameExerciseOut(BaseModel):
     picto: list[GamePictoRowOut] | None = None
     measure: GameMeasureOut | None = None
     blocks: GameBlocksOut | None = None
+    # Restas con bloques: las (decenas, unidades) de `blocks` que se quitan (tachadas).
+    removed: GameBlocksOut | None = None
     figure: GameOptionOut | None = None
     clock: GameClockOut | None = None
     scale: int | None = None
@@ -232,6 +234,11 @@ async def new_game_exercise(
         ),
         blocks=(
             GameBlocksOut(tens=ex.blocks[0], ones=ex.blocks[1]) if ex.blocks is not None else None
+        ),
+        removed=(
+            GameBlocksOut(tens=ex.removed[0], ones=ex.removed[1])
+            if ex.removed is not None
+            else None
         ),
         figure=(
             GameOptionOut(id=ex.figure.id, kind=ex.figure.kind, label=ex.figure.label)

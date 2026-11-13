@@ -127,6 +127,7 @@ def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
         "picto",
         "measure",
         "blocks",
+        "removed",
         "figure",
         "clock",
         "scale",
@@ -141,6 +142,7 @@ def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
             "picto",
             "measure",
             "blocks",
+            "removed",
             "figure",
             "clock",
             "scale",
@@ -540,7 +542,17 @@ def test_pictograma_es_valido_en_miles_de_ejercicios() -> None:
 )
 def test_juegos_de_la_parte_3_traen_lo_que_se_dibuja(game_id: str, field: str | None) -> None:
     body = _new(_client(_gateway()), game_id).json()
-    for key in ("pattern", "scene", "picto", "measure", "blocks", "figure", "clock", "scale"):
+    for key in (
+        "pattern",
+        "scene",
+        "picto",
+        "measure",
+        "blocks",
+        "removed",
+        "figure",
+        "clock",
+        "scale",
+    ):
         assert (body[key] is not None) == (key == field)
     if field == "scene":
         assert [p["id"] for p in body["scene"]["places"]] == [o["id"] for o in body["options"]]
@@ -674,6 +686,26 @@ def test_suma_con_bloques_mezcla_sin_y_con_reserva() -> None:
     assert kinds == {True, False}
 
 
+def test_resta_con_bloques_sin_reserva_en_miles_de_ejercicios() -> None:
+    sizes = set()
+    for e in _many("resta-bloques-2"):
+        a, b = (int(x) for x in e.text.split(" = ")[0].split(" − "))
+        assert e.text == f"{a} − {b} = ? Quita los bloques tachados."
+        assert e.blocks == (a // 10, a % 10) and e.removed == (b // 10, b % 10)
+        assert 11 <= a <= 99 and 1 <= b < a
+        assert b % 10 <= a % 10 and b // 10 <= a // 10  # sin reserva
+        assert e.solution == (f"n:{a - b}",)
+        values = [_num(o.id) for o in e.options]
+        assert len(set(values)) == 3 and all(0 <= v <= 100 for v in values)
+        sizes.add(b >= 10)
+    assert sizes == {True, False}  # 2 cifras − 1 cifra y 2 cifras − 2 cifras
+
+
+def test_resta_con_bloques_cubre_9_barras_y_9_cubitos() -> None:
+    # El caso más ancho a 360 px (99 − b) aparece: la app debe dibujarlo sin salirse.
+    assert any(e.blocks == (9, 9) for e in _many("resta-bloques-2", 4000))
+
+
 def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
     for e in _many("grupos-iguales-2"):
         groups = e.text.rsplit("? ", 1)[1].split(" ")
@@ -687,6 +719,7 @@ def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
     ("game_id", "fields"),
     [
         ("arma-numero-2", {"blocks"}),
+        ("resta-bloques-2", {"blocks", "removed"}),
         ("cuenta-lados-2", {"figure"}),
         ("lee-reloj-2", {"clock"}),
         ("pictograma-escala-2", {"picto", "scale"}),
@@ -695,10 +728,25 @@ def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
 )
 def test_juegos_de_2_traen_lo_que_se_dibuja(game_id: str, fields: set[str]) -> None:
     body = _new(_client(_gateway(grade=2)), game_id).json()
-    drawn = ("pattern", "scene", "picto", "measure", "blocks", "figure", "clock", "scale")
+    drawn = (
+        "pattern",
+        "scene",
+        "picto",
+        "measure",
+        "blocks",
+        "removed",
+        "figure",
+        "clock",
+        "scale",
+    )
     assert {k for k in drawn if body[k] is not None} == fields
     if "blocks" in fields:
         assert set(body["blocks"]) == {"tens", "ones"}
+    if "removed" in fields:
+        assert set(body["removed"]) == {"tens", "ones"}
+        # Lo tachado sale de los bloques dibujados: nunca más de lo que hay.
+        assert body["removed"]["tens"] <= body["blocks"]["tens"]
+        assert body["removed"]["ones"] <= body["blocks"]["ones"]
     if "figure" in fields:
         assert set(body["figure"]) == {"id", "kind", "label"} and body["figure"]["kind"] == "figure"
     if "clock" in fields:

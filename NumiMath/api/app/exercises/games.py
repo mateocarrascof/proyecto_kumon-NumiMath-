@@ -123,6 +123,8 @@ class Game:
     make: Callable[[random.Random], GameExercise]
     # False: no aparece en la lista, pero sigue existiendo (ADR 0004: los tokens emitidos se
     # verifican y su salida guardada no cambia). Ej.: cuantos-1, reemplazado por pon-en-bolsa-1.
+    # Regla del cliente: UN juego listado por tema (curso + habilidad). Por eso también quedan
+    # ocultos mayor-1 y donde-hay-mas-1 (1-03), mayor-2 (2-03) y que-sigue-2 (2-15).
     listed: bool = True
 
 
@@ -738,9 +740,20 @@ def _which_sign(rng: random.Random) -> GameExercise:
 GAMES: dict[str, Game] = {
     g.id: g
     for g in (
-        Game("mayor-1", "¿Cuál es mayor?", NUMBERS, 1, "choice", "1-03", _biggest(20)),
+        Game(
+            "mayor-1", "¿Cuál es mayor?", NUMBERS, 1, "choice", "1-03", _biggest(20), listed=False
+        ),
         Game("cuantos-1", "¿Cuántos hay?", NUMBERS, 1, "choice", "1-02", _how_many, listed=False),
-        Game("donde-hay-mas-1", "¿Dónde hay más?", NUMBERS, 1, "choice", "1-03", _where_more),
+        Game(
+            "donde-hay-mas-1",
+            "¿Dónde hay más?",
+            NUMBERS,
+            1,
+            "choice",
+            "1-03",
+            _where_more,
+            listed=False,
+        ),
         Game("ordena-1", "Ordena los números", NUMBERS, 1, "order", "1-03", _sort_ascending(20)),
         Game(
             "que-sigue-1",
@@ -769,7 +782,9 @@ GAMES: dict[str, Game] = {
         ),
         Game("mide-clips-1", "Mide con clips y pasos", MEASUREMENT, 1, "choice", "1-19", _measure),
         Game("pictograma-1", "Lee el pictograma", DATA, 1, "choice", "1-22", _pictogram),
-        Game("mayor-2", "¿Cuál es mayor?", NUMBERS, 2, "choice", "2-03", _biggest(100)),
+        Game(
+            "mayor-2", "¿Cuál es mayor?", NUMBERS, 2, "choice", "2-03", _biggest(100), listed=False
+        ),
         Game("ordena-2", "Ordena los números", NUMBERS, 2, "order", "2-03", _sort_ascending(100)),
         Game(
             "que-sigue-2",
@@ -779,6 +794,7 @@ GAMES: dict[str, Game] = {
             "choice",
             "2-15",
             _what_next((2, 5, 10), 100),
+            listed=False,
         ),
         Game("compara-signo-2", "¿Qué signo va?", PATTERNS, 2, "choice", "2-16", _which_sign),
         # CU-A21, parte 4 (2° básico, un juego por tema). Ids nuevos.

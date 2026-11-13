@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import collections
 import json
 import time
 import uuid
@@ -16,7 +17,7 @@ import respx
 from app.config import Settings
 from app.db.gateway import GatewayError
 from app.db.supabase_gateway import SupabaseGateway
-from app.exercises.games import GAME_MESSAGES, GAMES, valid_answer
+from app.exercises.games import GAME_GRADES, GAME_MESSAGES, GAMES, valid_answer
 from app.exercises.levels import SkillProgress
 from app.exercises.tokens import InvalidExercise, issue, issue_game, verify_game
 from tests.test_offline_batch import KEY, PERFIL, TUTOR, URL, _client, _gateway, _jwt
@@ -77,11 +78,7 @@ def test_lista_los_juegos_de_1_por_eje() -> None:
     names = {x["id"]: x["skill_name"] for g in body["groups"] for x in g["games"]}
     assert all(names[i] == get_skill(s).name for i, s in skills.items())  # type: ignore[union-attr]
     assert all(skills[i] == GAMES[i].skill for i in skills)
-    assert sorted(i for i, s in skills.items() if s == "1-03") == [
-        "donde-hay-mas-1",
-        "mayor-1",
-        "ordena-1",
-    ]
+    assert sorted(i for i, s in skills.items() if s == "1-03") == ["ordena-1"]
 
 
 def test_lista_los_juegos_de_2() -> None:
@@ -769,3 +766,29 @@ def test_cuantos_1_ya_no_se_lista_pero_sigue_existiendo() -> None:
     ids = {x["id"] for g in body["groups"] for x in g["games"]}
     assert "pon-en-bolsa-1" in ids and "cuantos-1" not in ids
     assert "cuantos-1" in GAMES  # ADR 0004: sus tokens se siguen verificando
+
+
+_HIDDEN_ONE_PER_TOPIC = ("mayor-1", "donde-hay-mas-1", "mayor-2", "que-sigue-2")
+
+
+@pytest.mark.parametrize("grade", sorted(GAME_GRADES))
+def test_un_solo_juego_listado_por_tema(grade: int) -> None:
+    body = _client(_gateway(grade=grade)).get(f"/v1/students/{PERFIL}/games", headers=_headers())
+    ids = [x["id"] for g in body.json()["groups"] for x in g["games"]]
+    per_topic = collections.Counter(GAMES[i].skill for i in ids)
+    assert ids and all(n == 1 for n in per_topic.values()), per_topic
+
+
+def test_los_que_quedan_por_tema_son_los_elegidos() -> None:
+    listed = {g.skill: g.id for g in GAMES.values() if g.listed}
+    assert (listed["1-03"], listed["2-03"], listed["2-15"]) == (
+        "ordena-1",
+        "ordena-2",
+        "completa-patron-2",
+    )
+
+
+@pytest.mark.parametrize("game_id", _HIDDEN_ONE_PER_TOPIC)
+def test_los_ocultos_por_tema_siguen_existiendo(game_id: str) -> None:
+    # ADR 0004: ids permanentes; sus tokens y los intentos guardados se siguen verificando.
+    assert game_id in GAMES and not GAMES[game_id].listed

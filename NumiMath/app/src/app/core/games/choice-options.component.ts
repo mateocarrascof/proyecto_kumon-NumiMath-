@@ -5,6 +5,21 @@ import { GAME_TEXT, objectName, optionLabel } from './games.messages';
 import { GameOption, GameScene } from './games.port';
 
 /**
+ * Color por POSICIÓN en pantalla (1ª, 2ª, 3ª y 4ª), no por contenido: no dice cuál es la correcta
+ * y no cambia al responder (solo se suman los estados de acierto y error ya existentes). Sin verde
+ * ni naranjo, que son los de "Esta era" y "Tu elección". Fondo suave con texto #1a202c (≥ 4,5:1) y
+ * acento (borde, franja y letra) con ≥ 3:1 sobre el fondo y ≥ 4,5:1 con la letra blanca: lo
+ * comprueba game-components.spec.ts.
+ */
+export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] = [
+  { bg: '#e8f0ff', accent: '#1a56db' }, // azul
+  { bg: '#e0f5f4', accent: '#0f6b66' }, // turquesa
+  { bg: '#f1eaff', accent: '#6b3fd4' }, // lila
+  { bg: '#ffe8f0', accent: '#b4235a' }, // rosado
+];
+export const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
+
+/**
  * Opciones táctiles (CU-A21): de 2 a 4 botones grandes con un número, un emoji o un símbolo (y en la
  * parte 3, figuras SVG propias). El niño toca una.
  *
@@ -21,10 +36,13 @@ import { GameOption, GameScene } from './games.port';
       @if (scene) {
         <span class="center" aria-hidden="true" data-testid="scene-center">{{ scene.center }}</span>
       }
-      @for (o of options; track o.id) {
+      @for (o of options; track o.id; let i = $index) {
         <button
           type="button"
           [style.grid-area]="placeOf(o.id)"
+          [style.--pos-bg]="colorAt(i).bg"
+          [style.--pos-accent]="colorAt(i).accent"
+          [attr.data-pos]="(i % 4) + 1"
           class="option"
           [class.chosen]="chosen === o.id"
           [class.right]="isRight(o.id)"
@@ -36,6 +54,11 @@ import { GameOption, GameScene } from './games.port';
           (click)="choose(o.id)"
           [attr.data-testid]="'option-' + o.id"
         >
+          <!-- Marca A, B, C, D solo visual (el lector de pantalla lee la etiqueta). Sin letras en la
+               escena en cruz: ahí la posición ya significa arriba, izquierda, etc. -->
+          @if (!scene) {
+            <span class="letter" aria-hidden="true" data-testid="choice-letter">{{ letterAt(i) }}</span>
+          }
           @if (o.kind === 'figure') {
             <app-figure class="value" [figureId]="o.id"></app-figure>
           } @else {
@@ -64,11 +87,13 @@ import { GameOption, GameScene } from './games.port';
         margin: 0 auto;
       }
       .option {
+        position: relative;
         height: 68px; /* objetivo táctil grande para dedos pequeños */
-        padding: 4px 12px;
+        padding: 4px 12px 4px 52px; /* a la izquierda va la letra; el valor sigue centrado */
         border-radius: 18px;
-        border: 3px solid #4a5568;
-        background: #ffffff;
+        border: 3px solid var(--pos-accent, #4a5568);
+        box-shadow: inset 8px 0 0 var(--pos-accent, #4a5568); /* franja de color de la posición */
+        background: var(--pos-bg, #ffffff);
         color: #1a202c;
         display: flex;
         flex-direction: row;
@@ -85,6 +110,28 @@ import { GameOption, GameScene } from './games.port';
       .option:focus-visible {
         outline: 4px solid #1a56db;
         outline-offset: 3px;
+      }
+      .letter {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--pos-accent, #4a5568);
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .options:not(.scene) .option {
+        padding-right: 52px; /* simétrico: el valor queda al centro del botón */
+      }
+      .options.scene .option {
+        padding: 4px 8px 4px 14px;
       }
       .value {
         font-size: 1.8rem;
@@ -116,9 +163,9 @@ import { GameOption, GameScene } from './games.port';
         font-size: 1.4rem;
         letter-spacing: 2px;
       }
+      /* Tocada: borde más grueso, del MISMO color de su posición (el color no cambia al tocar). */
       .chosen {
         border-width: 5px;
-        border-color: #1a56db;
       }
       /* Correcta: borde grueso + ícono y texto (no solo el color). */
       .right {
@@ -179,6 +226,14 @@ export class ChoiceOptionsComponent {
 
   protected isWrong(id: string): boolean {
     return this.correct !== null && this.chosen === id && !this.correct.includes(id);
+  }
+
+  protected colorAt(index: number): { bg: string; accent: string } {
+    return OPTION_POSITION_COLORS[index % OPTION_POSITION_COLORS.length];
+  }
+
+  protected letterAt(index: number): string {
+    return OPTION_LETTERS[index % OPTION_LETTERS.length];
   }
 
   protected placeOf(id: string): string | null {

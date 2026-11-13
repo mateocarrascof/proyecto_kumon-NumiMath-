@@ -66,7 +66,11 @@ describe('ChoiceOptionsComponent: figuras y escena (CU-A21)', () => {
     const { button } = render([FIG('triangulo', 'rojo', 'triángulo rojo'), FIG('esfera', 'azul', 'esfera azul')]);
     expect(button('f:triangulo-rojo').querySelector('app-figure svg')).not.toBeNull();
     expect(button('f:triangulo-rojo').getAttribute('aria-label')).toBe('triángulo rojo');
-    expect(button('f:triangulo-rojo').textContent?.trim()).toBe(''); // el nombre no se ve: hay que reconocer la forma
+    // El nombre no se ve: hay que reconocer la forma (solo la marca de posición, A).
+    const visible = button('f:triangulo-rojo').cloneNode(true) as HTMLElement;
+    expect(visible.querySelector('[data-testid="choice-letter"]')?.textContent?.trim()).toBe('A');
+    visible.querySelector('[data-testid="choice-letter"]')?.remove();
+    expect(visible.textContent?.trim()).toBe('');
   });
 
   it('escena en cruz: la caja al centro y cada objeto en su lugar, con su posición en la etiqueta', () => {

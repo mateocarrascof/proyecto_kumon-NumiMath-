@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { ChoiceOptionsComponent } from './choice-options.component';
+import { ChoiceOptionsComponent, OPTION_LETTERS, OPTION_POSITION_COLORS } from './choice-options.component';
 import { GAME_TEXT } from './games.messages';
 import { GameOption } from './games.port';
 import { OrderCardsComponent } from './order-cards.component';
@@ -61,6 +61,99 @@ describe('ChoiceOptionsComponent (CU-A21)', () => {
     fixture.componentInstance.pick.subscribe((id) => picks.push(id));
     button('n:4').click();
     expect(picks).toEqual([]);
+  });
+});
+
+/** Contraste WCAG 2.x entre dos colores #rrggbb. */
+function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, b2] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b2);
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+describe('ChoiceOptionsComponent: color y letra por posición', () => {
+  const FOUR = [N(4), N(9), APPLES, N(7)];
+  function render(inputs: Record<string, unknown> = {}) {
+    TestBed.configureTestingModule({ imports: [ChoiceOptionsComponent] });
+    const fixture = TestBed.createComponent(ChoiceOptionsComponent);
+    fixture.componentRef.setInput('options', FOUR);
+    for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const look = () =>
+      [...el.querySelectorAll<HTMLElement>('[data-testid^="option-"]')].map((b) => ({
+        pos: b.getAttribute('data-pos'),
+        bg: b.style.getPropertyValue('--pos-bg'),
+        accent: b.style.getPropertyValue('--pos-accent'),
+        letter: b.querySelector('[data-testid="choice-letter"]')?.textContent?.trim() ?? null,
+      }));
+    return { fixture, el, look };
+  }
+
+  it('cada posición tiene su color y su letra A, B, C, D (solo visual)', () => {
+    const { el, look } = render();
+    expect(look()).toEqual(
+      OPTION_POSITION_COLORS.map((c, i) => ({ pos: String(i + 1), bg: c.bg, accent: c.accent, letter: OPTION_LETTERS[i] })),
+    );
+    for (const l of el.querySelectorAll('[data-testid="choice-letter"]')) {
+      expect(l.getAttribute('aria-hidden')).toBe('true');
+    }
+    // La etiqueta accesible no cambia por la letra.
+    expect(el.querySelector('[data-testid="option-n:9"]')?.getAttribute('aria-label')).toBe('9');
+  });
+
+  it('el color depende del lugar, no de cuál es la correcta, y no cambia al responder', () => {
+    const { fixture, look } = render();
+    const before = look();
+    fixture.componentRef.setInput('chosen', 'n:9');
+    fixture.detectChanges();
+    expect(look()).toEqual(before);
+    fixture.componentRef.setInput('correct', ['n:7']);
+    fixture.detectChanges();
+    expect(look()).toEqual(before);
+    // Otra correcta: los mismos colores por lugar.
+    TestBed.resetTestingModule();
+    expect(render({ correct: ['n:4'], chosen: 'n:4' }).look()).toEqual(before);
+  });
+
+  it('con otro orden, cada lugar mantiene su color (sigue al lugar, no a la opción)', () => {
+    const { look } = render({ options: [N(7), APPLES, N(9), N(4)] });
+    expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
+  });
+
+  it('escena en cruz: color por posición, sin letras', () => {
+    const scene = {
+      center: '📦',
+      places: [
+        { id: 'n:4', position: 'arriba' },
+        { id: 'n:9', position: 'izquierda' },
+        { id: 'e:manzana-3', position: 'derecha' },
+        { id: 'n:7', position: 'abajo' },
+      ],
+    };
+    const { el, look } = render({ scene });
+    expect(el.querySelector('[data-testid="choice-letter"]')).toBeNull();
+    expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
+  });
+
+  it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3; letra blanca ≥ 4,5', () => {
+    for (const { bg, accent } of OPTION_POSITION_COLORS) {
+      expect(contrast('#1a202c', bg), bg).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(accent, bg), accent).toBeGreaterThanOrEqual(3);
+      expect(contrast('#ffffff', accent), accent).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('sin verde ni naranjo de "Esta era" / "Tu elección" en la paleta', () => {
+    const states = ['#1e7a3a', '#e6f6ea', '#8a4b00', '#fff4e5'];
+    for (const { bg, accent } of OPTION_POSITION_COLORS) {
+      expect(states).not.toContain(bg);
+      expect(states).not.toContain(accent);
+    }
   });
 });
 

@@ -75,6 +75,13 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/** CSS del componente tal como Angular lo inserta en la página (jsdom no calcula estilos). */
+function componentCss(): string {
+  TestBed.configureTestingModule({ imports: [ChoiceOptionsComponent] });
+  TestBed.createComponent(ChoiceOptionsComponent);
+  return [...document.querySelectorAll('style')].map((s) => s.textContent ?? '').join('\n');
+}
+
 describe('ChoiceOptionsComponent: color por posición (solo decoración)', () => {
   const FOUR = [N(4), N(9), APPLES, N(7)];
   function render(inputs: Record<string, unknown> = {}) {
@@ -140,6 +147,12 @@ describe('ChoiceOptionsComponent: color por posición (solo decoración)', () =>
     const FIG = (id: string): GameOption => ({ id: `f:${id}`, kind: 'figure', label: id });
     const { look } = render({ options: [FIG('circulo-azul'), FIG('cuadrado-verde'), FIG('triangulo-morado')] });
     expect(look()).toEqual([1, 2, 3].map((p) => ({ pos: String(p), bg: '', accent: '' })));
+  });
+
+  it('en "Esta era" y "Tu elección" no queda la franja de posición (una sola señal: la del estado)', () => {
+    const css = componentCss();
+    expect(css).toMatch(/\.right\[[^\]]+\]\s*\{[^}]*box-shadow:\s*none/);
+    expect(css).toMatch(/\.wrong\[[^\]]+\]\s*\{[^}]*box-shadow:\s*none/);
   });
 
   it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3', () => {

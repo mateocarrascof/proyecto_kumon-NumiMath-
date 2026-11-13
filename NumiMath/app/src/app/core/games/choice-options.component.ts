@@ -151,11 +151,13 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
       .right {
         border: 5px solid #1e7a3a;
         background: #e6f6ea;
+        box-shadow: none; /* sin la franja de posición: una sola señal (la del estado) */
       }
       /* Elegida y no era: borde punteado + texto (no "mal", sin rojo de alarma). */
       .wrong {
         border: 5px dashed #8a4b00;
         background: #fff4e5;
+        box-shadow: none;
       }
       .badge {
         font-size: 0.95rem;

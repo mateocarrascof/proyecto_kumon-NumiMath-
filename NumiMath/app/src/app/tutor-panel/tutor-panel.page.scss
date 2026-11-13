@@ -150,3 +150,60 @@ h2 {
 .confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 
 .row .time { white-space: nowrap; color: var(--ion-color-medium-shade, #555); font-size: 0.9rem; }
+
+/* ===== Pestañas (barra inferior) ===== */
+.kids-bar { --background: var(--ion-background-color, #fff); --padding-start: 8px; --padding-end: 8px; }
+.kids-bar .kids { margin: 0; }
+
+.tab-toolbar { --padding-start: 0; --padding-end: 0; --padding-top: 0; --padding-bottom: 0; --min-height: 60px; }
+
+.tabbar {
+  display: flex;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: 0;
+  border-top: 3px solid transparent;
+  background: transparent;
+  color: var(--ion-color-medium-shade, #555);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.tab ion-icon { font-size: 1.4rem; }
+.tab span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+.tab[aria-selected='true'] {
+  color: var(--ion-color-primary);
+  border-top-color: var(--ion-color-primary);
+  font-weight: 700;
+}
+
+.tab:focus { outline: none; }
+.tab:focus-visible {
+  outline: 3px solid var(--ion-color-primary);
+  outline-offset: -5px;
+  border-radius: var(--kid-radius-sm);
+}
+
+.account-actions { display: grid; gap: 8px; }
+
+.danger-area {
+  margin-top: 32px;
+  padding-top: 8px;
+  border-top: 2px dashed var(--ion-color-danger);
+  display: grid;
+  gap: 12px;
+}

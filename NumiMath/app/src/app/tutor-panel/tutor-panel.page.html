@@ -5,23 +5,9 @@
     </ion-buttons>
     <ion-title>Panel del tutor</ion-title>
   </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true" class="ion-padding">
-  <main class="panel">
-    @if (loading) {
-      <ion-spinner name="dots"></ion-spinner>
-    }
-
-    @if (profilesError) {
-      <p class="error" role="alert">{{ profilesError }}</p>
-    }
-
-    @if (!loading && !profilesError && !profiles.length) {
-      <p class="hint">Todavía no hay perfiles. Crea el primero en la sección "Perfiles", más abajo.</p>
-    }
-
-    @if (profiles.length) {
+  <!-- Selector de niño: fijo arriba en Progreso, Tareas y Mis hijos; oculto en Cuenta. -->
+  @if (profiles.length && tab !== 'cuenta') {
+    <ion-toolbar class="kids-bar">
       <ion-segment
         class="kids"
         scrollable
@@ -35,259 +21,325 @@
           </ion-segment-button>
         }
       </ion-segment>
+    </ion-toolbar>
+  }
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <main class="panel">
+    @if (loading) {
+      <ion-spinner name="dots"></ion-spinner>
     }
 
-    @if (studentId) {
-
-    <!-- ===== Informe ===== -->
-    @if (reportError) {
-      <p class="error" role="alert">{{ reportError }}</p>
+    @if (profilesError) {
+      <p class="error" role="alert">{{ profilesError }}</p>
     }
 
-    @if (report) {
-      <section aria-labelledby="h-summary">
-        <h2 id="h-summary">Resumen</h2>
-        <div class="stats">
-          <div><strong data-testid="stat-total">{{ report.total }}</strong><span>ejercicios</span></div>
-          <div><strong data-testid="stat-percent">{{ report.percent }}%</strong><span>de aciertos</span></div>
-          <div><strong>{{ report.practiceDaysLast7 }}/7</strong><span>días practicados</span></div>
-          <div><strong>🔥 {{ report.dailyStreak }}</strong><span>días seguidos</span></div>
-          <div><strong data-testid="stat-time">{{ formatDuration(report.medianSeconds) }}</strong><span>tiempo típico por ejercicio</span></div>
-        </div>
-      </section>
-
-      <section aria-labelledby="h-feedback">
-        <h2 id="h-feedback">Cómo va</h2>
-        <ul class="feedback">
-          @for (f of report.feedback; track $index) {
-            <li [attr.data-kind]="f.kind">
-              <span class="fb-icon" aria-hidden="true">{{ icon(f.kind) }}</span>
-              <span>{{ f.text }}</span>
-            </li>
-          }
-        </ul>
-      </section>
-
-      <section aria-labelledby="h-chart" class="card">
-        <h2 id="h-chart">Últimas 8 semanas</h2>
-        <app-weekly-chart [data]="report.weeks"></app-weekly-chart>
-      </section>
-
-      @if (report.byTopic.length) {
-        <section aria-labelledby="h-topics">
-          <h2 id="h-topics">Aciertos por tema</h2>
-          <ul class="topics card">
-            @for (t of report.byTopic; track t.topic) {
-              <li>
-                <div class="row">
-                  <span>{{ t.label }}</span>
-                  <span class="count">{{ t.percent }}% · {{ t.correct }}/{{ t.total }}</span>
-                  <span class="time" [attr.data-testid]="'time-' + t.topic">⏱ {{ formatDuration(t.medianSeconds) }}</span>
-                </div>
-                <ion-progress-bar [value]="ratio(t.correct, t.total)" [attr.aria-label]="t.label + ': ' + t.percent + '% de aciertos'"></ion-progress-bar>
-              </li>
-            }
-          </ul>
-        </section>
+    <!-- ===== Progreso ===== -->
+    <div role="tabpanel" id="panel-progreso" aria-labelledby="tab-progreso" [hidden]="tab !== 'progreso'">
+      @if (!studentId && !loading && !profilesError) {
+        <p class="hint">Todavía no hay perfiles. Crea el primero en la pestaña "Mis hijos".</p>
       }
-    }
+      @if (studentId) {
+        <!-- ===== Informe ===== -->
+        @if (reportError) {
+          <p class="error" role="alert">{{ reportError }}</p>
+        }
+
+        @if (report) {
+          <section aria-labelledby="h-summary">
+            <h2 id="h-summary">Resumen</h2>
+            <div class="stats">
+              <div><strong data-testid="stat-total">{{ report.total }}</strong><span>ejercicios</span></div>
+              <div><strong data-testid="stat-percent">{{ report.percent }}%</strong><span>de aciertos</span></div>
+              <div><strong>{{ report.practiceDaysLast7 }}/7</strong><span>días practicados</span></div>
+              <div><strong>🔥 {{ report.dailyStreak }}</strong><span>días seguidos</span></div>
+              <div><strong data-testid="stat-time">{{ formatDuration(report.medianSeconds) }}</strong><span>tiempo típico por ejercicio</span></div>
+            </div>
+          </section>
+
+          <section aria-labelledby="h-feedback">
+            <h2 id="h-feedback">Cómo va</h2>
+            <ul class="feedback">
+              @for (f of report.feedback; track $index) {
+                <li [attr.data-kind]="f.kind">
+                  <span class="fb-icon" aria-hidden="true">{{ icon(f.kind) }}</span>
+                  <span>{{ f.text }}</span>
+                </li>
+              }
+            </ul>
+          </section>
+
+          <section aria-labelledby="h-chart" class="card">
+            <h2 id="h-chart">Últimas 8 semanas</h2>
+            <app-weekly-chart [data]="report.weeks"></app-weekly-chart>
+          </section>
+
+          @if (report.byTopic.length) {
+            <section aria-labelledby="h-topics">
+              <h2 id="h-topics">Aciertos por tema</h2>
+              <ul class="topics card">
+                @for (t of report.byTopic; track t.topic) {
+                  <li>
+                    <div class="row">
+                      <span>{{ t.label }}</span>
+                      <span class="count">{{ t.percent }}% · {{ t.correct }}/{{ t.total }}</span>
+                      <span class="time" [attr.data-testid]="'time-' + t.topic">⏱ {{ formatDuration(t.medianSeconds) }}</span>
+                    </div>
+                    <ion-progress-bar [value]="ratio(t.correct, t.total)" [attr.aria-label]="t.label + ': ' + t.percent + '% de aciertos'"></ion-progress-bar>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        }
+
+          <app-student-history [studentId]="studentId" [nickname]="selectedNickname"></app-student-history>
+      }
+    </div>
 
     <!-- ===== Tareas ===== -->
-    <section aria-labelledby="h-tasks">
-      <h2 id="h-tasks">Tareas para el niño</h2>
-      <p class="hint">
-        Escribe un ejercicio con respuesta numérica. Aparecerá en su práctica como "Tareas de tu tutor".
-        <strong>No escribas su nombre real ni otros datos personales.</strong>
-      </p>
-
-      <form class="card form" (ngSubmit)="save()" novalidate>
-        <ion-textarea
-          label="Enunciado"
-          labelPlacement="stacked"
-          placeholder="Ej.: Tienes 12 láminas y regalas 5. ¿Cuántas te quedan?"
-          [autoGrow]="true"
-          [counter]="true"
-          [maxlength]="textMax"
-          [value]="text"
-          (ionInput)="onText($any($event.target).value)"
-        ></ion-textarea>
-        <ion-input
-          label="Respuesta (número entero)"
-          labelPlacement="stacked"
-          type="text"
-          inputmode="numeric"
-          [value]="answer"
-          (ionInput)="onAnswer($any($event.target).value)"
-        ></ion-input>
-        <ion-button type="submit" expand="block" [disabled]="!canSave" data-testid="save-task">
-          Guardar tarea
-        </ion-button>
-        <p class="count-line">{{ pendingCount }} de {{ maxPending }} tareas pendientes</p>
-        @if (full) {
-          <p class="hint">Llegaste al máximo de pendientes. Espera a que las responda o borra alguna.</p>
-        }
-        @if (formError) {
-          <p class="error" role="alert" data-testid="form-error">{{ formError }}</p>
-        }
-        @if (formOk) {
-          <p class="ok" role="status">{{ formOk }}</p>
-        }
-      </form>
-
-      @if (tasksError) {
-        <p class="error" role="alert">{{ tasksError }}</p>
+    <div role="tabpanel" id="panel-tareas" aria-labelledby="tab-tareas" [hidden]="tab !== 'tareas'">
+      @if (!studentId && !loading && !profilesError) {
+        <p class="hint">Todavía no hay perfiles. Crea el primero en la pestaña "Mis hijos".</p>
       }
+      @if (studentId) {
+        <section aria-labelledby="h-tasks">
+          <h2 id="h-tasks">Tareas para el niño</h2>
+          <p class="hint">
+            Escribe un ejercicio con respuesta numérica. Aparecerá en su práctica como "Tareas de tu tutor".
+            <strong>No escribas su nombre real ni otros datos personales.</strong>
+          </p>
 
-      @if (tasks.length) {
-        <ul class="tasks">
-          @for (t of tasks; track t.id) {
-            <li class="card" [attr.data-status]="t.status" data-testid="task">
-              <p class="task-text">{{ t.text }}</p>
-              <div class="task-meta">
-                <span>Respuesta: <strong>{{ t.answer }}</strong></span>
-                @switch (t.status) {
-                  @case ('pending') { <span class="badge pending">Pendiente</span> }
-                  @case ('correct') { <span class="badge correct">✔ Correcta</span> }
-                  @case ('wrong') { <span class="badge wrong">✗ Incorrecta</span> }
-                }
-                @if (t.status === 'pending') {
-                  <ion-button size="small" fill="clear" (click)="startEdit(t)" data-testid="edit-task">Editar</ion-button>
-                  <ion-button size="small" fill="clear" color="danger" (click)="remove(t)">Borrar</ion-button>
+          <form class="card form" (ngSubmit)="save()" novalidate>
+            <ion-textarea
+              label="Enunciado"
+              labelPlacement="stacked"
+              placeholder="Ej.: Tienes 12 láminas y regalas 5. ¿Cuántas te quedan?"
+              [autoGrow]="true"
+              [counter]="true"
+              [maxlength]="textMax"
+              [value]="text"
+              (ionInput)="onText($any($event.target).value)"
+            ></ion-textarea>
+            <ion-input
+              label="Respuesta (número entero)"
+              labelPlacement="stacked"
+              type="text"
+              inputmode="numeric"
+              [value]="answer"
+              (ionInput)="onAnswer($any($event.target).value)"
+            ></ion-input>
+            <ion-button type="submit" expand="block" [disabled]="!canSave" data-testid="save-task">
+              Guardar tarea
+            </ion-button>
+            <p class="count-line">{{ pendingCount }} de {{ maxPending }} tareas pendientes</p>
+            @if (full) {
+              <p class="hint">Llegaste al máximo de pendientes. Espera a que las responda o borra alguna.</p>
+            }
+            @if (formError) {
+              <p class="error" role="alert" data-testid="form-error">{{ formError }}</p>
+            }
+            @if (formOk) {
+              <p class="ok" role="status">{{ formOk }}</p>
+            }
+          </form>
+
+          @if (tasksError) {
+            <p class="error" role="alert">{{ tasksError }}</p>
+          }
+
+          @if (tasks.length) {
+            <ul class="tasks">
+              @for (t of tasks; track t.id) {
+                <li class="card" [attr.data-status]="t.status" data-testid="task">
+                  <p class="task-text">{{ t.text }}</p>
+                  <div class="task-meta">
+                    <span>Respuesta: <strong>{{ t.answer }}</strong></span>
+                    @switch (t.status) {
+                      @case ('pending') { <span class="badge pending">Pendiente</span> }
+                      @case ('correct') { <span class="badge correct">✔ Correcta</span> }
+                      @case ('wrong') { <span class="badge wrong">✗ Incorrecta</span> }
+                    }
+                    @if (t.status === 'pending') {
+                      <ion-button size="small" fill="clear" (click)="startEdit(t)" data-testid="edit-task">Editar</ion-button>
+                      <ion-button size="small" fill="clear" color="danger" (click)="remove(t)">Borrar</ion-button>
+                    }
+                  </div>
+                  @if (editing?.id === t.id) {
+                    <div class="confirm" role="group" aria-label="Editar la tarea" data-testid="edit-form">
+                      <ion-textarea
+                        label="Enunciado"
+                        labelPlacement="stacked"
+                        [maxlength]="textMax"
+                        [value]="editText"
+                        (ionInput)="editText = ($any($event.target).value ?? '').slice(0, textMax)"
+                      ></ion-textarea>
+                      <ion-input
+                        label="Respuesta (número entero)"
+                        labelPlacement="stacked"
+                        inputmode="numeric"
+                        [value]="editAnswer"
+                        (ionInput)="editAnswer = ($any($event.target).value ?? '').replace(/\D/g, '').slice(0, 7)"
+                      ></ion-input>
+                      <ion-input
+                        type="password"
+                        inputmode="numeric"
+                        label="PIN"
+                        labelPlacement="stacked"
+                        [maxlength]="4"
+                        [value]="editPin"
+                        (ionInput)="editPin = ($any($event.target).value ?? '').replace(/\D/g, '').slice(0, 4)"
+                        data-testid="edit-pin"
+                      ></ion-input>
+                      @if (editError) {
+                        <p class="error" role="alert" data-testid="edit-error">{{ editError }}</p>
+                      }
+                      <ion-button [disabled]="!canSaveEdit" (click)="saveEdit()" data-testid="save-edit">
+                        {{ editBusy ? 'Guardando…' : 'Guardar cambios' }}
+                      </ion-button>
+                      <ion-button fill="outline" (click)="cancelEdit()" data-testid="cancel-edit">Cancelar</ion-button>
+                    </div>
+                  }
+                </li>
+              }
+            </ul>
+          } @else if (!loading && !tasksError) {
+            <p class="hint">Todavía no hay tareas.</p>
+          }
+        </section>
+      }
+    </div>
+
+    <!-- ===== Mis hijos ===== -->
+    <div role="tabpanel" id="panel-hijos" aria-labelledby="tab-hijos" [hidden]="tab !== 'hijos'">
+      <!-- ===== Perfiles (crear y eliminar) ===== -->
+      <section aria-labelledby="h-profiles" class="profiles-admin">
+        <h2 id="h-profiles">Perfiles</h2>
+        <p class="count-line">{{ profiles.length }} de {{ maxProfiles }} perfiles</p>
+
+        @if (profilesOk) {
+          <p class="ok" role="status" data-testid="profiles-ok">{{ profilesOk }}</p>
+        }
+
+        <ul class="admin-list">
+          @for (p of profiles; track p.id) {
+            <li class="card" [attr.data-testid]="'admin-' + p.nickname">
+              <div class="admin-row">
+                <span class="admin-animal" aria-hidden="true" [attr.data-tone]="avatar(p).tone">{{ avatar(p).emoji }}</span>
+                <span class="admin-name">
+                  <strong>{{ p.nickname }}</strong> · {{ p.grade }}° básico
+                  @if (p.blocked) { <span class="badge pending">En pausa</span> }
+                </span>
+                @if (deleting?.id !== p.id) {
+                  <ion-button size="small" fill="clear" color="danger" (click)="askDelete(p)">Eliminar</ion-button>
                 }
               </div>
-              @if (editing?.id === t.id) {
-                <div class="confirm" role="group" aria-label="Editar la tarea" data-testid="edit-form">
-                  <ion-textarea
-                    label="Enunciado"
-                    labelPlacement="stacked"
-                    [maxlength]="textMax"
-                    [value]="editText"
-                    (ionInput)="editText = ($any($event.target).value ?? '').slice(0, textMax)"
-                  ></ion-textarea>
-                  <ion-input
-                    label="Respuesta (número entero)"
-                    labelPlacement="stacked"
-                    inputmode="numeric"
-                    [value]="editAnswer"
-                    (ionInput)="editAnswer = ($any($event.target).value ?? '').replace(/\D/g, '').slice(0, 7)"
-                  ></ion-input>
+              <!-- CU-A9: recordatorio de racha, solo aquí (zona del tutor con PIN). -->
+              <app-streak-reminder-toggle [profile]="p"></app-streak-reminder-toggle>
+
+              @if (deleting?.id === p.id) {
+                <div class="confirm" role="group" aria-label="Confirmar eliminación">
+                  <p>
+                    Se eliminará <strong>{{ p.nickname }}</strong> con todo su progreso, racha y tareas.
+                    <strong>No se puede deshacer.</strong> Escribe tu PIN para confirmar.
+                  </p>
                   <ion-input
                     type="password"
                     inputmode="numeric"
                     label="PIN"
                     labelPlacement="stacked"
                     [maxlength]="4"
-                    [value]="editPin"
-                    (ionInput)="editPin = ($any($event.target).value ?? '').replace(/\D/g, '').slice(0, 4)"
-                    data-testid="edit-pin"
+                    [value]="deletePin"
+                    (ionInput)="onDeletePin($any($event.target).value)"
+                    data-testid="delete-pin"
                   ></ion-input>
-                  @if (editError) {
-                    <p class="error" role="alert" data-testid="edit-error">{{ editError }}</p>
+                  @if (deleteError) {
+                    <p class="error" role="alert" data-testid="delete-error">{{ deleteError }}</p>
                   }
-                  <ion-button [disabled]="!canSaveEdit" (click)="saveEdit()" data-testid="save-edit">
-                    {{ editBusy ? 'Guardando…' : 'Guardar cambios' }}
-                  </ion-button>
-                  <ion-button fill="outline" (click)="cancelEdit()" data-testid="cancel-edit">Cancelar</ion-button>
+                  <div class="confirm-actions">
+                    <ion-button
+                      color="danger"
+                      [disabled]="deletePin.length !== 4 || deleteBusy"
+                      (click)="confirmDelete()"
+                      data-testid="confirm-delete"
+                    >{{ deleteBusy ? 'Eliminando…' : 'Eliminar perfil' }}</ion-button>
+                    <ion-button fill="outline" (click)="cancelDelete()">Cancelar</ion-button>
+                  </div>
                 </div>
               }
             </li>
           }
         </ul>
-      } @else if (!loading && !tasksError) {
-        <p class="hint">Todavía no hay tareas.</p>
-      }
-    </section>
 
-    <!-- ===== Docentes del niño seleccionado (vincular y quitar, con PIN) ===== -->
-    <app-student-history [studentId]="studentId" [nickname]="selectedNickname"></app-student-history>
-
-    <app-student-export [studentId]="studentId" [nickname]="selectedNickname"></app-student-export>
-
-    <app-student-sheets [studentId]="studentId" [nickname]="selectedNickname"></app-student-sheets>
-
-    <app-teacher-links [studentId]="studentId" [nickname]="selectedNickname"></app-teacher-links>
-    }
-
-    <!-- ===== Perfiles (crear y eliminar) ===== -->
-    <section aria-labelledby="h-profiles" class="profiles-admin">
-      <h2 id="h-profiles">Perfiles</h2>
-      <p class="count-line">{{ profiles.length }} de {{ maxProfiles }} perfiles</p>
-
-      @if (profilesOk) {
-        <p class="ok" role="status" data-testid="profiles-ok">{{ profilesOk }}</p>
-      }
-
-      <ul class="admin-list">
-        @for (p of profiles; track p.id) {
-          <li class="card" [attr.data-testid]="'admin-' + p.nickname">
-            <div class="admin-row">
-              <span class="admin-animal" aria-hidden="true" [attr.data-tone]="avatar(p).tone">{{ avatar(p).emoji }}</span>
-              <span class="admin-name">
-                <strong>{{ p.nickname }}</strong> · {{ p.grade }}° básico
-                @if (p.blocked) { <span class="badge pending">En pausa</span> }
-              </span>
-              @if (deleting?.id !== p.id) {
-                <ion-button size="small" fill="clear" color="danger" (click)="askDelete(p)">Eliminar</ion-button>
-              }
-            </div>
-            <!-- CU-A9: recordatorio de racha, solo aquí (zona del tutor con PIN). -->
-            <app-streak-reminder-toggle [profile]="p"></app-streak-reminder-toggle>
-
-            @if (deleting?.id === p.id) {
-              <div class="confirm" role="group" aria-label="Confirmar eliminación">
-                <p>
-                  Se eliminará <strong>{{ p.nickname }}</strong> con todo su progreso, racha y tareas.
-                  <strong>No se puede deshacer.</strong> Escribe tu PIN para confirmar.
-                </p>
-                <ion-input
-                  type="password"
-                  inputmode="numeric"
-                  label="PIN"
-                  labelPlacement="stacked"
-                  [maxlength]="4"
-                  [value]="deletePin"
-                  (ionInput)="onDeletePin($any($event.target).value)"
-                  data-testid="delete-pin"
-                ></ion-input>
-                @if (deleteError) {
-                  <p class="error" role="alert" data-testid="delete-error">{{ deleteError }}</p>
-                }
-                <div class="confirm-actions">
-                  <ion-button
-                    color="danger"
-                    [disabled]="deletePin.length !== 4 || deleteBusy"
-                    (click)="confirmDelete()"
-                    data-testid="confirm-delete"
-                  >{{ deleteBusy ? 'Eliminando…' : 'Eliminar perfil' }}</ion-button>
-                  <ion-button fill="outline" (click)="cancelDelete()">Cancelar</ion-button>
-                </div>
-              </div>
-            }
-          </li>
+        @if (showProfileForm) {
+          <div class="card">
+            <app-profile-form (created)="onProfileCreated($event)" (cancelled)="showProfileForm = false"></app-profile-form>
+          </div>
+        } @else {
+          <ion-button expand="block" fill="outline" [disabled]="profilesFull" (click)="openProfileForm()" data-testid="new-profile">
+            Crear perfil
+          </ion-button>
+          @if (profilesFull) {
+            <p class="hint">Llegaste al máximo de perfiles. Elimina uno para crear otro.</p>
+          }
         }
-      </ul>
+      </section>
 
-      @if (showProfileForm) {
-        <div class="card">
-          <app-profile-form (created)="onProfileCreated($event)" (cancelled)="showProfileForm = false"></app-profile-form>
+      @if (studentId) {
+        <!-- Docentes del niño seleccionado (vincular y quitar, con PIN) -->
+        <app-teacher-links [studentId]="studentId" [nickname]="selectedNickname"></app-teacher-links>
+
+        <app-student-sheets [studentId]="studentId" [nickname]="selectedNickname"></app-student-sheets>
+
+        <app-student-export [studentId]="studentId" [nickname]="selectedNickname"></app-student-export>
+      }
+    </div>
+
+    <!-- ===== Cuenta ===== -->
+    <div role="tabpanel" id="panel-cuenta" aria-labelledby="tab-cuenta" [hidden]="tab !== 'cuenta'">
+      <section aria-labelledby="h-account">
+        <h2 id="h-account">Tu cuenta</h2>
+        <div class="account-actions">
+          <ion-button expand="block" fill="outline" (click)="changePin()">Cambiar PIN</ion-button>
         </div>
-      } @else {
-        <ion-button expand="block" fill="outline" [disabled]="profilesFull" (click)="openProfileForm()" data-testid="new-profile">
-          Crear perfil
-        </ion-button>
-        @if (profilesFull) {
-          <p class="hint">Llegaste al máximo de perfiles. Elimina uno para crear otro.</p>
-        }
-      }
-    </section>
+      </section>
 
-    <app-revoke-consent></app-revoke-consent>
+      <section class="danger-area" aria-labelledby="h-danger">
+        <h2 id="h-danger">Zona delicada</h2>
+        <app-revoke-consent></app-revoke-consent>
 
-    <app-delete-account></app-delete-account>
+        <app-delete-account></app-delete-account>
+      </section>
+    </div>
 
     <div class="panel-actions">
-      <ion-button fill="outline" (click)="changePin()">Cambiar PIN</ion-button>
       <ion-button fill="clear" color="medium" (click)="exit()">Salir del panel</ion-button>
     </div>
   </main>
 </ion-content>
+
+<!-- Barra inferior: en ion-footer, así ion-content reserva su alto y no tapa el contenido. -->
+<ion-footer>
+  <ion-toolbar class="tab-toolbar">
+    <div class="tabbar" role="tablist" aria-label="Secciones del panel">
+      @for (t of tabs; track t.id) {
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          [id]="'tab-' + t.id"
+          [attr.aria-selected]="tab === t.id"
+          [attr.aria-controls]="'panel-' + t.id"
+          [attr.tabindex]="tab === t.id ? 0 : -1"
+          [attr.data-testid]="'panel-tab-' + t.id"
+          (click)="selectTab(t.id)"
+          (keydown)="onTabKey($event)"
+        >
+          <ion-icon [name]="t.icon" aria-hidden="true"></ion-icon>
+          <span>{{ t.label }}</span>
+        </button>
+      }
+    </div>
+  </ion-toolbar>
+</ion-footer>

@@ -23,7 +23,7 @@ import { TutorSheetsPort } from '../core/sheets/tutor-sheets.port';
 import { StudentSheetsComponent } from './student-sheets.component';
 import { StudentExportComponent } from './student-export.component';
 import { ExportPort } from '../core/export/export.port';
-import { MAX_PENDING, TutorPanelPage } from './tutor-panel.page';
+import { MAX_PENDING, PANEL_TABS, TutorPanelPage } from './tutor-panel.page';
 
 const REPORT: Report = {
   total: 20,
@@ -393,5 +393,122 @@ describe('TutorPanelPage', () => {
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('app-revoke-consent [data-testid="open-revoke-consent"]')).not.toBeNull();
     expect(root.querySelector('app-delete-account [data-testid="open-delete-account"]')).not.toBeNull();
+  });
+});
+
+describe('TutorPanelPage: pestañas', () => {
+  async function ready(opts: Parameters<typeof setup>[0] = {}) {
+    const ctx = setup(opts);
+    await ctx.page.ngOnInit();
+    ctx.fixture.detectChanges();
+    return { ...ctx, el: ctx.fixture.nativeElement as HTMLElement };
+  }
+  const tabBtn = (el: HTMLElement, id: string) =>
+    el.querySelector<HTMLButtonElement>(`[data-testid="panel-tab-${id}"]`)!;
+  const panel = (el: HTMLElement, id: string) => el.querySelector<HTMLElement>(`#panel-${id}`)!;
+  const key = (el: HTMLElement, from: string, k: string) =>
+    tabBtn(el, from).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+
+  it('abre en Progreso; sin perfiles abre en Mis hijos', async () => {
+    expect((await ready()).page.tab).toBe('progreso');
+    TestBed.resetTestingModule();
+    const { page, el } = await ready({ kids: [] });
+    expect(page.tab).toBe('hijos');
+    expect(panel(el, 'hijos').hidden).toBe(false);
+    expect(el.textContent).toContain('Crea el primero en la pestaña "Mis hijos"');
+  });
+
+  it('roles ARIA: tablist, 4 tabs enlazadas a su tabpanel, solo la activa en el orden de Tab', async () => {
+    const { el } = await ready();
+    const list = el.querySelector('[role="tablist"]')!;
+    expect(list.getAttribute('aria-label')).toBe('Secciones del panel');
+    const tabs = Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'));
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(PANEL_TABS.map((t) => t.label));
+    for (const t of tabs) {
+      const target = el.querySelector(`#${t.getAttribute('aria-controls')}`)!;
+      expect(target.getAttribute('role')).toBe('tabpanel');
+      expect(target.getAttribute('aria-labelledby')).toBe(t.id);
+      expect(t.tagName).toBe('BUTTON');
+    }
+    expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);
+    expect(tabs.map((t) => t.getAttribute('tabindex'))).toEqual(['0', '-1', '-1', '-1']);
+    expect(['progreso', 'tareas', 'hijos', 'cuenta'].map((id) => panel(el, id).hidden)).toEqual([
+      false, true, true, true,
+    ]);
+  });
+
+  it('cambiar de pestaña no navega ni borra el token del PIN', async () => {
+    const { el, fixture, page, session, nav } = await ready();
+    for (const id of ['tareas', 'hijos', 'cuenta', 'progreso']) {
+      tabBtn(el, id).click();
+      fixture.detectChanges();
+      expect(page.tab).toBe(id);
+      expect(panel(el, id).hidden).toBe(false);
+      expect(tabBtn(el, id).getAttribute('aria-selected')).toBe('true');
+    }
+    expect(session.isUnlocked()).toBe(true);
+    expect(nav.navigateRoot).not.toHaveBeenCalled();
+    expect(nav.navigateForward).not.toHaveBeenCalled();
+  });
+
+  it('flechas, Inicio y Fin mueven la pestaña y el foco (con vuelta al otro extremo)', async () => {
+    const { el, fixture, page } = await ready();
+    // jsdom no enfoca botones dentro de ion-toolbar sin hidratar: se comprueba a quién se llama.
+    // El foco real se verificó en el navegador.
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(function (this: HTMLElement) {
+      return undefined;
+    });
+    const focused = () => (focus.mock.contexts.at(-1) as HTMLElement | undefined)?.id;
+    try {
+      key(el, 'progreso', 'ArrowRight');
+      fixture.detectChanges();
+      expect(page.tab).toBe('tareas');
+      expect(focused()).toBe('tab-tareas');
+      key(el, 'tareas', 'End');
+      fixture.detectChanges();
+      expect(page.tab).toBe('cuenta');
+      expect(focused()).toBe('tab-cuenta');
+      key(el, 'cuenta', 'ArrowRight');
+      fixture.detectChanges();
+      expect(page.tab).toBe('progreso');
+      key(el, 'progreso', 'ArrowLeft');
+      fixture.detectChanges();
+      expect(page.tab).toBe('cuenta');
+      key(el, 'cuenta', 'Home');
+      fixture.detectChanges();
+      expect(page.tab).toBe('progreso');
+      expect(focused()).toBe('tab-progreso');
+      const calls = focus.mock.calls.length;
+      key(el, 'progreso', 'a'); // otras teclas no hacen nada
+      expect(page.tab).toBe('progreso');
+      expect(focus.mock.calls.length).toBe(calls);
+    } finally {
+      focus.mockRestore();
+    }
+  });
+
+  it('todos los data-testid siguen en la página (las pestañas ocultas no se quitan del DOM)', async () => {
+    const { el, page, fixture } = await ready({ tasks: [task('a')] });
+    page.startEdit(page.tasks[0]);
+    page.askDelete(page.profiles[0]);
+    fixture.detectChanges();
+    for (const id of [
+      'stat-total', 'stat-percent', 'stat-time', 'time-sumas', 'student-history',
+      'save-task', 'task', 'edit-task', 'edit-form', 'edit-pin', 'save-edit', 'cancel-edit',
+      'kid-Ana', 'kid-Beto', 'admin-Ana', 'delete-pin', 'confirm-delete',
+      'teacher-links', 'student-sheets', 'student-export',
+      'open-revoke-consent', 'open-delete-account',
+    ]) {
+      expect(el.querySelector(`[data-testid="${id}"]`), id).not.toBeNull();
+    }
+  });
+
+  it('el selector de niño se ve en Progreso, Tareas y Mis hijos, y se oculta en Cuenta', async () => {
+    const { el, fixture } = await ready();
+    for (const [id, visible] of [['progreso', true], ['tareas', true], ['hijos', true], ['cuenta', false]] as const) {
+      tabBtn(el, id).click();
+      fixture.detectChanges();
+      expect(!!el.querySelector('[data-testid="kid-Ana"]'), id).toBe(visible);
+    }
   });
 });

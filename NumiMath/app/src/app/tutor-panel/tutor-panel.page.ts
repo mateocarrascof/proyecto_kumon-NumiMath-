@@ -1,5 +1,7 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { NavController } from '@ionic/angular/lazy';
+import { ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
+import { IonContent, NavController } from '@ionic/angular/lazy';
+import { addIcons } from 'ionicons';
+import { clipboard, people, personCircle, statsChart } from 'ionicons/icons';
 
 import {
   Assignment,
@@ -24,6 +26,16 @@ const ERRORS: Record<string, string> = {
   unavailable: 'No pude cargar los datos. Inténtalo en un momento.',
   not_found: 'Esa tarea ya no se puede borrar (quizás ya la respondió).',
 };
+
+/** Pestañas del panel (barra inferior). Cambiar de pestaña no navega: no sale de la zona del tutor. */
+export type PanelTab = 'progreso' | 'tareas' | 'hijos' | 'cuenta';
+
+export const PANEL_TABS: readonly { id: PanelTab; label: string; icon: string }[] = [
+  { id: 'progreso', label: 'Progreso', icon: 'stats-chart' },
+  { id: 'tareas', label: 'Tareas', icon: 'clipboard' },
+  { id: 'hijos', label: 'Mis hijos', icon: 'people' },
+  { id: 'cuenta', label: 'Cuenta', icon: 'person-circle' },
+];
 
 const FEEDBACK_ICONS: Record<FeedbackKind, string> = {
   info: 'ℹ️',
@@ -52,6 +64,19 @@ export class TutorPanelPage implements OnInit {
   private readonly parental = inject(ParentalPort);
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
+  @ViewChild(IonContent) private readonly content?: IonContent;
+
+  constructor() {
+    addIcons({ statsChart, clipboard, people, personCircle });
+  }
+
+  /**
+   * Pestaña visible. No se guarda (ni URL ni almacenamiento): al entrar abre Progreso, o Mis hijos
+   * si no hay perfiles. Es solo estado de la página: no hay navegación, así que el token del PIN
+   * sigue vivo (ParentalZoneWatcher solo lo borra al salir de /panel o /pin).
+   */
+  tab: PanelTab = 'progreso';
+  protected readonly tabs = PANEL_TABS;
 
   profiles: Profile[] = [];
   studentId = '';
@@ -115,8 +140,34 @@ export class TutorPanelPage implements OnInit {
     // porque el navegador puede mostrar un diálogo que un niño no debe ver.
     void requestPersistentStorage();
     await this.loadProfiles();
+    if (!this.profiles.length && !this.profilesError) this.tab = 'hijos';
     this.loading = false;
     this.cdr.markForCheck();
+  }
+
+  selectTab(id: PanelTab): void {
+    if (id === this.tab) return;
+    this.tab = id;
+    void this.content?.scrollToTop(0);
+    this.cdr.markForCheck();
+  }
+
+  /** Teclado en la barra de pestañas (patrón WAI-ARIA "tabs", activación automática). */
+  onTabKey(event: KeyboardEvent): void {
+    const i = this.tabs.findIndex((t) => t.id === this.tab);
+    const last = this.tabs.length - 1;
+    const next: Record<string, number> = {
+      ArrowRight: i === last ? 0 : i + 1,
+      ArrowLeft: i === 0 ? last : i - 1,
+      Home: 0,
+      End: last,
+    };
+    if (!(event.key in next)) return;
+    event.preventDefault();
+    const id = this.tabs[next[event.key]].id;
+    this.selectTab(id);
+    const bar = (event.currentTarget as HTMLElement | null)?.closest('[role="tablist"]');
+    bar?.querySelector<HTMLElement>(`#tab-${id}`)?.focus();
   }
 
   /** Lee los perfiles y mantiene el elegido si sigue existiendo. */

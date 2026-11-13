@@ -75,7 +75,7 @@ export const MEASURE_UNIT_PX = 34;
                 <rect x="2" [attr.y]="2 + i * 10" width="10" height="10" fill="#90cdf4" stroke="#1a202c" stroke-width="1.5" />
               }
               @if (gone) {
-                <!-- Dentro del viewBox con el trazo de 2,5 y punta redonda (no se recorta). -->
+                <!-- Dentro del viewBox con el trazo de 3 y punta redonda (no se recorta). -->
                 <line x1="1.5" y1="1.5" x2="12.5" y2="102.5" class="cross" />
                 <line x1="12.5" y1="1.5" x2="1.5" y2="102.5" class="cross" />
               }
@@ -250,7 +250,7 @@ export const MEASURE_UNIT_PX = 34;
       }
       .cross {
         stroke: #2d3748; /* tinta oscura neutra: no rojo, que se lee como "error" */
-        stroke-width: 2.5;
+        stroke-width: 3; /* más gruesa que los bordes de los cuadritos: resalta sin color */
         stroke-linecap: round;
       }
       .cross.thin {

@@ -13,6 +13,7 @@ import { MascotComponent } from '../core/mascot/mascot.component';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { GamesPage, ROUNDS } from './games.page';
+import { HARDWARE_BACK_PRIORITY } from '../core/navigation/hardware-back';
 
 const GROUPS = [
   {
@@ -81,6 +82,18 @@ function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}, query: Reco
   return { fixture, page, port, nav, el, q, render };
 }
 
+/** Simula el atrás de Android como Ionic: junta los manejadores y corre el de mayor prioridad. */
+function pressHardwareBack(): number[] {
+  const handlers: { priority: number; run: (next: () => void) => unknown }[] = [];
+  document.dispatchEvent(
+    new CustomEvent('ionBackButton', {
+      detail: { register: (priority: number, run: (next: () => void) => unknown) => handlers.push({ priority, run }) },
+    }),
+  );
+  handlers.sort((a, b) => b.priority - a.priority);
+  void handlers[0]?.run(() => undefined);
+  return handlers.map((h) => h.priority);
+}
 describe('GamesPage (CU-A21)', () => {
   it('"Practicar" de arriba lleva siempre a /practica/:id, también a mitad de una partida', async () => {
     const { page, q, nav, render } = setup({}, { juego: 'mayor-1' });
@@ -98,8 +111,21 @@ describe('GamesPage (CU-A21)', () => {
     expect(nav.navigateBack).toHaveBeenCalledTimes(2);
   });
 
-  it('muestra los ejes y, al elegir uno, sus juegos', async () => {
-    const { page, q, render } = setup();
+  it('atrás de Android: a /practica/:id también a mitad de una partida, y se suelta al salir', async () => {
+    const { page, nav, render } = setup({}, { juego: 'mayor-1' });
+    await render();
+    await page.start();
+    await render();
+    expect(page.step).toBe('round');
+    page.ionViewDidEnter();
+    expect(pressHardwareBack()).toContain(HARDWARE_BACK_PRIORITY);
+    expect(nav.navigateBack).toHaveBeenCalledWith(['/practica', 'p1']);
+    page.ionViewWillLeave();
+    expect(pressHardwareBack()).not.toContain(HARDWARE_BACK_PRIORITY);
+    expect(nav.navigateBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('muestra los ejes y, al elegir uno, sus juegos', async () => {    const { page, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit
     expect(page.step).toBe('axes');
     q('axis-0')!.click();

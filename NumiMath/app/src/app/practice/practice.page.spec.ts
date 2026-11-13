@@ -32,6 +32,7 @@ import { solutionHash } from '../core/offline/offline-grading';
 import { OFFLINE_MESSAGES, OfflineNoticeComponent } from '../core/offline/offline-notice.component';
 import { OfflineStore } from '../core/offline/offline-store.port';
 import { OfflineSyncError, OfflineSyncPort } from '../core/offline/offline-sync.port';
+import { HARDWARE_BACK_PRIORITY } from '../core/navigation/hardware-back';
 import { EXPLAIN_MESSAGES, PracticePage, SAVE_BACK_LOCK_MAX_MS, topicIcon } from './practice.page';
 import { SkillTilesComponent } from './skill-tiles.component';
 
@@ -139,6 +140,18 @@ function setup(
   };
 }
 
+/** Simula el atrás de Android como Ionic: junta los manejadores y corre el de mayor prioridad. */
+function pressHardwareBack(): number[] {
+  const handlers: { priority: number; run: (next: () => void) => unknown }[] = [];
+  document.dispatchEvent(
+    new CustomEvent('ionBackButton', {
+      detail: { register: (priority: number, run: (next: () => void) => unknown) => handlers.push({ priority, run }) },
+    }),
+  );
+  handlers.sort((a, b) => b.priority - a.priority);
+  void handlers[0]?.run(() => undefined);
+  return handlers.map((h) => h.priority);
+}
 function query(fixture: { nativeElement: unknown }, selector: string): Element | null {
   return (fixture.nativeElement as HTMLElement).querySelector(selector);
 }
@@ -2041,5 +2054,51 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
     expect(page.canPlay).toBe(false);
     // Sin conexión, los temas "solo juego" salen de la lista.
     expect(page.tileGroups.flatMap((g) => g.topics).some((t) => t.gameIds?.length)).toBe(false);
+  });
+});
+
+describe('PracticePage: atrás de Android', () => {
+  it('en la lista sale a /perfiles (prioridad 10: nunca cierra la app)', async () => {
+    const { page, nav } = setup();
+    await page.ngOnInit();
+    page.ionViewDidEnter();
+    const priorities = pressHardwareBack();
+    expect(priorities).toContain(HARDWARE_BACK_PRIORITY);
+    expect(nav.navigateBack).toHaveBeenCalledWith('/perfiles');
+    page.ionViewWillLeave();
+  });
+
+  it('en un ejercicio vuelve a los temas, igual que el botón de arriba', async () => {
+    const { page, nav } = setup();
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    page.ionViewDidEnter();
+    pressHardwareBack();
+    expect(page.topic).toBeNull();
+    expect(nav.navigateBack).not.toHaveBeenCalled();
+    page.ionViewWillLeave();
+  });
+
+  it('al salir de la pantalla suelta el atrás (no afecta a /pin ni /panel)', async () => {
+    const { page, nav } = setup();
+    await page.ngOnInit();
+    page.ionViewDidEnter();
+    page.ionViewWillLeave();
+    expect(pressHardwareBack()).not.toContain(HARDWARE_BACK_PRIORITY);
+    expect(nav.navigateBack).not.toHaveBeenCalled();
+  });
+
+  it('entrar dos veces no deja dos manejadores', async () => {
+    const { page } = setup();
+    await page.ngOnInit();
+    page.ionViewDidEnter();
+    page.ionViewDidEnter();
+    expect(pressHardwareBack().filter((p) => p === HARDWARE_BACK_PRIORITY)).toHaveLength(1);
+    page.ionViewWillLeave();
+  });
+
+  it('queda bajo alertas y modales (100) y sobre la navegación de Ionic (0)', () => {
+    expect(HARDWARE_BACK_PRIORITY).toBeGreaterThan(0);
+    expect(HARDWARE_BACK_PRIORITY).toBeLessThan(99);
   });
 });

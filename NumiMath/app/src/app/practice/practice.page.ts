@@ -9,11 +9,13 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { NavController } from '@ionic/angular/lazy';
+import { NavController, Platform } from '@ionic/angular/lazy';
+import type { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { chevronBack } from 'ionicons/icons';
 
 import { splitLeadingEmoji } from '../core/games/games.messages';
+import { HARDWARE_BACK_PRIORITY } from '../core/navigation/hardware-back';
 import { GameInfo, GamesPort } from '../core/games/games.port';
 
 import {
@@ -230,6 +232,9 @@ export class PracticePage implements OnInit {
   private readonly assignments = inject(AssignmentsPort);
   private readonly route = inject(ActivatedRoute);
   private readonly nav = inject(NavController);
+  private readonly platform = inject(Platform);
+  /** Atrás de Android mientras la pantalla está a la vista (ver `ionViewDidEnter`). */
+  private hardwareBack: Subscription | null = null;
   private readonly games = inject(GamesPort);
   /** Juegos por habilidad (null: aún no se piden o no se pudieron leer). */
   private gamesBySkill: Map<string, GameInfo[]> | null = null;
@@ -364,6 +369,7 @@ export class PracticePage implements OnInit {
     this.destroyRef.onDestroy(() => {
       this.cancelExplanation();
       this.clearSaveLock();
+      this.releaseHardwareBack();
     });
   }
 
@@ -1201,8 +1207,27 @@ export class PracticePage implements OnInit {
     row?.scrollIntoView?.({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
   }
 
+  /**
+   * Atrás de Android = botón de arriba en cada estado (lista → /perfiles; tema abierto → temas;
+   * guardando la prueba → nada). Prioridad 10: sobre la navegación por defecto de Ionic (0), que
+   * podría cerrar la app, y bajo alertas y modales (100), que se cierran primero. Solo mientras
+   * esta pantalla está a la vista: no toca /pin ni /panel.
+   */
+  ionViewDidEnter(): void {
+    this.releaseHardwareBack();
+    this.hardwareBack = this.platform.backButton.subscribeWithPriority(HARDWARE_BACK_PRIORITY, () =>
+      this.goBack(),
+    );
+  }
+
+  private releaseHardwareBack(): void {
+    this.hardwareBack?.unsubscribe();
+    this.hardwareBack = null;
+  }
+
   /** Ionic guarda la pantalla al navegar: se corta la explicación al salir. */
   ionViewWillLeave(): void {
+    this.releaseHardwareBack();
     this.cancelExplanation();
     // Salir a la mitad del diagnóstico es abandonarlo: se olvida y no se envía nada.
     if (this.diag) {

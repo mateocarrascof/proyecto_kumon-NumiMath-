@@ -249,13 +249,13 @@ otp_expiry = 1800
 
 # Correo de recuperación en español (el enlace lleva {{ .ConfirmationURL }}).
 [auth.email.template.recovery]
-subject = "Cambia tu contraseña de Matemáticas con Numi"
+subject = "Cambia tu contraseña de NumiMath"
 content_path = "./supabase/templates/recovery.html"
 
 # Aviso al dueño de la cuenta cuando se cambia la contraseña.
 [auth.email.notification.password_changed]
 enabled = true
-subject = "Cambiaste tu contraseña de Matemáticas con Numi"
+subject = "Cambiaste tu contraseña de NumiMath"
 content_path = "./supabase/templates/password_changed_notification.html"
 
 [auth.sms]

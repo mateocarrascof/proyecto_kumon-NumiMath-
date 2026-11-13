@@ -19,7 +19,7 @@ const MESSAGES: Record<AuthFailure, string> = {
 // Un Map (no un objeto): `?aviso=constructor` no debe devolver nada de Object.prototype.
 const NOTICES = new Map<string, string>([
   ['clave-cambiada', 'Listo: cambiaste tu contraseña. Entra con la nueva.'],
-  ['cuenta-eliminada', 'Tu cuenta y sus datos se eliminaron. Gracias por usar Matemáticas con Numi.'],
+  ['cuenta-eliminada', 'Tu cuenta y sus datos se eliminaron. Gracias por usar NumiMath.'],
 ]);
 
 export type LoginMode = 'signin' | 'signup';

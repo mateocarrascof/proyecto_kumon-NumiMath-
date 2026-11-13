@@ -147,9 +147,23 @@ describe('TermsPage', () => {
     return !!(fixture.nativeElement as HTMLElement).querySelector('[data-testid="open-delete-account"]');
   }
 
-  it('primera aceptación: no ofrece eliminar la cuenta (está en el panel del tutor)', async () => {
-    const { fixture } = setup(true, false, {}, false);
+  it('primera aceptación: solo un enlace discreto, que abre el bloque para eliminar la cuenta', async () => {
+    const { fixture, page } = setup(true, false, {}, false);
     expect(await deleteShown(fixture)).toBe(false);
+    const el = fixture.nativeElement as HTMLElement;
+    const link = el.querySelector<HTMLButtonElement>('[data-testid="reveal-delete-account"]');
+    expect(link?.textContent).toContain('¿No quieres continuar? Eliminar mi cuenta');
+    link?.click();
+    fixture.detectChanges();
+    expect(page.deleteRevealed).toBe(true);
+    expect(el.querySelector('[data-testid="open-delete-account"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid="reveal-delete-account"]')).toBeNull();
+  });
+
+  it('con el bloque visible (revocación o historial) no muestra el enlace', async () => {
+    const { fixture } = setup(true, false, {}, true);
+    await deleteShown(fixture);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="reveal-delete-account"]')).toBeNull();
   });
 
   it('tras una revocación: ofrece eliminar la cuenta aunque no se acepten los términos', async () => {

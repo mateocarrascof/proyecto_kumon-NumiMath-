@@ -62,11 +62,17 @@
       {{ busy ? 'Guardando…' : 'Aceptar y continuar' }}
     </ion-button>
 
-    <!-- Quien vuelve por una revocación o una versión nueva y no quiere aceptar puede borrar su
-         cuenta y sus datos (derecho de supresión). En la primera aceptación no se ofrece: queda en
-         el panel del tutor. Si no se sabe, se muestra (falla abierto). -->
-    @if (showDeleteAccount) {
+    <!-- Derecho de supresión: no depende del consentimiento (sin aceptar, /panel no se abre).
+         Revocación, versión nueva o duda (falla abierto): bloque visible. Primera aceptación:
+         un enlace discreto que abre el mismo bloque; nadie queda sin salida. -->
+    @if (showDeleteAccount || deleteRevealed) {
       <app-delete-account></app-delete-account>
+    } @else if (!loading) {
+      <p class="leave">
+        <button type="button" class="leave-link" (click)="revealDelete()" data-testid="reveal-delete-account">
+          ¿No quieres continuar? Eliminar mi cuenta
+        </button>
+      </p>
     }
   </main>
 </ion-content>

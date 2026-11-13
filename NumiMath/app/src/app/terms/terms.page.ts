@@ -29,11 +29,17 @@ export class TermsPage implements OnInit {
   revocation: { when: string; purgeOn: string | null; days: number | null } | null = null;
 
   /**
-   * "Eliminar mi cuenta" no se ofrece a quien acepta por primera vez. Sí a quien llega por una
-   * revocación o por una versión nueva (necesita poder salir) y, ante la duda, también (falla
-   * abierto). Sigue disponible en el panel del tutor.
+   * Bloque "Eliminar mi cuenta" visible desde el inicio: tras una revocación, por una versión nueva
+   * o ante la duda (falla abierto). En la primera aceptación queda tras un enlace discreto
+   * (`deleteRevealed`): sin consentimiento el panel no se abre, así que debe poder salir desde aquí.
    */
   showDeleteAccount = false;
+  deleteRevealed = false;
+
+  revealDelete(): void {
+    this.deleteRevealed = true;
+    this.cdr.markForCheck();
+  }
 
   get verified(): boolean {
     return !!this.bundle && this.bundle.terms.verified && this.bundle.privacy.verified;

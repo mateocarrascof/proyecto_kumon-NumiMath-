@@ -91,12 +91,14 @@ export class SupabaseConsentService extends ConsentPort {
   }
 
   async hasConsentHistory(): Promise<boolean | null> {
+    const user = this.auth.user();
+    if (!user) return null;
     try {
-      // RLS: el tutor solo ve sus propios eventos. Basta saber si existe alguno.
+      // Filtro explícito por tutor además de RLS (por si otra política ampliara la lectura).
       const { data, error } = await this.client
         .from('consents')
         .select('seq')
-        .order('seq', { ascending: false })
+        .eq('tutor_id', user.id)
         .limit(1);
       if (error || !data) return null;
       return data.length > 0;

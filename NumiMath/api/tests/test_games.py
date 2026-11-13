@@ -645,6 +645,7 @@ def test_lee_el_numero_es_valido_en_miles_de_ejercicios() -> None:
         n = _num(e.solution[0])
         assert 20 <= n <= 99 and e.text == f"Toca el número {number_words(n)}."
         assert len({o.id for o in e.options}) == 3
+        assert all(10 <= _num(o.id) <= 100 for o in e.options)
 
 
 def test_decenas_y_unidades_es_valido_en_miles_de_ejercicios() -> None:
@@ -653,6 +654,7 @@ def test_decenas_y_unidades_es_valido_en_miles_de_ejercicios() -> None:
         tens, ones = e.blocks
         assert 1 <= tens <= 9 and 0 <= ones <= 9
         assert e.solution == (f"n:{tens * 10 + ones}",)
+        assert all(1 <= _num(o.id) <= 99 for o in e.options)
 
 
 def test_suma_con_bloques_mezcla_sin_y_con_reserva() -> None:
@@ -663,6 +665,8 @@ def test_suma_con_bloques_mezcla_sin_y_con_reserva() -> None:
         tens, ones = e.blocks
         assert tens * 10 + ones == a + b <= 99  # los bloques suman lo mismo
         assert e.solution == (f"n:{a + b}",)
+        assert len({o.id for o in e.options}) == 3
+        assert all(1 <= _num(o.id) <= 100 for o in e.options)  # en el rango de 2°
         kinds.add(ones >= 10)
         if ones >= 10:  # olvidar la decena agrupada es un distractor
             assert f"n:{a + b - 10}" in {o.id for o in e.options}
@@ -678,9 +682,29 @@ def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
         assert e.text.startswith("¿Cuántas ")
 
 
-def test_bloques_viajan_en_el_ejercicio() -> None:
-    body = _new(_client(_gateway(grade=2)), "arma-numero-2").json()
-    assert set(body["blocks"]) == {"tens", "ones"}
+@pytest.mark.parametrize(
+    ("game_id", "fields"),
+    [
+        ("arma-numero-2", {"blocks"}),
+        ("cuenta-lados-2", {"figure"}),
+        ("lee-reloj-2", {"clock"}),
+        ("pictograma-escala-2", {"picto", "scale"}),
+        ("lee-numero-2", set()),
+    ],
+)
+def test_juegos_de_2_traen_lo_que_se_dibuja(game_id: str, fields: set[str]) -> None:
+    body = _new(_client(_gateway(grade=2)), game_id).json()
+    drawn = ("pattern", "scene", "picto", "measure", "blocks", "figure", "clock", "scale")
+    assert {k for k in drawn if body[k] is not None} == fields
+    if "blocks" in fields:
+        assert set(body["blocks"]) == {"tens", "ones"}
+    if "figure" in fields:
+        assert set(body["figure"]) == {"id", "kind", "label"} and body["figure"]["kind"] == "figure"
+    if "clock" in fields:
+        assert set(body["clock"]) == {"hour", "minute"}
+        assert all(o["kind"] == "time" for o in body["options"])
+    if "scale" in fields:
+        assert body["scale"] in (2, 5)
 
 
 def test_lados_y_vertices_es_valido_en_miles_de_ejercicios() -> None:

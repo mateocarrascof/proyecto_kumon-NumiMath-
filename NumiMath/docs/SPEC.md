@@ -1495,4 +1495,20 @@ número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
 1. Regla en cm, calendario, gráfico de barras, restas con bloques y caras de los cuerpos 3D (2-19).
 2. Mecánicas distintas a tocar una opción (armar el número tocando bloques, contar grupos
    tocándolos): no eran baratas con los componentes actuales.
+3. **Confirmar con el dueño:** el catálogo describe 2-18 con triángulo, cuadrado, rectángulo y
+   círculo; `cuenta-lados-2` suma pentágono y hexágono (aprobados en el plan) para que la
+   respuesta no sea siempre 3 o 4.
+4. **Bajos de la revisión (no implementados):** la manecilla larga tapa en parte el 12 y el 6
+   (acortarla a ~36); "vértices" en la ronda y "esquinas" en la instrucción; cubitos de 10 px
+   difíciles de contar; "las 3 en punto" sonaría más natural; "m" sola como opción; cinco grupos
+   se leen largo ("5 grupos de 5 pelotas" sería mejor); tarjetas "1000" y nombre "1.000"; la
+   etiqueta "pentágono" ya da una pista (aceptado: es lo accesible); el recorrido del catálogo
+   responde siempre "correcto"; comentarios y cuentas de CSS desfasados; ramas que no se usan.
+
+### Revisión (`code-reviewer` y `child-safety-ai-reviewer`)
+Sin altos ni bloqueantes de tiendas. Los 16 juegos publicados dan la misma salida (20 000
+semillas). Corregidos en `fix(cu-a21)`:
+- Los grupos de 8 o más emoji usan emoji más chicos: un grupo de 10 cabe en su recuadro a 360 px.
+- En las sumas sin reserva, el distractor "una decena de más" ya no pasa de 100.
+- Pruebas de rango de los distractores y de la salida de `figure`, `clock` y `scale` (API y app).
 

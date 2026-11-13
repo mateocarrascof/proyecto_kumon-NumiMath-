@@ -65,7 +65,20 @@ describe('HttpGamesService (CU-A21)', () => {
       token: 'tb', game_id: 'arma-numero-2', kind: 'choice', text: '¿Qué número?', options: [],
       blocks: { tens: 4, ones: 7 },
     });
-    expect(await blocks).toMatchObject({ blocks: { tens: 4, ones: 7 }, scene: null });
+    expect(await blocks).toMatchObject({ blocks: { tens: 4, ones: 7 }, scene: null, figure: null, clock: null, scale: null });
+
+    const drawn = service.exercise('p1', 'lee-reloj-2');
+    await tick();
+    http.expectOne(`${BASE}/games/lee-reloj-2/exercise`).flush({
+      token: 'tc', game_id: 'lee-reloj-2', kind: 'choice', text: '¿Qué hora?',
+      options: [{ id: 't:3-30', kind: 'time', label: '3:30' }],
+      clock: { hour: 3, minute: 30 }, scale: 2,
+      figure: { id: 'f:hexagono-verde', kind: 'figure', label: 'hexágono verde' },
+    });
+    expect(await drawn).toMatchObject({
+      clock: { hour: 3, minute: 30 }, scale: 2,
+      figure: { id: 'f:hexagono-verde', kind: 'figure', label: 'hexágono verde' },
+    });
     expect(await scene).toMatchObject({
       pattern: null, picto: null, measure: null,
       scene: { center: '📦', centerName: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },

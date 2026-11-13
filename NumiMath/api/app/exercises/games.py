@@ -581,7 +581,8 @@ def _blocks_sum(rng: random.Random) -> GameExercise:
         if a + b <= 99 and (ones >= 10) == carry:
             break
     total = a + b
-    forgot = total - 10 if carry else total + 10  # sin agrupar (o agrupando de más)
+    # Sin agrupar la decena (con reserva) o agrupando de más (sin reserva); nunca sobre 100.
+    forgot = total - 10 if carry or total + 10 > 100 else total + 10
     near = rng.choice([v for v in (total + 1, total - 1) if v != forgot])
     return GameExercise(
         "choice",

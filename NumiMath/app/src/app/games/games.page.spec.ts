@@ -540,6 +540,8 @@ describe('GamesPage (CU-A21)', () => {
     const groups = [...q('game-prompt')!.querySelectorAll('[data-testid="glyph-group"]')];
     expect(groups.map((g) => g.textContent)).toEqual(['🌸'.repeat(9), '🌸'.repeat(9)]);
     expect(groups.every((g) => g.classList.contains('boxed'))).toBe(true);
+    // Grupos de 8 o más: emoji más chicos para que cada grupo quepa en una línea a 360 px.
+    expect(q('game-prompt')!.querySelector('.glyphs')!.classList).toContain('dense');
     expect(q('game-prompt')!.querySelector('.sr-only')?.textContent).toContain('9 flores y 9 flores');
   });
 });

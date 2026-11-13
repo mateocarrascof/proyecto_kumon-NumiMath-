@@ -200,10 +200,52 @@ h2 {
 
 .account-actions { display: grid; gap: 8px; }
 
-.danger-area {
-  margin-top: 32px;
-  padding-top: 8px;
-  border-top: 2px dashed var(--ion-color-danger);
-  display: grid;
+/* ===== Secciones plegables (<details> nativo: teclado y lector de pantalla incluidos) ===== */
+.fold { margin: 14px 0; }
+
+.fold > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  min-height: 48px;
+  padding: 10px 14px;
+  list-style: none;
+  cursor: pointer;
+  font-weight: 700;
+  background: var(--kid-card-bg);
+  border: 1px solid var(--kid-border);
+  border-radius: var(--kid-radius-sm);
+}
+
+.fold > summary::-webkit-details-marker { display: none; }
+
+.fold > summary::after {
+  content: '';
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.fold[open] > summary::after { transform: rotate(-135deg); }
+
+.fold > summary:focus { outline: none; }
+.fold > summary:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; }
+
+/* Zona delicada: al fondo de Cuenta, separada por una línea y en rojo. */
+.danger-area {
+  margin-top: 36px;
+  padding-top: 18px;
+  border-top: 2px dashed var(--ion-color-danger);
+}
+
+.danger-area > summary { color: var(--ion-color-danger); border-color: var(--ion-color-danger); }
+.danger-body { display: grid; gap: 12px; margin-top: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fold > summary::after { transition: none; }
 }

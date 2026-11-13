@@ -515,6 +515,34 @@ describe('TutorPanelPage: pestañas', () => {
   });
 });
 
+describe('TutorPanelPage: secciones plegables', () => {
+  it('historial, docentes, hojas, exportar y la zona delicada empiezan plegados y conservan su contenido', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const folds: [string, string, string][] = [
+      ['fold-history', 'panel-progreso', 'student-history'],
+      ['fold-teachers', 'panel-hijos', 'teacher-links'],
+      ['fold-sheets', 'panel-hijos', 'student-sheets'],
+      ['fold-export', 'panel-hijos', 'student-export'],
+      ['fold-danger', 'panel-cuenta', 'open-delete-account'],
+    ];
+    for (const [fold, tabPanel, inner] of folds) {
+      const d = el.querySelector<HTMLDetailsElement>(`[data-testid="${fold}"]`)!;
+      expect(d.tagName, fold).toBe('DETAILS');
+      expect(d.open, fold).toBe(false);
+      expect(d.closest(`#${tabPanel}`), fold).not.toBeNull();
+      expect(d.querySelector(':scope > summary')?.textContent?.trim(), fold).toBeTruthy();
+      expect(d.querySelector(`[data-testid="${inner}"]`), fold).not.toBeNull();
+    }
+    const danger = el.querySelector('[data-testid="fold-danger"]')!;
+    expect(danger.querySelector('[data-testid="open-revoke-consent"]')).not.toBeNull();
+    // Al fondo de Cuenta: después de "Cambiar PIN" y "Cerrar sesión".
+    expect(el.querySelector('#panel-cuenta')!.lastElementChild).toBe(danger);
+  });
+});
+
 describe('TutorPanelPage: cerrar sesión (pestaña Cuenta)', () => {
   it('cierra la sesión, borra el token del PIN y va a /login', async () => {
     const { page, fixture, nav, session, auth } = setup();

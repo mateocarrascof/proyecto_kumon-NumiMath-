@@ -94,7 +94,10 @@
           }
         }
 
-          <app-student-history [studentId]="studentId" [nickname]="selectedNickname"></app-student-history>
+          <details class="fold" data-testid="fold-history">
+        <summary>Ver el historial de ejercicios</summary>
+        <app-student-history [studentId]="studentId" [nickname]="selectedNickname"></app-student-history>
+      </details>
       }
     </div>
 
@@ -287,12 +290,22 @@
       </section>
 
       @if (studentId) {
-        <!-- Docentes del niño seleccionado (vincular y quitar, con PIN) -->
-        <app-teacher-links [studentId]="studentId" [nickname]="selectedNickname"></app-teacher-links>
+        <!-- Secciones secundarias del niño seleccionado, plegadas. -->
+        <details class="fold" data-testid="fold-teachers">
+          <summary>Docentes vinculados</summary>
+          <!-- Vincular y quitar, con PIN -->
+          <app-teacher-links [studentId]="studentId" [nickname]="selectedNickname"></app-teacher-links>
+        </details>
 
-        <app-student-sheets [studentId]="studentId" [nickname]="selectedNickname"></app-student-sheets>
+        <details class="fold" data-testid="fold-sheets">
+          <summary>Hojas guardadas</summary>
+          <app-student-sheets [studentId]="studentId" [nickname]="selectedNickname"></app-student-sheets>
+        </details>
 
-        <app-student-export [studentId]="studentId" [nickname]="selectedNickname"></app-student-export>
+        <details class="fold" data-testid="fold-export">
+          <summary>Exportar sus datos</summary>
+          <app-student-export [studentId]="studentId" [nickname]="selectedNickname"></app-student-export>
+        </details>
       }
     </div>
 
@@ -311,12 +324,15 @@
         </div>
       </section>
 
-      <section class="danger-area" aria-labelledby="h-danger">
-        <h2 id="h-danger">Zona delicada</h2>
-        <app-revoke-consent></app-revoke-consent>
+      <!-- Zona delicada: al fondo, separada y plegada. -->
+      <details class="fold danger-area" data-testid="fold-danger">
+        <summary>Zona delicada: revocar el consentimiento o eliminar la cuenta</summary>
+        <div class="danger-body">
+          <app-revoke-consent></app-revoke-consent>
 
-        <app-delete-account></app-delete-account>
-      </section>
+          <app-delete-account></app-delete-account>
+        </div>
+      </details>
     </div>
 
     <div class="panel-actions">

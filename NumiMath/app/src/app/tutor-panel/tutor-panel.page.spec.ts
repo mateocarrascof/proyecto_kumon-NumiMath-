@@ -526,7 +526,8 @@ describe('TutorPanelPage: secciones plegables', () => {
       ['fold-teachers', 'panel-hijos', 'teacher-links'],
       ['fold-sheets', 'panel-hijos', 'student-sheets'],
       ['fold-export', 'panel-hijos', 'student-export'],
-      ['fold-danger', 'panel-cuenta', 'open-delete-account'],
+      ['fold-revoke', 'panel-cuenta', 'open-revoke-consent'],
+      ['fold-delete', 'panel-cuenta', 'open-delete-account'],
     ];
     for (const [fold, tabPanel, inner] of folds) {
       const d = el.querySelector<HTMLDetailsElement>(`[data-testid="${fold}"]`)!;
@@ -536,10 +537,44 @@ describe('TutorPanelPage: secciones plegables', () => {
       expect(d.querySelector(':scope > summary')?.textContent?.trim(), fold).toBeTruthy();
       expect(d.querySelector(`[data-testid="${inner}"]`), fold).not.toBeNull();
     }
-    const danger = el.querySelector('[data-testid="fold-danger"]')!;
-    expect(danger.querySelector('[data-testid="open-revoke-consent"]')).not.toBeNull();
+    const danger = el.querySelector('[data-testid="danger-zone"]')!;
+    // Títulos visibles sin abrir nada.
+    expect(danger.querySelector('[data-testid="fold-revoke"] > summary')?.textContent?.trim()).toBe(
+      'Revocar mi consentimiento',
+    );
+    expect(danger.querySelector('[data-testid="fold-delete"] > summary')?.textContent?.trim()).toBe(
+      'Eliminar mi cuenta',
+    );
     // Al fondo de Cuenta: después de "Cambiar PIN" y "Cerrar sesión".
     expect(el.querySelector('#panel-cuenta')!.lastElementChild).toBe(danger);
+  });
+
+  it('Cuenta muestra siempre "Tus derechos sobre los datos" y cada enlace abre su sección', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const line = el.querySelector('#panel-cuenta [data-testid="rights-line"]')!;
+    expect(line.closest('details')).toBeNull(); // no está plegada
+    expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Tus derechos sobre los datos: exportar, revocar, eliminar.',
+    );
+    const cases: [string, string, string][] = [
+      ['right-export', 'hijos', 'fold-export'],
+      ['right-revoke', 'cuenta', 'fold-revoke'],
+      ['right-delete', 'cuenta', 'fold-delete'],
+    ];
+    for (const [link, tab, fold] of cases) {
+      page.selectTab('cuenta');
+      fixture.detectChanges();
+      el.querySelector<HTMLElement>(`[data-testid="${link}"]`)!.click();
+      fixture.detectChanges();
+      expect(page.tab, link).toBe(tab);
+      const d = el.querySelector<HTMLDetailsElement>(`[data-testid="${fold}"]`)!;
+      expect(d.open, link).toBe(true);
+      expect(d.closest('[role="tabpanel"]')?.hasAttribute('hidden'), link).toBe(false);
+      d.open = false;
+    }
   });
 });
 

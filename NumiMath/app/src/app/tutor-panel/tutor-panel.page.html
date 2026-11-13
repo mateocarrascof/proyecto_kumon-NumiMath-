@@ -313,6 +313,13 @@
     <div role="tabpanel" id="panel-cuenta" aria-labelledby="tab-cuenta" [hidden]="tab !== 'cuenta'">
       <section aria-labelledby="h-account">
         <h2 id="h-account">Tu cuenta</h2>
+        <!-- Línea fija (no plegada): dónde ejercer cada derecho sobre los datos. -->
+        <p class="rights" data-testid="rights-line">
+          <strong>Tus derechos sobre los datos:</strong>&ngsp;
+          <button type="button" class="link" (click)="openSection('hijos', 'fold-export')" data-testid="right-export">exportar</button>,
+          <button type="button" class="link" (click)="openSection('cuenta', 'fold-revoke')" data-testid="right-revoke">revocar</button>,
+          <button type="button" class="link" (click)="openSection('cuenta', 'fold-delete')" data-testid="right-delete">eliminar</button>.
+        </p>
         <div class="account-actions">
           <ion-button expand="block" fill="outline" (click)="changePin()">Cambiar PIN</ion-button>
           <!-- Como en /home: sin conexión no se ofrece (borraría los intentos sin enviar, CU-A12). -->
@@ -329,15 +336,19 @@
         </div>
       </section>
 
-      <!-- Zona delicada: al fondo, separada y plegada. -->
-      <details class="fold danger-area" data-testid="fold-danger">
-        <summary>Zona delicada: revocar el consentimiento o eliminar la cuenta</summary>
-        <div class="danger-body">
+      <!-- Zona delicada: al fondo y separada; cada sección con su título visible. -->
+      <section class="danger-area" aria-labelledby="h-danger" data-testid="danger-zone">
+        <h2 id="h-danger">Zona delicada</h2>
+        <details class="fold danger" data-testid="fold-revoke">
+          <summary>Revocar mi consentimiento</summary>
           <app-revoke-consent></app-revoke-consent>
+        </details>
 
+        <details class="fold danger" data-testid="fold-delete">
+          <summary>Eliminar mi cuenta</summary>
           <app-delete-account></app-delete-account>
-        </div>
-      </details>
+        </details>
+      </section>
     </div>
 
     <div class="panel-actions">

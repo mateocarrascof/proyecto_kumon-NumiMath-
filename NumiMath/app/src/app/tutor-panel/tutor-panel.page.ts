@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { IonContent, NavController } from '@ionic/angular/lazy';
 import { addIcons } from 'ionicons';
 import { clipboard, people, personCircle, statsChart } from 'ionicons/icons';
@@ -67,6 +67,7 @@ export class TutorPanelPage implements OnInit {
   private readonly parental = inject(ParentalPort);
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly auth = inject(AuthPort);
   private readonly connectivity = inject(ConnectivityService);
   @ViewChild(IonContent) private readonly content?: IonContent;
@@ -157,6 +158,21 @@ export class TutorPanelPage implements OnInit {
     this.tab = id;
     void this.content?.scrollToTop(0);
     this.cdr.markForCheck();
+  }
+
+  /**
+   * Enlaces de "Tus derechos sobre los datos": va a la pestaña, abre la sección plegada y le da el
+   * foco (sin subir al inicio: la sección queda a la vista).
+   */
+  openSection(tab: PanelTab, fold: 'fold-export' | 'fold-revoke' | 'fold-delete'): void {
+    this.tab = tab;
+    this.cdr.detectChanges();
+    const details = this.host.nativeElement.querySelector<HTMLDetailsElement>(`[data-testid="${fold}"]`);
+    if (!details) return; // exportar sin perfiles: solo se abre "Mis hijos"
+    details.open = true;
+    const summary = details.querySelector<HTMLElement>(':scope > summary');
+    summary?.focus();
+    summary?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
   }
 
   /** Teclado en la barra de pestañas (patrón WAI-ARIA "tabs", activación automática). */

@@ -239,12 +239,26 @@ h2 {
 /* Zona delicada: al fondo de Cuenta, separada por una línea y en rojo. */
 .danger-area {
   margin-top: 36px;
-  padding-top: 18px;
+  padding-top: 4px;
   border-top: 2px dashed var(--ion-color-danger);
 }
 
-.danger-area > summary { color: var(--ion-color-danger); border-color: var(--ion-color-danger); }
-.danger-body { display: grid; gap: 12px; margin-top: 12px; }
+.danger-area h2 { color: var(--ion-color-danger); }
+.fold.danger > summary { color: var(--ion-color-danger); border-color: var(--ion-color-danger); }
+
+.rights { margin: 0 0 12px; line-height: 1.6; }
+
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ion-color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 2px; border-radius: 4px; }
 
 @media (prefers-reduced-motion: reduce) {
   .fold > summary::after { transition: none; }

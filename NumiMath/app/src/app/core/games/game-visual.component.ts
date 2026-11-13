@@ -88,8 +88,9 @@ export const MEASURE_UNIT_PX = 34;
               [attr.data-gone]="gone ? '' : null">
               <rect x="2" y="2" width="10" height="10" fill="#faf089" stroke="#1a202c" stroke-width="1.5" />
               @if (gone) {
-                <line x1="1" y1="1" x2="13" y2="13" class="cross" />
-                <line x1="13" y1="1" x2="1" y2="13" class="cross" />
+                <!-- ✕ dentro del cubito: el borde punteado y el color se siguen viendo. -->
+                <line x1="4" y1="4" x2="10" y2="10" class="cross thin" />
+                <line x1="10" y1="4" x2="4" y2="10" class="cross thin" />
               }
             </svg>
           }
@@ -200,7 +201,7 @@ export const MEASURE_UNIT_PX = 34;
         height: 128px;
         margin: 0 auto;
       }
-      /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 17 = 259 px. */
+      /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 21 = 279 px. */
       .blocks {
         display: flex;
         justify-content: center;
@@ -217,12 +218,12 @@ export const MEASURE_UNIT_PX = 34;
       }
       .cubes {
         display: grid;
-        grid-template-columns: repeat(5, 14px);
+        grid-template-columns: repeat(5, 18px);
         gap: 3px;
       }
       .cube {
-        width: 14px;
-        height: 14px;
+        width: 18px;
+        height: 18px;
       }
       /* Tachado: el bloque sigue ahí (más tenue, borde punteado) y una ✕ oscura lo cruza. */
       .gone rect {
@@ -233,6 +234,9 @@ export const MEASURE_UNIT_PX = 34;
         stroke: #9b2c2c;
         stroke-width: 2.5;
         stroke-linecap: round;
+      }
+      .cross.thin {
+        stroke-width: 1.6;
       }
       .measure {
         margin: 0 auto;

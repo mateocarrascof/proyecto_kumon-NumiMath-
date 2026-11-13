@@ -9,9 +9,13 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
-import { NavController } from '@ionic/angular/lazy';
+import { NavController, Platform } from '@ionic/angular/lazy';
+import type { Subscription } from 'rxjs';
+import { addIcons } from 'ionicons';
+import { chevronBack } from 'ionicons/icons';
 
 import { splitLeadingEmoji } from '../core/games/games.messages';
+import { HARDWARE_BACK_PRIORITY } from '../core/navigation/hardware-back';
 import { GameInfo, GamesPort } from '../core/games/games.port';
 
 import {
@@ -207,6 +211,12 @@ export { MEDAL_EVERY };
 /** "Tema" de las tareas del tutor en la pantalla (no es un tema del servidor). */
 export const TASKS_TOPIC: Topic = { id: 'tarea_tutor', label: 'Tareas de tu tutor' };
 
+/**
+ * Máximo que el botón de volver queda desactivado mientras se guarda la prueba corta. Pasado este
+ * tiempo se habilita aunque el servidor no haya respondido: el niño nunca queda sin salida.
+ */
+export const SAVE_BACK_LOCK_MAX_MS = 10_000;
+
 /** Cuánto se reutiliza la respuesta de `sheets.enabled` para un perfil. */
 const SHEETS_ENABLED_TTL_MS = 5 * 60 * 1000;
 
@@ -222,6 +232,9 @@ export class PracticePage implements OnInit {
   private readonly assignments = inject(AssignmentsPort);
   private readonly route = inject(ActivatedRoute);
   private readonly nav = inject(NavController);
+  private readonly platform = inject(Platform);
+  /** Atrás de Android mientras la pantalla está a la vista (ver `ionViewDidEnter`). */
+  private hardwareBack: Subscription | null = null;
   private readonly games = inject(GamesPort);
   /** Juegos por habilidad (null: aún no se piden o no se pudieron leer). */
   private gamesBySkill: Map<string, GameInfo[]> | null = null;
@@ -337,6 +350,9 @@ export class PracticePage implements OnInit {
   /** Para pruebas. */
   declineWaitMs = DECLINE_WAIT_MS;
   private declineTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveLockTimer: ReturnType<typeof setTimeout> | null = null;
+  /** El guardado de la prueba corta tardó más que `SAVE_BACK_LOCK_MAX_MS`: se puede volver. */
+  saveLockExpired = false;
   private diagAnswers: DiagnosticAnswer[] = [];
   protected readonly diagSteps = DIAGNOSTIC_STEPS;
   protected readonly diagMessages = DIAGNOSTIC_MESSAGES;
@@ -349,7 +365,12 @@ export class PracticePage implements OnInit {
   protected readonly offlineMessages = OFFLINE_MESSAGES;
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.cancelExplanation());
+    addIcons({ chevronBack });
+    this.destroyRef.onDestroy(() => {
+      this.cancelExplanation();
+      this.clearSaveLock();
+      this.releaseHardwareBack();
+    });
   }
 
   /** Se ofrece tras una respuesta incorrecta, nunca en las tareas del tutor (su texto no va a la IA). */
@@ -711,6 +732,35 @@ export class PracticePage implements OnInit {
     return this.declineStep === 'confirm' && this.declineReady ? DIAGNOSTIC_MESSAGES.declineReady : '';
   }
 
+  /** Con un tema abierto (ejercicio, prueba corta, tareas) se vuelve a la lista de temas. */
+  get backLabel(): 'Temas' | 'Perfiles' {
+    return this.topic ? 'Temas' : 'Perfiles';
+  }
+
+  /** Solo mientras se guarda la prueba corta y como máximo `SAVE_BACK_LOCK_MAX_MS`. */
+  get backLocked(): boolean {
+    return this.diag === 'saving' && !this.saveLockExpired;
+  }
+
+  /**
+   * Botón de arriba (y el atrás de Android): en la lista sale a /perfiles; con un tema abierto hace
+   * lo mismo que "Cambiar de tema" (no toca los intentos pendientes ni el modo sin conexión).
+   */
+  goBack(): void {
+    if (this.backLocked) return;
+    if (this.topic) {
+      this.changeTopic();
+      return;
+    }
+    void this.nav.navigateBack('/perfiles');
+  }
+
+  private clearSaveLock(): void {
+    if (this.saveLockTimer !== null) clearTimeout(this.saveLockTimer);
+    this.saveLockTimer = null;
+    this.saveLockExpired = false;
+  }
+
   private clearDeclineTimer(): void {
     if (this.declineTimer !== null) clearTimeout(this.declineTimer);
     this.declineTimer = null;
@@ -781,6 +831,12 @@ export class PracticePage implements OnInit {
     this.diag = 'saving';
     this.exercise = null;
     this.busy = true;
+    this.clearSaveLock();
+    this.saveLockTimer = setTimeout(() => {
+      this.saveLockTimer = null;
+      this.saveLockExpired = true;
+      this.cdr.markForCheck();
+    }, SAVE_BACK_LOCK_MAX_MS);
     this.mascot.set('thinking');
     this.cdr.markForCheck();
     try {
@@ -796,6 +852,7 @@ export class PracticePage implements OnInit {
       if (this.diag !== 'saving' || this.topic !== topic) return;
       this.diagnosticFailed(error);
     } finally {
+      this.clearSaveLock();
       this.busy = false;
       this.cdr.markForCheck();
     }
@@ -831,6 +888,7 @@ export class PracticePage implements OnInit {
   /** Olvida la prueba en curso (al salir, cambiar de tema o terminar). Nada se envía. */
   private resetDiagnostic(): void {
     this.clearDeclineTimer();
+    this.clearSaveLock();
     this.declineStep = null;
     this.declineReady = false;
     this.diag = null;
@@ -1149,8 +1207,27 @@ export class PracticePage implements OnInit {
     row?.scrollIntoView?.({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
   }
 
+  /**
+   * Atrás de Android = botón de arriba en cada estado (lista → /perfiles; tema abierto → temas;
+   * guardando la prueba → nada). Prioridad 10: sobre la navegación por defecto de Ionic (0), que
+   * podría cerrar la app, y bajo alertas y modales (100), que se cierran primero. Solo mientras
+   * esta pantalla está a la vista: no toca /pin ni /panel.
+   */
+  ionViewDidEnter(): void {
+    this.releaseHardwareBack();
+    this.hardwareBack = this.platform.backButton.subscribeWithPriority(HARDWARE_BACK_PRIORITY, () =>
+      this.goBack(),
+    );
+  }
+
+  private releaseHardwareBack(): void {
+    this.hardwareBack?.unsubscribe();
+    this.hardwareBack = null;
+  }
+
   /** Ionic guarda la pantalla al navegar: se corta la explicación al salir. */
   ionViewWillLeave(): void {
+    this.releaseHardwareBack();
     this.cancelExplanation();
     // Salir a la mitad del diagnóstico es abandonarlo: se olvida y no se envía nada.
     if (this.diag) {

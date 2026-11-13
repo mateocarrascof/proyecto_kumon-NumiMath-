@@ -1,6 +1,17 @@
-import { ChangeDetectorRef, Component, Injector, OnInit, afterNextRender, inject } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  Injector,
+  OnInit,
+  afterNextRender,
+  inject,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { NavController } from '@ionic/angular/lazy';
+import { NavController, Platform } from '@ionic/angular/lazy';
+import { addIcons } from 'ionicons';
+import { chevronBack } from 'ionicons/icons';
+import type { Subscription } from 'rxjs';
 
 import {
   BAG_GAMES,
@@ -20,6 +31,7 @@ import {
   GamesPort,
 } from '../core/games/games.port';
 import { MascotPort } from '../core/mascot/mascot.port';
+import { HARDWARE_BACK_PRIORITY } from '../core/navigation/hardware-back';
 import { MEDAL_EVERY } from '../core/practice/medals';
 
 /** Rondas por juego (decisión del dueño). */
@@ -51,6 +63,8 @@ export class GamesPage implements OnInit {
   private readonly port = inject(GamesPort);
   private readonly route = inject(ActivatedRoute);
   private readonly nav = inject(NavController);
+  private readonly platform = inject(Platform);
+  private hardwareBack: Subscription | null = null;
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly injector = inject(Injector);
   /** Token del ejercicio cuya bolsa está llena (las opciones se habilitan). */
@@ -73,6 +87,32 @@ export class GamesPage implements OnInit {
   streak = 0;
   medals = 0;
   medalNow = false;
+
+  constructor() {
+    addIcons({ chevronBack });
+    inject(DestroyRef).onDestroy(() => this.releaseHardwareBack());
+  }
+
+  /**
+   * Atrás de Android = "Practicar" de arriba: siempre a /practica/:id, también a mitad de una
+   * partida (lo respondido ya quedó guardado), sin confirmación. Solo mientras esta pantalla está
+   * a la vista (no toca /pin ni /panel).
+   */
+  ionViewDidEnter(): void {
+    this.releaseHardwareBack();
+    this.hardwareBack = this.platform.backButton.subscribeWithPriority(HARDWARE_BACK_PRIORITY, () => {
+      void this.backToPractice();
+    });
+  }
+
+  ionViewWillLeave(): void {
+    this.releaseHardwareBack();
+  }
+
+  private releaseHardwareBack(): void {
+    this.hardwareBack?.unsubscribe();
+    this.hardwareBack = null;
+  }
   /** Aviso amable (sin red, error) y qué hacer al tocar "Intentar otra vez". */
   notice = '';
   private retryAction: (() => Promise<void>) | null = null;

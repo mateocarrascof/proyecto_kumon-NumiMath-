@@ -129,6 +129,11 @@ mismo para el mismo perfil, solo decorativo, no se guarda y no es un dato del ni
 ### Crear y eliminar (solo en el Panel del tutor, con PIN)
 - Sección "Perfiles" del panel: lista con animalito, "Crear perfil" (apodo, curso y declaración del
   adulto, igual que antes) y "Eliminar".
+- **Apodos únicos por tutor y curso (ADR 0005):** un tutor no puede tener dos perfiles con el mismo
+  apodo en el mismo curso; otro tutor sí puede usarlo. No distingue mayúsculas, tildes (á é í ó ú ü)
+  ni espacios; la "ñ" sí cuenta (Toño ≠ Tono). Lo frena un índice único en la base, también al
+  renombrar o cambiar de curso. Mensaje: "Ya tienes un perfil con ese apodo en N° básico. Elige otro,
+  por ejemplo agrégale un número."
 - Eliminar muestra qué se borra (progreso, racha y tareas, sin vuelta atrás) y **pide el PIN otra
   vez** antes de borrar.
 - El borrado va por la API: `DELETE /v1/students/{id}` exige el token parental. El cliente **ya no

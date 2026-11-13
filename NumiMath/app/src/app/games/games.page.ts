@@ -167,14 +167,21 @@ export class GamesPage implements OnInit {
     this.mascot.set('talking');
   }
 
-  /** Volver a la lista de ejes (botón "Otro juego"). */
-  otherGame(): void {
+  /** Juegos del mismo tema (habilidad) que el juego actual. */
+  get sameTopicGames(): GameInfo[] {
+    const skill = this.game?.skill;
+    return skill ? this.groups.flatMap((g) => g.games).filter((g) => g.skill === skill) : [];
+  }
+
+  /** "Otro juego de este tema": la lista con solo los juegos de esa habilidad (nunca los ejes). */
+  otherOfTopic(): void {
+    const games = this.sameTopicGames;
+    const group = this.groups.find((g) => g.games.some((x) => x.id === this.game?.id));
     this.game = null;
-    this.axis = null;
     this.exercise = null;
     this.result = null;
-    this.step = this.groups.length ? 'axes' : 'loading';
     this.mascot.set('idle');
+    this.chooseAxis({ module: group?.module ?? '', games });
   }
 
   backToPractice(): Promise<boolean> {

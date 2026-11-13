@@ -13,7 +13,7 @@ export const GAME_TEXT = {
   seeEnd: 'Ver cómo me fue',
   ready: 'Listo',
   playAgain: 'Jugar de nuevo',
-  otherGame: 'Otro juego',
+  otherOfTopic: 'Otro juego de este tema',
   backToPractice: 'Volver a practicar',
   retry: 'Intentar otra vez',
   offline: 'Para jugar hace falta internet. Pide ayuda a un adulto.',

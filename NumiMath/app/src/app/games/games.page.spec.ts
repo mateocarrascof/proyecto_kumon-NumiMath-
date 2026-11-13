@@ -267,13 +267,11 @@ describe('GamesPage (CU-A21)', () => {
     const { page, q, el, render } = setup({ list: vi.fn(async () => groups), exercise, answer });
     await render(); // la creación ya llamó a ngOnInit
 
-    for (const [axis, group] of groups.entries()) {
+    // Los ejes listan todos los grupos; cada juego se abre directo (como desde su tema).
+    expect(el().querySelectorAll('[data-testid^="axis-"]').length).toBe(groups.length);
+    for (const group of groups) {
       for (const game of group.games) {
-        page.otherGame();
-        await render();
-        q(`axis-${axis}`)!.click();
-        await render();
-        q(`game-${game.id}`)!.click();
+        page.chooseGame(game);
         await render();
         // Cada juego tiene su instrucción propia (no la genérica).
         expect(GAME_INSTRUCTIONS[game.id], game.id).toBeDefined();
@@ -340,13 +338,11 @@ describe('GamesPage (CU-A21)', () => {
     const answer = vi.fn(async (_s: string, _t: string, a: string[]) => ({ correct: true, correctAnswer: a, message: '¡Muy bien!' }));
     const { page, q, el, render } = setup({ list: vi.fn(async () => groups), exercise, answer });
     await render(); // la creación ya llamó a ngOnInit
-    for (const [axis, group] of groups.entries()) {
+    // Los ejes listan todos los grupos; cada juego se abre directo (como desde su tema).
+    expect(el().querySelectorAll('[data-testid^="axis-"]').length).toBe(groups.length);
+    for (const group of groups) {
       for (const game of group.games) {
-        page.otherGame();
-        await render();
-        q(`axis-${axis}`)!.click();
-        await render();
-        q(`game-${game.id}`)!.click();
+        page.chooseGame(game);
         await render();
         expect(GAME_INSTRUCTIONS[game.id], game.id).toBeDefined();
         q('game-start')!.click();
@@ -409,7 +405,7 @@ describe('GamesPage (CU-A21)', () => {
     expect(answer).toHaveBeenCalledWith('p1', 'tok-b', ['n:2']);
   });
 
-  it('5 rondas y resumen con jugar de nuevo, otro juego o volver a practicar; medalla a los 5 seguidos', async () => {
+  it('5 rondas y resumen con jugar de nuevo o volver a practicar; medalla a los 5 seguidos', async () => {
     const { page, nav, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit
     page.chooseGame(GROUPS[0].games[0]);
@@ -424,8 +420,33 @@ describe('GamesPage (CU-A21)', () => {
     expect(page.medals).toBe(1);
     q('game-back')!.click();
     expect(nav.navigateBack).toHaveBeenCalledWith(['/practica', 'p1']);
+    // Sin "Otro juego" ni vuelta a la elección de eje (este tema tiene un solo juego).
+    expect(q('game-other')).toBeNull();
+    expect(page.step).toBe('summary');
+  });
+
+  it('un tema con varios juegos: el resumen ofrece "Otro juego de este tema" (solo los de su tema)', async () => {
+    const same = [
+      { id: 'mayor-1', name: '¿Cuál es mayor?', kind: 'choice' as const, skill: '1-03' },
+      { id: 'ordena-1', name: 'Ordena los números', kind: 'order' as const, skill: '1-03' },
+    ];
+    const other = { id: 'cuantos-1', name: '¿Cuántos hay?', kind: 'choice' as const, skill: '1-02' };
+    const { page, q, render } = setup({ list: vi.fn(async () => [{ module: 'Números y operaciones', games: [...same, other] }]) });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame(same[0]);
+    await page.start();
+    for (let i = 0; i < ROUNDS; i++) {
+      await page.pick('n:9');
+      await page.nextRound();
+    }
+    await render();
+    expect(q('game-other')?.textContent).toContain('Otro juego de este tema');
     q('game-other')!.click();
-    expect(page.step).toBe('axes');
+    await render();
+    expect(page.step).toBe('games');
+    expect(q('game-ordena-1')).not.toBeNull();
+    expect(q('game-cuantos-1')).toBeNull(); // nada de otro tema
+    expect(q('axis-0')).toBeNull(); // sin elección de eje
   });
 
   it('no muestra nivel ni progreso', async () => {

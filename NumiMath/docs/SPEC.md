@@ -1534,3 +1534,16 @@ dentro de cada tema, así que la tarjeta era redundante para ellos. Ahora:
 - El bloque es una imagen con la cantidad ("9 pelotas"): el lector no lee cada emoji. Cabe a
   360 px con 0 a 20 emoji (4 filas de 5). Se agregó 🐟 ("pez", masculino) a los nombres.
 
+### Opciones de los juegos en una sola columna
+- En todos los juegos (y los que vengan, porque es el componente `app-choice-options`), las
+  opciones van una debajo de otra: mismo ancho (casi toda la pantalla, centradas), 68 px de alto,
+  10 px entre ellas y el contenido centrado. Vale para 2 a 4 opciones de número, emoji, figura,
+  hora o texto. Se muestran en el orden mezclado del servidor.
+- **Excepción:** la escena en cruz (`donde-esta-1`) mantiene la cruz, porque la posición de cada
+  botón es la respuesta.
+- Durante las rondas, Numi se achica a 36 px y bajan algunos márgenes: a 360 × 640, con 4
+  opciones, la pregunta y "Siguiente" se ven sin desplazarse. Con un dibujo grande y 3 opciones
+  (reloj, figura), la página baja sola hasta "Siguiente" y la pregunta sigue a la vista.
+- No cambia el componente de ordenar y completar con tarjetas. La animación del toque sigue
+  respetando "reducir movimiento".
+

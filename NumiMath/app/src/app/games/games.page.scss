@@ -9,8 +9,20 @@
 // 360 px sin desplazarse.
 .games.in-round app-mascot {
   display: block;
-  max-width: 96px;
+  max-width: 36px; /* a 360 × 640, pregunta, 4 opciones y "Siguiente" caben sin desplazarse */
   margin: 0 auto;
+}
+
+.games.in-round h1 {
+  margin: 6px 0;
+}
+
+.games.in-round .round {
+  margin: 0;
+}
+
+.games.in-round .big {
+  margin-top: 8px;
 }
 
 h1 {

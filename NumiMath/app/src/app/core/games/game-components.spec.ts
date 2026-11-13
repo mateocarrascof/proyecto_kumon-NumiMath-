@@ -35,6 +35,12 @@ describe('ChoiceOptionsComponent (CU-A21)', () => {
     expect(el.querySelector('[role="group"]')).not.toBeNull();
   });
 
+  it('se muestran en el orden del servidor (mezclado), sin reordenar por contenido', () => {
+    const { el } = render({ options: [N(9), APPLES, N(4)] } as Partial<ChoiceOptionsComponent>);
+    const ids = [...el.querySelectorAll('[data-testid^="option-"]')].map((b) => b.getAttribute('data-testid'));
+    expect(ids).toEqual(['option-n:9', 'option-e:manzana-3', 'option-n:4']);
+  });
+
   it('estado elegido con aria-pressed', () => {
     const { button } = render({ chosen: 'n:4' });
     expect(button('n:4').getAttribute('aria-pressed')).toBe('true');

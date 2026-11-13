@@ -7,9 +7,10 @@ import { GameOption, GameScene } from './games.port';
 /**
  * Color por POSICIÓN en pantalla (1ª, 2ª, 3ª y 4ª), no por contenido: no dice cuál es la correcta
  * y no cambia al responder (solo se suman los estados de acierto y error ya existentes). Sin verde
- * ni naranjo, que son los de "Esta era" y "Tu elección". Fondo suave con texto #1a202c (≥ 4,5:1) y
- * acento (borde, franja y letra) con ≥ 3:1 sobre el fondo y ≥ 4,5:1 con la letra blanca: lo
- * comprueba game-components.spec.ts.
+ * ni naranjo, que son los de "Esta era" y "Tu elección". Es solo decoración: la información la
+ * llevan el orden y el texto de cada opción (sin letras A–D, que un niño que aún no lee podía tomar
+ * por parte de la respuesta). Fondo suave con texto #1a202c (≥ 4,5:1) y acento (borde y franja)
+ * con ≥ 3:1 sobre el fondo: lo comprueba game-components.spec.ts.
  */
 export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] = [
   { bg: '#e8f0ff', accent: '#1a56db' }, // azul
@@ -17,7 +18,6 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
   { bg: '#f1eaff', accent: '#6b3fd4' }, // lila
   { bg: '#ffe8f0', accent: '#b4235a' }, // rosado
 ];
-export const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
 
 /**
  * Opciones táctiles (CU-A21): de 2 a 4 botones grandes con un número, un emoji o un símbolo (y en la
@@ -54,11 +54,6 @@ export const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
           (click)="choose(o.id)"
           [attr.data-testid]="'option-' + o.id"
         >
-          <!-- Marca A, B, C, D solo visual (el lector de pantalla lee la etiqueta). Sin letras en la
-               escena en cruz: ahí la posición ya significa arriba, izquierda, etc. -->
-          @if (!scene) {
-            <span class="letter" aria-hidden="true" data-testid="choice-letter">{{ letterAt(i) }}</span>
-          }
           @if (o.kind === 'figure') {
             <app-figure class="value" [figureId]="o.id"></app-figure>
           } @else {
@@ -89,7 +84,7 @@ export const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
       .option {
         position: relative;
         height: 68px; /* objetivo táctil grande para dedos pequeños */
-        padding: 4px 12px 4px 52px; /* a la izquierda va la letra; el valor sigue centrado */
+        padding: 4px 12px 4px 20px; /* 8 px más a la izquierda por la franja */
         border-radius: 18px;
         border: 3px solid var(--pos-accent, #4a5568);
         box-shadow: inset 8px 0 0 var(--pos-accent, #4a5568); /* franja de color de la posición */
@@ -110,25 +105,6 @@ export const OPTION_LETTERS = ['A', 'B', 'C', 'D'] as const;
       .option:focus-visible {
         outline: 4px solid #1a56db;
         outline-offset: 3px;
-      }
-      .letter {
-        position: absolute;
-        left: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        display: grid;
-        place-items: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: var(--pos-accent, #4a5568);
-        color: #ffffff;
-        font-size: 1rem;
-        font-weight: 800;
-        line-height: 1;
-      }
-      .options:not(.scene) .option {
-        padding-right: 52px; /* simétrico: el valor queda al centro del botón */
       }
       .options.scene .option {
         padding: 4px 8px 4px 14px;
@@ -230,10 +206,6 @@ export class ChoiceOptionsComponent {
 
   protected colorAt(index: number): { bg: string; accent: string } {
     return OPTION_POSITION_COLORS[index % OPTION_POSITION_COLORS.length];
-  }
-
-  protected letterAt(index: number): string {
-    return OPTION_LETTERS[index % OPTION_LETTERS.length];
   }
 
   protected placeOf(id: string): string | null {

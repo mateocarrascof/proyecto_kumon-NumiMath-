@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { ChoiceOptionsComponent, OPTION_LETTERS, OPTION_POSITION_COLORS } from './choice-options.component';
+import { ChoiceOptionsComponent, OPTION_POSITION_COLORS } from './choice-options.component';
 import { GAME_TEXT } from './games.messages';
 import { GameOption } from './games.port';
 import { OrderCardsComponent } from './order-cards.component';
@@ -75,7 +75,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe('ChoiceOptionsComponent: color y letra por posición', () => {
+describe('ChoiceOptionsComponent: color por posición (solo decoración)', () => {
   const FOUR = [N(4), N(9), APPLES, N(7)];
   function render(inputs: Record<string, unknown> = {}) {
     TestBed.configureTestingModule({ imports: [ChoiceOptionsComponent] });
@@ -89,21 +89,18 @@ describe('ChoiceOptionsComponent: color y letra por posición', () => {
         pos: b.getAttribute('data-pos'),
         bg: b.style.getPropertyValue('--pos-bg'),
         accent: b.style.getPropertyValue('--pos-accent'),
-        letter: b.querySelector('[data-testid="choice-letter"]')?.textContent?.trim() ?? null,
       }));
     return { fixture, el, look };
   }
 
-  it('cada posición tiene su color y su letra A, B, C, D (solo visual)', () => {
+  it('cada posición tiene su color, sin letras: la información la llevan el orden y el texto', () => {
     const { el, look } = render();
-    expect(look()).toEqual(
-      OPTION_POSITION_COLORS.map((c, i) => ({ pos: String(i + 1), bg: c.bg, accent: c.accent, letter: OPTION_LETTERS[i] })),
-    );
-    for (const l of el.querySelectorAll('[data-testid="choice-letter"]')) {
-      expect(l.getAttribute('aria-hidden')).toBe('true');
-    }
-    // La etiqueta accesible no cambia por la letra.
-    expect(el.querySelector('[data-testid="option-n:9"]')?.getAttribute('aria-label')).toBe('9');
+    expect(look()).toEqual(OPTION_POSITION_COLORS.map((c, i) => ({ pos: String(i + 1), bg: c.bg, accent: c.accent })));
+    expect(el.querySelector('[data-testid="choice-letter"]')).toBeNull();
+    // En cada botón solo se ve su valor (sin marcas A–D) y la etiqueta accesible es la de siempre.
+    const nine = el.querySelector<HTMLElement>('[data-testid="option-n:9"]')!;
+    expect(nine.textContent?.trim()).toBe('9');
+    expect(nine.getAttribute('aria-label')).toBe('9');
   });
 
   it('el color depende del lugar, no de cuál es la correcta, y no cambia al responder', () => {
@@ -125,7 +122,7 @@ describe('ChoiceOptionsComponent: color y letra por posición', () => {
     expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
   });
 
-  it('escena en cruz: color por posición, sin letras', () => {
+  it('escena en cruz: también color por posición', () => {
     const scene = {
       center: '📦',
       places: [
@@ -135,16 +132,14 @@ describe('ChoiceOptionsComponent: color y letra por posición', () => {
         { id: 'n:7', position: 'abajo' },
       ],
     };
-    const { el, look } = render({ scene });
-    expect(el.querySelector('[data-testid="choice-letter"]')).toBeNull();
+    const { look } = render({ scene });
     expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
   });
 
-  it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3; letra blanca ≥ 4,5', () => {
+  it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3', () => {
     for (const { bg, accent } of OPTION_POSITION_COLORS) {
       expect(contrast('#1a202c', bg), bg).toBeGreaterThanOrEqual(4.5);
       expect(contrast(accent, bg), accent).toBeGreaterThanOrEqual(3);
-      expect(contrast('#ffffff', accent), accent).toBeGreaterThanOrEqual(4.5);
     }
   });
 

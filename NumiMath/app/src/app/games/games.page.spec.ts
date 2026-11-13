@@ -90,6 +90,13 @@ describe('GamesPage (CU-A21)', () => {
     expect(q('game-ordena-1')).not.toBeNull();
   });
 
+  it('"Más juegos" (?juegos=): los ejes con solo esos juegos', async () => {
+    const { page, render } = setup({}, { juegos: 'ordena-1' });
+    await render(); // la creación ya llamó a ngOnInit
+    expect(page.step).toBe('axes');
+    expect(page.groups.flatMap((g) => g.games.map((x) => x.id))).toEqual(['ordena-1']);
+  });
+
   describe('atajos desde "Aprender jugando"', () => {
     const SKILLED = [
       {

@@ -120,7 +120,7 @@ export class GamesPage implements OnInit {
   private async loadList(): Promise<void> {
     this.step = 'loading';
     try {
-      this.groups = await this.port.list(this.studentId);
+      this.groups = this.onlyRequested(await this.port.list(this.studentId));
       this.step = 'axes';
       this.notice = '';
       this.openFromTopic();
@@ -128,6 +128,16 @@ export class GamesPage implements OnInit {
       this.fail(error, () => this.loadList());
     }
     this.cdr.markForCheck();
+  }
+
+  /** "Más juegos" (`?juegos=a,b`): los ejes con solo esos juegos. Sin coincidencias, todos. */
+  private onlyRequested(groups: GameGroup[]): GameGroup[] {
+    const ids = new Set((this.route.snapshot.queryParamMap?.get('juegos') ?? '').split(',').filter(Boolean));
+    if (!ids.size) return groups;
+    const kept = groups
+      .map((g) => ({ module: g.module, games: g.games.filter((x) => ids.has(x.id)) }))
+      .filter((g) => g.games.length);
+    return kept.length ? kept : groups;
   }
 
   /**

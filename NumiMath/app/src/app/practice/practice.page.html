@@ -52,11 +52,12 @@
         }
         <span class="topic-go" aria-hidden="true">›</span>
       </button>
-      <!-- CU-A21: juegos de refuerzo, solo 1° y 2° y con conexión. -->
-      @if (canPlay) {
+      <!-- CU-A21: "Más juegos" (1° y 2°, con conexión): solo los juegos de temas que no se
+           practican. Los demás se abren con "Aprender jugando" dentro de cada tema. -->
+      @if (extraGames.length) {
         <button type="button" class="topic-card tasks-card" data-tone="lilac" (click)="openGames()" data-testid="games-card">
           <span class="topic-icon" aria-hidden="true">🧩</span>
-          <span class="topic-label">Jugar</span>
+          <span class="topic-label">Más juegos</span>
           <span class="topic-go" aria-hidden="true">›</span>
         </button>
       }

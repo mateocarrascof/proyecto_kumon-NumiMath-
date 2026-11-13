@@ -1512,3 +1512,15 @@ semillas). Corregidos en `fix(cu-a21)`:
 - En las sumas sin reserva, el distractor "una decena de más" ya no pasa de 100.
 - Pruebas de rango de los distractores y de la salida de `figure`, `clock` y `scale` (API y app).
 
+## Juegos: ajustes visuales tras probar en el celular (2026-11-13)
+
+### "Más juegos" en vez de "Jugar" (cambio de flujo respecto de la ficha del CU-A21)
+La ficha del CU-A21 pide una tarjeta "Jugar" en la práctica que lleva a todos los juegos (eje →
+juego). Desde "Aprender jugando" (2026-11-12), los juegos de temas que se practican se abren
+dentro de cada tema, así que la tarjeta era redundante para ellos. Ahora:
+- La tarjeta se llama **"Más juegos"** y muestra solo los juegos de temas que el perfil **no**
+  practica (fase B: geometría, medición, reloj, gráficos; en 1°, los temas 6 a 10). Si el perfil
+  no tiene ninguno, no aparece. Sigue siendo solo para 1° y 2° y con conexión.
+- Abre la misma selección de eje → juego, con solo esos juegos (`/juegos/:id?juegos=a,b`). La
+  pantalla de selección de eje no cambia.
+

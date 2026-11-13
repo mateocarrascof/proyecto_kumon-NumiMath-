@@ -37,8 +37,11 @@ import { SkillTilesComponent } from './skill-tiles.component';
 const TOPIC = { id: 'sumas_hasta_20', label: 'Sumas hasta 20' };
 /** Juegos que devuelve el GamesPort falso ("Aprender jugando"); vacío salvo que la prueba diga. */
 let gameGroups: GameGroup[] = [];
+/** La lista de juegos falla (sin red o error del servidor). */
+let gamesFail = false;
 beforeEach(() => {
   gameGroups = [];
+  gamesFail = false;
 });
 const EXERCISE: Exercise = {
   token: 'tok',
@@ -61,7 +64,12 @@ function setup(
   explain: ExplanationPort['explain'] = async () => undefined,
 ) {
   const nav = { navigateForward: vi.fn(async () => true) };
-  const games = { list: vi.fn(async () => gameGroups) };
+  const games = {
+    list: vi.fn(async () => {
+      if (gamesFail) throw new Error('red');
+      return gameGroups;
+    }),
+  };
   const explainer = { explain: vi.fn(explain) };
   const queryParams = new BehaviorSubject(convertToParamMap(query));
   const progress = { get: vi.fn(progressGet) };
@@ -1767,16 +1775,32 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
   async function withTopics(topics: unknown[]) {
     const ctx = setup({ topics: vi.fn(async () => topics) } as never);
     await ctx.page.ngOnInit();
+    await new Promise((r) => setTimeout(r, 0)); // la lista de juegos llega aparte
     ctx.fixture.detectChanges();
     return ctx;
   }
 
-  it('aparece en 1° básico y abre los juegos del perfil', async () => {
+  // Un juego de un tema que no se practica (fase B) y uno del tema que sí.
+  const FIGURES = { id: 'toca-figura-1', name: 'Toca la figura', kind: 'choice' as const, skill: '1-17' };
+  const SAME = { id: 'cuantos-1', name: '¿Cuántos hay?', kind: 'choice' as const, skill: TOPIC.id };
+  beforeEach(() => {
+    gameGroups = [{ module: 'Geometría', games: [FIGURES] }, { module: 'Números', games: [SAME] }];
+  });
+
+  it('"Más juegos" en 1°: abre la selección con solo los juegos de temas que no se practican', async () => {
     const { fixture, nav } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
     const card = query(fixture, '[data-testid="games-card"]') as HTMLElement;
-    expect(card?.textContent).toContain('Jugar');
+    expect(card?.textContent).toContain('Más juegos');
     card.click();
-    expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1']);
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+      queryParams: { juegos: 'toca-figura-1' },
+    });
+  });
+
+  it('no aparece si todos los juegos son de temas que se practican', async () => {
+    gameGroups = [{ module: 'Números', games: [SAME] }];
+    const { fixture } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
+    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
   });
 
   it('aparece en 2° (el repaso de 1° no cambia el curso)', async () => {
@@ -1853,9 +1877,10 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
 
     it('si la lista de juegos falla, no se muestra (la práctica sigue)', async () => {
       gameGroups = CATALOG;
+      gamesFail = true;
       const topic = { ...TOPIC, id: '1-13', grade: 1, review: false };
       const ctx = await withTopics([topic]);
-      ctx.games.list.mockRejectedValueOnce(new Error('red'));
+      expect(query(ctx.fixture, '[data-testid="games-card"]')).toBeNull(); // ni "Más juegos"
       await ctx.page.choose(topic as never);
       await new Promise((r) => setTimeout(r, 0));
       ctx.fixture.detectChanges();

@@ -223,6 +223,7 @@ export class PracticePage implements OnInit {
   private readonly games = inject(GamesPort);
   /** Juegos por habilidad (null: aún no se piden o no se pudieron leer). */
   private gamesBySkill: Map<string, GameInfo[]> | null = null;
+  private allGames: GameInfo[] | null = null;
   private gamesLoading = false;
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -503,8 +504,21 @@ export class PracticePage implements OnInit {
     return grade === 1 || grade === 2;
   }
 
+  /**
+   * "Más juegos": solo los juegos de temas que este perfil NO practica (fase B: geometría,
+   * medición, reloj, gráficos; en 1°, los temas 6 a 10). Los de temas que se practican se abren
+   * con "Aprender jugando" dentro de cada tema. Vacío: la tarjeta no aparece.
+   */
+  get extraGames(): GameInfo[] {
+    if (!this.canPlay || !this.allGames) return [];
+    const practiced = new Set(this.topics.map((t) => t.id));
+    return this.allGames.filter((g) => !g.skill || !practiced.has(g.skill));
+  }
+
+  /** La selección de eje, con solo esos juegos (`?juegos=`). */
   openGames(): Promise<boolean> {
-    return this.nav.navigateForward(['/juegos', this.studentId]);
+    const juegos = this.extraGames.map((g) => g.id).join(',');
+    return this.nav.navigateForward(['/juegos', this.studentId], { queryParams: { juegos } });
   }
 
   /**
@@ -529,12 +543,14 @@ export class PracticePage implements OnInit {
     this.gamesLoading = true;
     try {
       const bySkill = new Map<string, GameInfo[]>();
-      for (const game of (await this.games.list(this.studentId)).flatMap((g) => g.games)) {
+      const all = (await this.games.list(this.studentId)).flatMap((g) => g.games);
+      for (const game of all) {
         if (game.skill) bySkill.set(game.skill, [...(bySkill.get(game.skill) ?? []), game]);
       }
       this.gamesBySkill = bySkill;
+      this.allGames = all;
     } catch {
-      // Mejor esfuerzo: sin la lista, el botón no aparece (la tarjeta "Jugar" sigue igual).
+      // Mejor esfuerzo: sin la lista no aparecen "Aprender jugando" ni "Más juegos".
     } finally {
       this.gamesLoading = false;
       this.cdr.markForCheck();
@@ -1179,6 +1195,8 @@ export class PracticePage implements OnInit {
     this.ownGroups = groupByModule(topics.filter((t) => !t.review));
     this.reviewTopics = topics.filter((t) => t.review);
     this.reviewGroups = groupByGrade(this.reviewTopics);
+    // La lista de juegos se pide una vez (para "Más juegos" y "Aprender jugando").
+    void this.loadTopicGames();
   }
 
   /** Al volver a la lista, se releen estrellas y dominio. Mejor esfuerzo. */

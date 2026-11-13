@@ -90,6 +90,21 @@ export class SupabaseConsentService extends ConsentPort {
     }
   }
 
+  async hasConsentHistory(): Promise<boolean | null> {
+    try {
+      // RLS: el tutor solo ve sus propios eventos. Basta saber si existe alguno.
+      const { data, error } = await this.client
+        .from('consents')
+        .select('seq')
+        .order('seq', { ascending: false })
+        .limit(1);
+      if (error || !data) return null;
+      return data.length > 0;
+    } catch {
+      return null;
+    }
+  }
+
   async accept(bundle: LegalBundle): Promise<ConsentResult> {
     const user = this.auth.user();
     if (!user) return { ok: false, reason: 'unknown' };

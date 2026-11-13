@@ -62,8 +62,11 @@
       {{ busy ? 'Guardando…' : 'Aceptar y continuar' }}
     </ion-button>
 
-    <!-- Quien no acepta puede borrar su cuenta y sus datos (derecho de supresión): no depende del
-         consentimiento, por eso está aquí y no solo en el panel. -->
-    <app-delete-account></app-delete-account>
+    <!-- Quien vuelve por una revocación o una versión nueva y no quiere aceptar puede borrar su
+         cuenta y sus datos (derecho de supresión). En la primera aceptación no se ofrece: queda en
+         el panel del tutor. Si no se sabe, se muestra (falla abierto). -->
+    @if (showDeleteAccount) {
+      <app-delete-account></app-delete-account>
+    }
   </main>
 </ion-content>

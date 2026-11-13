@@ -165,4 +165,21 @@ describe('SupabaseConsentService', () => {
     const { service } = await setup({ consentError: { message: 'Failed to fetch' } });
     expect(await service.consentStatus()).toBe('unknown');
   });
+
+  it('hasConsentHistory: sin eventos es false (primera vez)', async () => {
+    const { service } = await setup({ lastConsent: null });
+    expect(await service.hasConsentHistory()).toBe(false);
+  });
+
+  it('hasConsentHistory: con algún evento (grant o revoke) es true', async () => {
+    const { service } = await setup({
+      lastConsent: { event_type: 'revoke', terms_version_id: 't1', privacy_version_id: 'p1' },
+    });
+    expect(await service.hasConsentHistory()).toBe(true);
+  });
+
+  it('hasConsentHistory: si la consulta falla es null (no se sabe)', async () => {
+    const { service } = await setup({ consentError: { message: 'Failed to fetch' } });
+    expect(await service.hasConsentHistory()).toBeNull();
+  });
 });

@@ -136,6 +136,12 @@ describe('ChoiceOptionsComponent: color por posición (solo decoración)', () =>
     expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
   });
 
+  it('figuras: fondo blanco y borde neutro, sin color de posición (el color es parte de la respuesta)', () => {
+    const FIG = (id: string): GameOption => ({ id: `f:${id}`, kind: 'figure', label: id });
+    const { look } = render({ options: [FIG('circulo-azul'), FIG('cuadrado-verde'), FIG('triangulo-morado')] });
+    expect(look()).toEqual([1, 2, 3].map((p) => ({ pos: String(p), bg: '', accent: '' })));
+  });
+
   it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3', () => {
     for (const { bg, accent } of OPTION_POSITION_COLORS) {
       expect(contrast('#1a202c', bg), bg).toBeGreaterThanOrEqual(4.5);

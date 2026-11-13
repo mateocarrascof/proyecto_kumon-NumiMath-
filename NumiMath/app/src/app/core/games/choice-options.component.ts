@@ -11,6 +11,9 @@ import { GameOption, GameScene } from './games.port';
  * llevan el orden y el texto de cada opción (sin letras A–D, que un niño que aún no lee podía tomar
  * por parte de la respuesta). Fondo suave con texto #1a202c (≥ 4,5:1) y acento (borde y franja)
  * con ≥ 3:1 sobre el fondo: lo comprueba game-components.spec.ts.
+ *
+ * Las figuras ("Toca la figura", "¿Qué figura sigue?") van SIN color de posición: fondo blanco y
+ * borde neutro, porque ahí el color de la figura es parte de la respuesta.
  */
 export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] = [
   { bg: '#e8f0ff', accent: '#1a56db' }, // azul
@@ -40,8 +43,8 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
         <button
           type="button"
           [style.grid-area]="placeOf(o.id)"
-          [style.--pos-bg]="colorAt(i).bg"
-          [style.--pos-accent]="colorAt(i).accent"
+          [style.--pos-bg]="o.kind === 'figure' ? null : colorAt(i).bg"
+          [style.--pos-accent]="o.kind === 'figure' ? null : colorAt(i).accent"
           [attr.data-pos]="(i % 4) + 1"
           class="option"
           [class.chosen]="chosen === o.id"
@@ -84,10 +87,11 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
       .option {
         position: relative;
         height: 68px; /* objetivo táctil grande para dedos pequeños */
-        padding: 4px 12px 4px 20px; /* 8 px más a la izquierda por la franja */
+        padding: 4px 20px; /* simétrico: deja lugar a la franja y el valor queda al centro */
         border-radius: 18px;
         border: 3px solid var(--pos-accent, #4a5568);
-        box-shadow: inset 8px 0 0 var(--pos-accent, #4a5568); /* franja de color de la posición */
+        /* Franja de color de la posición (sin variable, como en las figuras: sin franja). */
+        box-shadow: inset 8px 0 0 var(--pos-accent, transparent);
         background: var(--pos-bg, #ffffff);
         color: #1a202c;
         display: flex;

@@ -5,7 +5,7 @@ import { ChoiceOptionsComponent } from './choice-options.component';
 import { EMOJI_PER_ROW, EmojiRowsComponent } from './emoji-rows.component';
 import { FigureComponent } from './figure.component';
 import { GameVisualComponent, MEASURE_UNIT_PX } from './game-visual.component';
-import { splitLeadingEmoji } from './games.messages';
+import { GAME_TEXT, splitLeadingEmoji } from './games.messages';
 import { GameExercise, GameOption } from './games.port';
 
 /** Figuras, escena, pictograma y medición (CU-A21, parte 3). */
@@ -207,6 +207,15 @@ describe('GameVisualComponent (CU-A21)', () => {
     const label = blocks.getAttribute('aria-label')!;
     expect(label).toBe('5 barras de diez y 6 cubitos. Tachados, para quitar: 2 barras y 3 cubitos.');
     expect(label).not.toMatch(/33|treinta/); // el resultado
+  });
+
+  it('el lector no dice "0 cubitos" ni "0 barras"', () => {
+    expect(GAME_TEXT.blocksLabel(4, 0)).toBe('4 barras de diez');
+    expect(GAME_TEXT.blocksLabel(0, 7)).toBe('7 cubitos');
+    expect(GAME_TEXT.blocksTakeAwayLabel(5, 0, 2, 0)).toBe('5 barras de diez. Tachados, para quitar: 2 barras.');
+    expect(GAME_TEXT.blocksTakeAwayLabel(5, 6, 5, 0)).toBe(
+      '5 barras de diez y 6 cubitos. Tachados, para quitar: 5 barras.',
+    );
   });
 
   it('resta sin decenas que quitar: solo cubitos tachados', () => {

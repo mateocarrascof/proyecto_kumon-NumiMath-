@@ -4,6 +4,15 @@ import { GameOption } from './games.port';
  * CU-A21: TODOS los textos de los juegos para el niño, en un solo lugar (para revisarlos, también
  * `child-safety-ai-reviewer`). Cortos, amables, sin culpa y sin presión de tiempo.
  */
+/** "4 barras de diez y 1 cubito", omitiendo lo que es cero (si todo es cero, "0 cubitos"). */
+function blockParts(tens: number, ones: number, tensSuffix: string): string {
+  const parts = [
+    tens ? `${tens} ${tens === 1 ? 'barra' : 'barras'}${tensSuffix}` : '',
+    ones || !tens ? `${ones} ${ones === 1 ? 'cubito' : 'cubitos'}` : '',
+  ].filter(Boolean);
+  return parts.join(' y ');
+}
+
 export const GAME_TEXT = {
   play: 'Jugar',
   chooseAxis: '¿A qué quieres jugar?',
@@ -46,17 +55,11 @@ export const GAME_TEXT = {
     const short = minute === 0 ? `en el ${hour}` : `entre el ${hour} y el ${next}`;
     return `Reloj: la manecilla corta está ${short} y la larga en el ${minute === 0 ? 12 : 6}.`;
   },
-  blocksLabel: (tens: number, ones: number) =>
-    `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`,
+  /** Sin las partes en cero: "4 barras de diez" (no "y 0 cubitos"), "7 cubitos" (no "0 barras"). */
+  blocksLabel: (tens: number, ones: number) => blockParts(tens, ones, ' de diez'),
   /** Restas: lo que se ve y lo que está tachado, sin decir cuánto queda (la respuesta). */
-  blocksTakeAwayLabel: (tens: number, ones: number, goneTens: number, goneOnes: number) => {
-    const gone = [
-      goneTens ? `${goneTens} ${goneTens === 1 ? 'barra' : 'barras'}` : '',
-      goneOnes ? `${goneOnes} ${goneOnes === 1 ? 'cubito' : 'cubitos'}` : '',
-    ].filter(Boolean);
-    const blocks = `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`;
-    return `${blocks}. Tachados, para quitar: ${gone.join(' y ')}.`;
-  },
+  blocksTakeAwayLabel: (tens: number, ones: number, goneTens: number, goneOnes: number) =>
+    `${blockParts(tens, ones, ' de diez')}. Tachados, para quitar: ${blockParts(goneTens, goneOnes, '')}.`,
   /** Tablas: lo mismo que dice el enunciado, sin el total (la respuesta). */
   boxesLabel: (count: number, size: number) =>
     `${count} ${count === 1 ? 'caja' : 'cajas'} de ${size} huevos`,

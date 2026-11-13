@@ -5,12 +5,74 @@
   text-align: center;
 }
 
-// Durante las rondas Numi se achica (como en la práctica): el ejercicio y "Siguiente" caben en
-// 360 px sin desplazarse.
-.games.in-round app-mascot {
-  display: block;
-  max-width: 36px; /* a 360 × 640, pregunta, 4 opciones y "Siguiente" caben sin desplazarse */
-  margin: 0 auto;
+// Durante las rondas: el bloque Numi + pregunta + contenido + botones centrado en el alto
+// disponible. Los espaciadores (::before/::after) se encogen a 0 si no
+// hay lugar: el contenido nunca se recorta, solo se desplaza como antes.
+.games.in-round {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.games.in-round::before,
+.games.in-round::after {
+  content: '';
+  flex: 1 1 0;
+}
+
+// Cabecera de la ronda. Teléfono (alto < 800 px): fila con Numi a la izquierda (64 a 80 px) y
+// "Ronda N de 5" + enunciado a la derecha. Si aun así no cabe todo, la pantalla se desplaza: Numi
+// no se achica. Pantallas altas y tablet: Numi arriba y más grande, como antes.
+.round-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.round-head app-mascot {
+  flex: none;
+  width: var(--game-numi-row);
+  max-width: none;
+  margin: 0;
+}
+
+.round-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.games {
+  /* Fila: 640 → 64 px, 690 → 69 px, 780 → 78 px (tope 80). */
+  --game-numi-row: clamp(64px, 10vh, 80px);
+  /* Arriba (alto ≥ 800): 868 → 96 px, 1024 → 136 px. */
+  --game-numi-size: clamp(32px, calc(26vh - 130px), 140px);
+}
+
+// Una variable con dvh no "falla" al leerse: sin @supports, un navegador sin dvh perdería el tamaño.
+@supports (height: 1dvh) {
+  .games {
+    --game-numi-row: clamp(64px, 10dvh, 80px);
+    --game-numi-size: clamp(32px, calc(26dvh - 130px), 140px);
+  }
+}
+
+@media (min-height: 800px) {
+  .round-head {
+    flex-direction: column;
+    gap: 0;
+    text-align: center;
+  }
+
+  .round-head app-mascot {
+    width: auto;
+    max-width: var(--game-numi-size);
+    margin: 0 auto;
+  }
+
+  .round-text {
+    width: 100%;
+  }
 }
 
 .games.in-round h1 {
@@ -113,4 +175,33 @@ h1 {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// Pantallas bajas (360 × 640): márgenes más cortos para que pregunta, figura, opciones, resultado y
+// "Siguiente" quepan sin desplazarse. Solo espacios: los textos y los objetivos táctiles no bajan
+// de 56 px.
+@media (max-height: 700px) {
+  ion-content {
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+  }
+
+  .games.in-round h1 {
+    margin: 4px 0;
+  }
+
+  .games.in-round .prompt {
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+
+  .games.in-round .result,
+  .games.in-round .medal {
+    margin: 6px 0 0;
+  }
+
+  .games.in-round .big.primary {
+    margin-top: 8px;
+    min-height: 56px;
+  }
 }

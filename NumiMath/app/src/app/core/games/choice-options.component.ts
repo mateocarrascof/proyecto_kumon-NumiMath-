@@ -5,6 +5,24 @@ import { GAME_TEXT, objectName, optionLabel } from './games.messages';
 import { GameOption, GameScene } from './games.port';
 
 /**
+ * Color por POSICIÓN en pantalla (1ª, 2ª, 3ª y 4ª), no por contenido: no dice cuál es la correcta
+ * y no cambia al responder (solo se suman los estados de acierto y error ya existentes). Sin verde
+ * ni naranjo, que son los de "Esta era" y "Tu elección". Es solo decoración: la información la
+ * llevan el orden y el texto de cada opción (sin letras A–D, que un niño que aún no lee podía tomar
+ * por parte de la respuesta). Fondo suave con texto #1a202c (≥ 4,5:1) y acento (borde y franja)
+ * con ≥ 3:1 sobre el fondo: lo comprueba game-components.spec.ts.
+ *
+ * Las figuras ("Toca la figura", "¿Qué figura sigue?") van SIN color de posición: fondo blanco y
+ * borde neutro, porque ahí el color de la figura es parte de la respuesta.
+ */
+export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] = [
+  { bg: '#e8f0ff', accent: '#1a56db' }, // azul
+  { bg: '#e0f5f4', accent: '#0f6b66' }, // turquesa
+  { bg: '#f1eaff', accent: '#6b3fd4' }, // lila
+  { bg: '#ffe8f0', accent: '#b4235a' }, // rosado
+];
+
+/**
  * Opciones táctiles (CU-A21): de 2 a 4 botones grandes con un número, un emoji o un símbolo (y en la
  * parte 3, figuras SVG propias). El niño toca una.
  *
@@ -21,10 +39,13 @@ import { GameOption, GameScene } from './games.port';
       @if (scene) {
         <span class="center" aria-hidden="true" data-testid="scene-center">{{ scene.center }}</span>
       }
-      @for (o of options; track o.id) {
+      @for (o of options; track o.id; let i = $index) {
         <button
           type="button"
           [style.grid-area]="placeOf(o.id)"
+          [style.--pos-bg]="o.kind === 'figure' ? null : colorAt(i).bg"
+          [style.--pos-accent]="o.kind === 'figure' ? null : colorAt(i).accent"
+          [attr.data-pos]="(i % 4) + 1"
           class="option"
           [class.chosen]="chosen === o.id"
           [class.right]="isRight(o.id)"
@@ -58,23 +79,33 @@ import { GameOption, GameScene } from './games.port';
       .options {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+        /* Filas iguales: si un contenido largo hace crecer una opción, crecen todas (mismo alto). */
+        grid-auto-rows: 1fr;
         gap: 10px;
         width: 100%;
         max-width: 480px;
         margin: 0 auto;
       }
       .option {
-        height: 68px; /* objetivo táctil grande para dedos pequeños */
-        padding: 4px 12px;
+        position: relative;
+        /* Objetivo táctil grande para dedos pequeños. Mínimo y no fijo: un contenido largo se ajusta
+           dentro del botón (en varias líneas) en vez de salirse. */
+        min-height: 68px;
+        min-width: 0;
+        padding: 4px 20px; /* simétrico: deja lugar a la franja y el valor queda al centro */
         border-radius: 18px;
-        border: 3px solid #4a5568;
-        background: #ffffff;
+        border: 3px solid var(--pos-accent, #4a5568);
+        /* Franja de color de la posición (sin variable, como en las figuras: sin franja). */
+        box-shadow: inset 8px 0 0 var(--pos-accent, transparent);
+        background: var(--pos-bg, #ffffff);
         color: #1a202c;
         display: flex;
         flex-direction: row;
+        flex-wrap: wrap; /* sin espacio, "Esta era" / "Tu elección" pasa abajo del valor */
         align-items: center;
+        align-content: center;
         justify-content: center;
-        gap: 10px;
+        gap: 2px 10px;
         font: inherit;
         cursor: pointer;
         transition: transform 0.15s ease;
@@ -82,11 +113,21 @@ import { GameOption, GameScene } from './games.port';
       .option:active:not(:disabled) {
         transform: scale(0.97);
       }
+      /* Foco del teclado: anillo doble (blanco + casi negro), visible sobre cualquier color de
+         posición y sobre el fondo de la página. */
       .option:focus-visible {
-        outline: 4px solid #1a56db;
+        outline: 4px solid #1a202c;
         outline-offset: 3px;
+        box-shadow:
+          inset 8px 0 0 var(--pos-accent, transparent),
+          0 0 0 3px #ffffff;
+      }
+      .options.scene .option {
+        padding: 4px 8px 4px 14px;
       }
       .value {
+        min-width: 0;
+        max-width: 100%;
         font-size: 1.8rem;
         font-weight: 700;
         line-height: 1.1;
@@ -116,27 +157,39 @@ import { GameOption, GameScene } from './games.port';
         font-size: 1.4rem;
         letter-spacing: 2px;
       }
+      /* Tocada: borde más grueso, del MISMO color de su posición (el color no cambia al tocar). */
       .chosen {
         border-width: 5px;
-        border-color: #1a56db;
       }
       /* Correcta: borde grueso + ícono y texto (no solo el color). */
       .right {
         border: 5px solid #1e7a3a;
         background: #e6f6ea;
+        box-shadow: none; /* sin la franja de posición: una sola señal (la del estado) */
       }
       /* Elegida y no era: borde punteado + texto (no "mal", sin rojo de alarma). */
       .wrong {
         border: 5px dashed #8a4b00;
         background: #fff4e5;
+        box-shadow: none;
       }
       .badge {
+        flex: none;
         font-size: 0.95rem;
         font-weight: 700;
       }
       .option:disabled {
         cursor: default;
         opacity: 1;
+      }
+      /* Pantallas bajas (360 × 640): todas iguales, un poco más bajas, para que "Siguiente" quepa. */
+      @media (max-height: 700px) {
+        .options {
+          gap: 8px;
+        }
+        .option {
+          min-height: 62px;
+        }
       }
       @media (prefers-reduced-motion: reduce) {
         .option {
@@ -170,6 +223,10 @@ export class ChoiceOptionsComponent {
 
   protected isWrong(id: string): boolean {
     return this.correct !== null && this.chosen === id && !this.correct.includes(id);
+  }
+
+  protected colorAt(index: number): { bg: string; accent: string } {
+    return OPTION_POSITION_COLORS[index % OPTION_POSITION_COLORS.length];
   }
 
   protected placeOf(id: string): string | null {

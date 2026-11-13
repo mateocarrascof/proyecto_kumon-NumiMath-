@@ -180,6 +180,22 @@ describe('GamesPage (CU-A21)', () => {
     expect(el().textContent).toContain('Toca el número más grande.');
   });
 
+  it('en la ronda, Numi va en la cabecera junto a "Ronda N de 5" y el enunciado (un solo Numi)', async () => {
+    const { page, el, q, render } = setup();
+    await render();
+    page.chooseGame(GROUPS[0].games[0]);
+    await render();
+    expect(el().querySelectorAll('app-mascot')).toHaveLength(1); // introducción: Numi arriba, con su burbuja
+    expect(el().querySelector('.round-head app-mascot')).toBeNull();
+    await page.start();
+    await render();
+    const head = el().querySelector('.round-head')!;
+    expect(el().querySelectorAll('app-mascot')).toHaveLength(1);
+    expect(head.querySelector('app-mascot')).not.toBeNull();
+    expect(head.querySelector('[data-testid="game-round"]')).toBe(q('game-round'));
+    expect(head.querySelector('[data-testid="game-prompt"]')).toBe(q('game-prompt'));
+  });
+
   it('juega una ronda de opciones de punta a punta: un toque responde y muestra el resultado sin culpa', async () => {
     const { page, port, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit

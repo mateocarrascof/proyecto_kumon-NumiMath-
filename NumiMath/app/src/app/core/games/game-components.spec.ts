@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { ChoiceOptionsComponent } from './choice-options.component';
+import { ChoiceOptionsComponent, OPTION_POSITION_COLORS } from './choice-options.component';
 import { GAME_TEXT } from './games.messages';
 import { GameOption } from './games.port';
 import { OrderCardsComponent } from './order-cards.component';
@@ -61,6 +61,135 @@ describe('ChoiceOptionsComponent (CU-A21)', () => {
     fixture.componentInstance.pick.subscribe((id) => picks.push(id));
     button('n:4').click();
     expect(picks).toEqual([]);
+  });
+});
+
+/** Contraste WCAG 2.x entre dos colores #rrggbb. */
+function contrast(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, b2] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b2);
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** CSS del componente tal como Angular lo inserta en la página (jsdom no calcula estilos). */
+function componentCss(): string {
+  TestBed.configureTestingModule({ imports: [ChoiceOptionsComponent] });
+  TestBed.createComponent(ChoiceOptionsComponent);
+  return [...document.querySelectorAll('style')].map((s) => s.textContent ?? '').join('\n');
+}
+
+describe('ChoiceOptionsComponent: color por posición (solo decoración)', () => {
+  const FOUR = [N(4), N(9), APPLES, N(7)];
+  function render(inputs: Record<string, unknown> = {}) {
+    TestBed.configureTestingModule({ imports: [ChoiceOptionsComponent] });
+    const fixture = TestBed.createComponent(ChoiceOptionsComponent);
+    fixture.componentRef.setInput('options', FOUR);
+    for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const look = () =>
+      [...el.querySelectorAll<HTMLElement>('[data-testid^="option-"]')].map((b) => ({
+        pos: b.getAttribute('data-pos'),
+        bg: b.style.getPropertyValue('--pos-bg'),
+        accent: b.style.getPropertyValue('--pos-accent'),
+      }));
+    return { fixture, el, look };
+  }
+
+  it('cada posición tiene su color, sin letras: la información la llevan el orden y el texto', () => {
+    const { el, look } = render();
+    expect(look()).toEqual(OPTION_POSITION_COLORS.map((c, i) => ({ pos: String(i + 1), bg: c.bg, accent: c.accent })));
+    expect(el.querySelector('[data-testid="choice-letter"]')).toBeNull();
+    // En cada botón solo se ve su valor (sin marcas A–D) y la etiqueta accesible es la de siempre.
+    const nine = el.querySelector<HTMLElement>('[data-testid="option-n:9"]')!;
+    expect(nine.textContent?.trim()).toBe('9');
+    expect(nine.getAttribute('aria-label')).toBe('9');
+  });
+
+  it('el color depende del lugar, no de cuál es la correcta, y no cambia al responder', () => {
+    const { fixture, look } = render();
+    const before = look();
+    fixture.componentRef.setInput('chosen', 'n:9');
+    fixture.detectChanges();
+    expect(look()).toEqual(before);
+    fixture.componentRef.setInput('correct', ['n:7']);
+    fixture.detectChanges();
+    expect(look()).toEqual(before);
+    // Otra correcta: los mismos colores por lugar.
+    TestBed.resetTestingModule();
+    expect(render({ correct: ['n:4'], chosen: 'n:4' }).look()).toEqual(before);
+  });
+
+  it('con otro orden, cada lugar mantiene su color (sigue al lugar, no a la opción)', () => {
+    const { look } = render({ options: [N(7), APPLES, N(9), N(4)] });
+    expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
+  });
+
+  it('escena en cruz: también color por posición', () => {
+    const scene = {
+      center: '📦',
+      places: [
+        { id: 'n:4', position: 'arriba' },
+        { id: 'n:9', position: 'izquierda' },
+        { id: 'e:manzana-3', position: 'derecha' },
+        { id: 'n:7', position: 'abajo' },
+      ],
+    };
+    const { look } = render({ scene });
+    expect(look().map((l) => l.bg)).toEqual(OPTION_POSITION_COLORS.map((c) => c.bg));
+  });
+
+  it('figuras: fondo blanco y borde neutro, sin color de posición (el color es parte de la respuesta)', () => {
+    const FIG = (id: string): GameOption => ({ id: `f:${id}`, kind: 'figure', label: id });
+    const { look } = render({ options: [FIG('circulo-azul'), FIG('cuadrado-verde'), FIG('triangulo-morado')] });
+    expect(look()).toEqual([1, 2, 3].map((p) => ({ pos: String(p), bg: '', accent: '' })));
+  });
+
+  it('en "Esta era" y "Tu elección" no queda la franja de posición (una sola señal: la del estado)', () => {
+    const css = componentCss();
+    expect(css).toMatch(/\.right\[[^\]]+\]\s*\{[^}]*box-shadow:\s*none/);
+    expect(css).toMatch(/\.wrong\[[^\]]+\]\s*\{[^}]*box-shadow:\s*none/);
+  });
+
+  it('foco del teclado: anillo doble oscuro + blanco, distinto de todos los colores de posición', () => {
+    const css = componentCss();
+    const focus = css.match(/\.option\[[^\]]+\]:focus-visible\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(focus).toMatch(/outline:\s*4px solid #1a202c/);
+    expect(focus).toMatch(/0 0 0 3px #ffffff/);
+    for (const { accent } of OPTION_POSITION_COLORS) {
+      expect(contrast('#1a202c', accent), accent).toBeGreaterThanOrEqual(1.5);
+      expect(focus).not.toContain(accent);
+    }
+  });
+
+  it('protección: un contenido largo se ajusta dentro del botón y todas las opciones crecen juntas', () => {
+    const css = componentCss();
+    const block = (sel: string) => css.match(new RegExp(String.raw`${sel}\[[^\]]+\]\s*\{([^}]*)\}`))?.[1] ?? '';
+    const option = block(String.raw`\.option`);
+    expect(option).toMatch(/min-height:\s*68px/);
+    expect(option).not.toMatch(/(^|[^-])height:\s*\d/); // sin alto fijo que corte el contenido
+    expect(option).toMatch(/flex-wrap:\s*wrap/);
+    expect(block(String.raw`\.options`)).toMatch(/grid-auto-rows:\s*1fr/); // mismo alto para todas
+    expect(block(String.raw`\.value`)).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
+  it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3', () => {
+    for (const { bg, accent } of OPTION_POSITION_COLORS) {
+      expect(contrast('#1a202c', bg), bg).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(accent, bg), accent).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('sin verde ni naranjo de "Esta era" / "Tu elección" en la paleta', () => {
+    const states = ['#1e7a3a', '#e6f6ea', '#8a4b00', '#fff4e5'];
+    for (const { bg, accent } of OPTION_POSITION_COLORS) {
+      expect(states).not.toContain(bg);
+      expect(states).not.toContain(accent);
+    }
   });
 });
 

@@ -14,9 +14,11 @@
 
 <ion-content [fullscreen]="true" class="ion-padding">
   <main class="games" [class.in-round]="step === 'round'">
-    <!-- La instrucción va en la burbuja solo al empezar; en las rondas Numi se achica y el enunciado
-         ya dice qué hacer (la burbuja no cabría a 360 px). -->
-    <app-mascot [state]="mascot.state()" [message]="step === 'intro' ? instruction : ''"></app-mascot>
+    <!-- La instrucción va en la burbuja solo al empezar. En las rondas Numi va en la cabecera de la
+         ronda (al lado del enunciado en pantallas de teléfono, arriba en pantallas altas). -->
+    @if (step !== 'round') {
+      <app-mascot [state]="mascot.state()" [message]="step === 'intro' ? instruction : ''"></app-mascot>
+    }
 
     <!-- Aviso amable siempre presente (vacío si no hay aviso): el lector de pantalla lo anuncia. -->
     <div class="notice" role="status" aria-live="polite" data-testid="game-notice">
@@ -68,7 +70,24 @@
       }
 
       @case ('round') {
-        <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
+        <!-- Cabecera de la ronda: Numi + "Ronda N de 5" + enunciado. En teléfonos van en fila (Numi a
+             la izquierda, de 64 a 80 px) para no achicar a Numi; en pantallas altas, Numi arriba. -->
+        <div class="round-head">
+          <app-mascot [state]="mascot.state()" message=""></app-mascot>
+          <div class="round-text">
+            <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
+            @if (exercise) {
+              <h1 class="prompt" data-testid="game-prompt">
+                @if (spokenBefore) {
+                  <span aria-hidden="true">{{ prompt.before.trim() }}</span>
+                  <span class="sr-only" data-testid="prompt-spoken">{{ spokenBefore }}</span>
+                } @else {
+                  {{ prompt.before.trim() }}
+                }
+              </h1>
+            }
+          </div>
+        </div>
         @if (exercise) {
           @if (bag; as b) {
             <!-- Una bolsa nueva por ejercicio (track por token). -->
@@ -78,14 +97,6 @@
           } @else if (prompt.glyphs) {
             <app-emoji-rows [glyphs]="prompt.glyphs" [label]="prompt.spoken"></app-emoji-rows>
           }
-          <h1 class="prompt" data-testid="game-prompt">
-            @if (spokenBefore) {
-              <span aria-hidden="true">{{ prompt.before.trim() }}</span>
-              <span class="sr-only" data-testid="prompt-spoken">{{ spokenBefore }}</span>
-            } @else {
-              {{ prompt.before.trim() }}
-            }
-          </h1>
 
           <app-game-visual [exercise]="exercise"></app-game-visual>
 

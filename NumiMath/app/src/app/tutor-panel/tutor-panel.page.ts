@@ -154,7 +154,7 @@ export class TutorPanelPage implements OnInit {
   }
 
   selectTab(id: PanelTab): void {
-    if (id === this.tab) return;
+    if (id === this.tab || !this.pinStillValid()) return;
     this.tab = id;
     void this.content?.scrollToTop(0);
     this.cdr.markForCheck();
@@ -165,6 +165,7 @@ export class TutorPanelPage implements OnInit {
    * foco (sin subir al inicio: la sección queda a la vista).
    */
   openSection(tab: PanelTab, fold: 'fold-export' | 'fold-revoke' | 'fold-delete'): void {
+    if (!this.pinStillValid()) return;
     this.tab = tab;
     this.cdr.detectChanges();
     const details = this.host.nativeElement.querySelector<HTMLDetailsElement>(`[data-testid="${fold}"]`);
@@ -173,6 +174,17 @@ export class TutorPanelPage implements OnInit {
     const summary = details.querySelector<HTMLElement>(':scope > summary');
     summary?.focus();
     summary?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+  }
+
+  /**
+   * Si el token del PIN venció con el panel abierto, cambiar de pestaña vuelve a pedirlo (la misma
+   * salida que cuando el servidor responde `parental_required`). Usa ParentalSession.isUnlocked().
+   */
+  private pinStillValid(): boolean {
+    if (this.session.isUnlocked()) return true;
+    this.session.end();
+    void this.nav.navigateRoot('/pin');
+    return false;
   }
 
   /** Teclado en la barra de pestañas (patrón WAI-ARIA "tabs", activación automática). */

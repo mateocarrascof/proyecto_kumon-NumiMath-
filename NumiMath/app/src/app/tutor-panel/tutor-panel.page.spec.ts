@@ -454,6 +454,20 @@ describe('TutorPanelPage: pestañas', () => {
     expect(nav.navigateForward).not.toHaveBeenCalled();
   });
 
+  it('si el PIN venció con el panel abierto, cambiar de pestaña vuelve a pedirlo', async () => {
+    const { el, fixture, page, session, nav } = await ready();
+    const t0 = Date.now();
+    session.now = () => t0 + 11 * 60 * 1000; // el token de la prueba dura 10 minutos
+    tabBtn(el, 'cuenta').click();
+    fixture.detectChanges();
+    expect(page.tab).toBe('progreso');
+    expect(nav.navigateRoot).toHaveBeenCalledWith('/pin');
+    nav.navigateRoot.mockClear();
+    page.openSection('cuenta', 'fold-delete');
+    expect(page.tab).toBe('progreso');
+    expect(nav.navigateRoot).toHaveBeenCalledWith('/pin');
+  });
+
   it('flechas, Inicio y Fin mueven la pestaña y el foco (con vuelta al otro extremo)', async () => {
     const { el, fixture, page } = await ready();
     // jsdom no enfoca botones dentro de ion-toolbar sin hidratar: se comprueba a quién se llama.

@@ -1401,3 +1401,53 @@ tiendas. Corregidos en `fix(cu-a21)`:
 - **Medio:** un patrón de 7 figuras dejaba el "?" solo en otra línea. Ahora las figuras miden
   36 px y caben en una línea.
 - Prueba nueva: completar rechaza una tarjeta fija puesta también en un hueco.
+
+## Test inicial rechazado y "Aprender jugando" (2026-11-12)
+
+### Test inicial: rechazarlo es definitivo
+- "No, empezar a practicar" abre una confirmación: la prueba no aparecerá otra vez en ese tema y
+  no se podrá hacer después. El botón de confirmar espera 3 segundos, sin cuenta atrás visible;
+  una región viva anuncia "Ya puedes elegir.". "Volver" regresa a la oferta.
+- Confirmado, se guarda en el servidor (`diagnostic_declines`, función `decline_diagnostic` solo
+  para `service_role`, `POST /v1/students/{id}/diagnostic/{tema}/decline`, idempotente). El tema
+  ya no ofrece el test ni entrega sus ejercicios. No hay forma de volver a habilitarlo (nada en el
+  panel del tutor); se borra solo con el perfil o la cuenta.
+- Si no se pudo guardar: "No pudimos guardarlo. Prueba de nuevo.", con reintentar o empezar a
+  practicar igual; en ese caso el test se ofrecerá más tarde, como antes. El test solo se ofrece
+  con conexión, y si el servidor no puede leer los rechazos no lo ofrece (falla cerrado).
+
+### "Aprender jugando" dentro de cada tema
+- Debajo de "Papel para calcular", solo en 1° y 2°, con conexión y si el tema tiene al menos un
+  juego (el servidor informa la habilidad de cada juego, `skill`). La lista de juegos se pide una
+  vez, al entrar al primer tema; si falla, el botón no aparece.
+- Un juego: abre directo su introducción (`/juegos/:id?juego=`). Varios (1-03 tiene tres): la
+  lista con solo los juegos de ese tema (`?tema=`), sin elegir eje.
+- La tarjeta general "Jugar" se conserva como entrada a todos los juegos.
+
+### Pendientes
+1. **Pregunta legal:** ¿el rechazo entra en la exportación de datos (ARCOP)? Ver
+   `docs/privacy/pendientes-legales.md`, pregunta 31. No implementado.
+2. **Bajos de la revisión (no implementados):** "Ya puedes elegir." no es exacto ("Volver" siempre
+   se podía usar); el texto de la confirmación sigue algo largo para 1°; sin indicador de "guardando";
+   `ListDto` no declara `skill` (llega porque se copia todo) y `GameInfo.skill` es opcional; las
+   pruebas de la espera usan temporizadores reales y `declineWaitMs` es público para pruebas; el log
+   de rechazos ilegibles reusa `stage="progress"`; `list_topics` lee los rechazos aunque el progreso
+   haya fallado; revisar a 360 px "Empezar a practicar igual".
+3. **Decisión del dueño (vigente):** el rechazo es irreversible también para el tutor. La revisión
+   child-safety sugiere permitir reactivarlo tras el PIN; si se decide, se podrían quitar la espera
+   y el "no podrás hacerla después".
+
+### Revisión (`code-reviewer` y `child-safety-ai-reviewer`)
+Sin bloqueantes de tiendas. Corregidos en `fix(diagnostico)`:
+- **Alto:** mientras se guarda el rechazo, "Volver" y "Empezar a practicar igual" se desactivan; la
+  confirmación solo se envía desde la confirmación ya disponible o desde el error, una sola vez; si
+  el niño cambió de tema mientras se guardaba, no se le cambia la pantalla.
+- Guardado el rechazo, el tema deja de ofrecer el test en la app sin esperar a recargar los temas.
+- "Aprender jugando" no aparece durante la prueba corta ni su oferta (tocarlo la abandonaba).
+- Textos sin doble negación ni la palabra "prueba" en el error: "¿Practicar sin la prueba?", "No
+  quiero la prueba", "No pudimos guardarlo. Inténtalo de nuevo." e "Intentar otra vez".
+- Numi deja de invitar a la prueba durante la confirmación y el error; pista visible sin cuenta
+  atrás mientras el botón espera ("Léelo con calma. En un momento puedes elegir.").
+- El foco va al título del error (sin repetirlo en la región viva).
+- Pruebas de la API con el estado exacto (403 y 422) y que no se guarda nada.
+

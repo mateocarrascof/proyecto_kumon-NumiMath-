@@ -65,6 +65,9 @@ class FakeGateway:
     # nivel de cada intento registrado (en orden) y fallo de la lectura de niveles
     levels: list[tuple[uuid.UUID, str, int, bool]] = field(default_factory=list)
     levels_error: Exception | None = None
+    # Test inicial rechazado por perfil (decline_diagnostic).
+    declines: dict[uuid.UUID, set[str]] = field(default_factory=dict)
+    declines_error: Exception | None = None
     # progreso por habilidad (imita student_skill_progress) y enunciados registrados en orden
     progress: dict[uuid.UUID, dict[str, SkillProgress]] = field(default_factory=dict)
     exercises: list[tuple[uuid.UUID, str, str]] = field(default_factory=list)
@@ -328,6 +331,25 @@ class FakeGateway:
             return []
         rows = self.attempt_rows.get(student_id, [])
         return sorted(rows, key=lambda r: r.answered_at, reverse=True)[:limit]
+
+    async def list_diagnostic_declines(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID
+    ) -> set[str]:
+        if self.declines_error is not None:
+            raise self.declines_error
+        if (tutor_id, student_id) not in self.grades:
+            return set()
+        return set(self.declines.get(student_id, set()))
+
+    async def decline_diagnostic(
+        self, tutor_id: uuid.UUID, student_id: uuid.UUID, topic: str
+    ) -> str:
+        if self.declines_error is not None:
+            raise self.declines_error
+        if (tutor_id, student_id) not in self.grades:
+            return "student_not_found"
+        self.declines.setdefault(student_id, set()).add(topic)
+        return "ok"
 
     async def list_skill_progress(
         self, tutor_id: uuid.UUID, student_id: uuid.UUID

@@ -347,6 +347,11 @@ una sola versión:
 **Estado actual.** Sin runbook de incidentes; sin delegado designado.
 **Respuesta:** _pendiente_
 
+## 31. Rechazo del test inicial en la exportación de datos
+**Preguntas.** La tabla `diagnostic_declines` guarda que un perfil rechazó el test inicial de un tema y cuándo (sin respuestas ni texto del niño). ¿Debe incluirse en la exportación de datos del perfil o de la cuenta (derecho de acceso y portabilidad), o basta con que el tutor pueda leerla y que se borre con el perfil?
+**Estado actual.** No se exporta; el tutor la puede leer (RLS) y se borra en cascada con el perfil o la cuenta.
+**Respuesta:** _pendiente_
+
 ---
 
 ## Cómo se cierra una pregunta

@@ -108,6 +108,14 @@ async def list_topics(student: AuthorizedStudentDep, request: Request) -> list[T
         log_event(logger, "exercise.level_fallback", code=f"gateway_{exc.reason}")
         progress = {}
         progress_read = False
+    try:
+        declined: set[str] | None = await gateway.list_diagnostic_declines(
+            student.tutor_id, student.student_id
+        )
+    except GatewayError as exc:
+        # Falla cerrado: sin saber si lo rechazó, el test no se ofrece (la práctica sigue igual).
+        log_event(logger, "exercise.declines_unread", code=f"gateway_{exc.reason}")
+        declined = None
     out: list[TopicOut] = []
     for t in topics_for_grade(grade):
         if t.id not in GENERATORS:
@@ -125,7 +133,13 @@ async def list_topics(student: AuthorizedStudentDep, request: Request) -> list[T
                 mastered=p.mastered,
                 # Toda práctica o diagnóstico crea la fila de progreso: sin fila no hay intentos.
                 # La base lo vuelve a comprobar al guardar (save_diagnostic).
-                diagnostic_available=progress_read and t.id not in progress,
+                # Rechazado una vez = no se vuelve a ofrecer (diagnostic_declines).
+                diagnostic_available=(
+                    progress_read
+                    and declined is not None
+                    and t.id not in progress
+                    and t.id not in declined
+                ),
             )
         )
     return out

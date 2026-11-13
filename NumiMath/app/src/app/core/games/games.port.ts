@@ -20,6 +20,8 @@ export interface GameInfo {
   id: string;
   name: string;
   kind: GameKind;
+  /** Habilidad del catálogo (p. ej. "1-03"): "Aprender jugando" en la práctica de ese tema. */
+  skill?: string;
 }
 
 export interface GameGroup {

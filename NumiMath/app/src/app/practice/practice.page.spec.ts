@@ -17,6 +17,7 @@ import { SheetsPort, SheetStroke } from '../core/sheets/sheets.port';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { Exercise, PracticeError, PracticePort, Topic } from '../core/practice/practice.port';
+import { GameGroup, GamesPort } from '../core/games/games.port';
 import { Progress, ProgressPort } from '../core/progress/progress.port';
 import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
 import { FractionInputComponent } from '../core/math/fraction-input.component';
@@ -34,6 +35,11 @@ import { EXPLAIN_MESSAGES, PracticePage, topicIcon } from './practice.page';
 import { SkillTilesComponent } from './skill-tiles.component';
 
 const TOPIC = { id: 'sumas_hasta_20', label: 'Sumas hasta 20' };
+/** Juegos que devuelve el GamesPort falso ("Aprender jugando"); vacío salvo que la prueba diga. */
+let gameGroups: GameGroup[] = [];
+beforeEach(() => {
+  gameGroups = [];
+});
 const EXERCISE: Exercise = {
   token: 'tok',
   topic: TOPIC.id,
@@ -55,6 +61,7 @@ function setup(
   explain: ExplanationPort['explain'] = async () => undefined,
 ) {
   const nav = { navigateForward: vi.fn(async () => true) };
+  const games = { list: vi.fn(async () => gameGroups) };
   const explainer = { explain: vi.fn(explain) };
   const queryParams = new BehaviorSubject(convertToParamMap(query));
   const progress = { get: vi.fn(progressGet) };
@@ -97,6 +104,7 @@ function setup(
       { provide: SheetsPort, useValue: sheets },
       { provide: AssignmentsPort, useValue: assignments },
       { provide: NavController, useValue: nav },
+      { provide: GamesPort, useValue: games },
       { provide: ExplanationPort, useValue: explainer },
       {
         provide: ActivatedRoute,
@@ -109,6 +117,7 @@ function setup(
   });
   const fixture = TestBed.createComponent(PracticePage);
   return {
+    games,
     page: fixture.componentInstance,
     fixture,
     port,
@@ -1337,6 +1346,7 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
       topics: vi.fn(async () => [NEW_SKILL]),
       diagnosticExercise: vi.fn(async (_s: string, _t: string, step: number) => diagExercise(step)),
       submitDiagnostic: vi.fn(async () => 2 as const),
+      declineDiagnostic: vi.fn(async () => undefined),
       ...overrides,
     });
   }
@@ -1368,14 +1378,117 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     expect(port.newExercise).toHaveBeenCalled();
   });
 
-  it('"No, empezar a practicar" sigue con la práctica normal', async () => {
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('"No, empezar a practicar" pide confirmar; confirmado se guarda y sigue la práctica', async () => {
     const { page, port } = diagSetup();
     await page.ngOnInit();
     await page.choose(NEW_SKILL);
-    await page.declineDiagnostic();
+    page.declineWaitMs = 5;
+    page.askDecline();
+    expect(page.declineStep).toBe('confirm');
+    expect(page.declineReady).toBe(false);
+    await page.confirmDecline(); // todavía no: el botón espera
+    expect(port.declineDiagnostic).not.toHaveBeenCalled();
+    await wait(10);
+    expect(page.declineReady).toBe(true);
+    await page.confirmDecline();
+    expect(port.declineDiagnostic).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
     expect(page.diag).toBeNull();
     expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
     expect(port.diagnosticExercise).not.toHaveBeenCalled();
+  });
+
+  it('la confirmación dice que no se podrá hacer después; botón desactivado 3 s y anuncio sin cuenta atrás', async () => {
+    const { page, fixture } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    expect(page.declineWaitMs).toBe(3000);
+    page.declineWaitMs = 5;
+    page.askDecline();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const q = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement;
+    expect(q('diag-decline-detail').textContent).toContain('no podrás hacer esta prueba después');
+    expect(q('diag-decline-wait').textContent).toContain('Léelo con calma');
+    expect(page.message).toBe(''); // Numi no sigue invitando a la prueba
+    const confirm = () => (q('diag-decline-confirm') as unknown as { disabled: boolean }).disabled;
+    expect(confirm()).toBe(true);
+    expect(q('diag-decline-status').getAttribute('aria-live')).toBe('polite');
+    expect(q('diag-decline-status').textContent?.trim()).toBe('');
+    await wait(10);
+    fixture.detectChanges();
+    expect(confirm()).toBe(false);
+    expect(q('diag-decline-status').textContent?.trim()).toBe('Ya puedes elegir.');
+    expect(q('diag-decline-wait')).toBeNull();
+    expect(el.querySelector('[data-testid="diag-offer"]')!.textContent).not.toMatch(/\d/); // sin cuenta atrás
+  });
+
+  it('mientras se guarda el rechazo no se puede volver; guardado, el tema ya no ofrece el test', async () => {
+    let finish!: () => void;
+    const declineDiagnostic = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const { page, fixture } = diagSetup({ declineDiagnostic });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.askDecline();
+    page.declineReady = true; // sin depender del temporizador (la espera se prueba aparte)
+    const saving = page.confirmDecline();
+    fixture.detectChanges();
+    const back = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="diag-decline-back"]') as unknown as { disabled: boolean };
+    expect(back.disabled).toBe(true);
+    await page.confirmDecline(); // un segundo toque no envía otra vez
+    expect(declineDiagnostic).toHaveBeenCalledTimes(1);
+    finish();
+    await saving;
+    expect(page.diag).toBeNull();
+    expect(page.topics.find((t) => t.id === NEW_SKILL.id)?.diagnosticAvailable).toBe(false);
+  });
+
+  it('si el niño cambió de tema mientras se guardaba, no se le cambia la pantalla', async () => {
+    let finish!: () => void;
+    const declineDiagnostic = vi.fn(() => new Promise<void>((r) => (finish = r)));
+    const { page } = diagSetup({ declineDiagnostic });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.askDecline();
+    page.declineReady = true; // sin depender del temporizador (la espera se prueba aparte)
+    const saving = page.confirmDecline();
+    page.topic = { ...NEW_SKILL, id: 'otro' };
+    finish();
+    await saving;
+    expect(page.topic.id).toBe('otro');
+  });
+
+  it('"Volver" regresa a la oferta sin rechazar', async () => {
+    const { page, port } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.askDecline();
+    page.cancelDecline();
+    expect(page.declineStep).toBeNull();
+    expect(page.diag).toBe('offer');
+    expect(port.declineDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('si el rechazo no se guarda: mensaje sin culpa, reintentar o practicar igual (sin darlo por hecho)', async () => {
+    const declineDiagnostic = vi.fn(async () => {
+      throw new Error('red');
+    });
+    const { page, port } = diagSetup({ declineDiagnostic });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    page.declineWaitMs = 0;
+    page.askDecline();
+    await wait(5);
+    await page.confirmDecline();
+    expect(page.declineStep).toBe('error');
+    expect(page.declineStatus).toBe(''); // el error lo lee el foco en su título, sin repetirlo
+    expect(page.diag).toBe('offer');
+    await page.confirmDecline(); // reintentar
+    expect(declineDiagnostic).toHaveBeenCalledTimes(2);
+    await page.startPracticeAnyway();
+    expect(page.diag).toBeNull();
+    expect(port.newExercise).toHaveBeenCalledWith('perfil-1', NEW_SKILL.id);
   });
 
   it('hace 6 ejercicios en orden, sin decir si estaban bien, y envía todo al final', async () => {
@@ -1682,6 +1795,73 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
   it('si no se puede deducir el curso, no aparece', async () => {
     const { fixture } = await withTopics([{ ...TOPIC }]);
     expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+  });
+
+  describe('"Aprender jugando" dentro de cada tema', () => {
+    const game = (id: string, skill: string) => ({ id, name: id, kind: 'choice' as const, skill });
+    const CATALOG = [
+      {
+        module: 'Números y operaciones',
+        games: [game('mayor-1', '1-03'), game('ordena-1', '1-03'), game('cuantos-1', '1-02')],
+      },
+      { module: 'Patrones y álgebra', games: [game('que-sigue-1', '1-13')] },
+    ];
+    async function inTopic(id: string, grade: number) {
+      gameGroups = CATALOG;
+      const topic = { ...TOPIC, id, grade, review: false };
+      const ctx = await withTopics([topic]);
+      await ctx.page.choose(topic as never);
+      await new Promise((r) => setTimeout(r, 0));
+      ctx.fixture.detectChanges();
+      return { ...ctx, button: query(ctx.fixture, '[data-testid="learn-playing"]') as HTMLElement | null };
+    }
+
+    it('un juego en el tema: abre directo su introducción', async () => {
+      const { button, nav } = await inTopic('1-13', 1);
+      expect(button?.textContent).toContain('Aprender jugando');
+      button!.click();
+      expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+        queryParams: { juego: 'que-sigue-1' },
+      });
+    });
+
+    it('varios juegos en el tema: abre la lista filtrada por el tema', async () => {
+      const { button, nav } = await inTopic('1-03', 1);
+      button!.click();
+      expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+        queryParams: { tema: '1-03' },
+      });
+    });
+
+    it('no aparece durante la prueba corta (tocarlo la abandonaría)', async () => {
+      const { page, fixture } = await inTopic('1-13', 1);
+      page.diag = 'running';
+      fixture.detectChanges();
+      expect(page.topicGames).toEqual([]);
+    });
+
+    it('un tema sin juego no lo muestra', async () => {
+      const { button } = await inTopic('1-06', 1);
+      expect(button).toBeNull();
+    });
+
+    it('en 3° no se muestra ni se pide la lista de juegos', async () => {
+      const { button, games } = await inTopic('1-13', 3);
+      expect(button).toBeNull();
+      expect(games.list).not.toHaveBeenCalled();
+    });
+
+    it('si la lista de juegos falla, no se muestra (la práctica sigue)', async () => {
+      gameGroups = CATALOG;
+      const topic = { ...TOPIC, id: '1-13', grade: 1, review: false };
+      const ctx = await withTopics([topic]);
+      ctx.games.list.mockRejectedValueOnce(new Error('red'));
+      await ctx.page.choose(topic as never);
+      await new Promise((r) => setTimeout(r, 0));
+      ctx.fixture.detectChanges();
+      expect(query(ctx.fixture, '[data-testid="learn-playing"]')).toBeNull();
+      expect(ctx.page.exercise).not.toBeNull();
+    });
   });
 
   it('sin conexión no aparece (los juegos necesitan internet)', async () => {

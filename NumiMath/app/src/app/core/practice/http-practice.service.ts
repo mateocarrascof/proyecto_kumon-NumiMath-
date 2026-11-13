@@ -207,4 +207,11 @@ export class HttpPracticeService extends PracticePort {
       return toLevel(dto.level);
     });
   }
+
+  declineDiagnostic(studentId: string, topic: string): Promise<void> {
+    return this.call(async (headers) => {
+      const path = `/diagnostic/${encodeURIComponent(topic)}/decline`;
+      await firstValueFrom(this.http.post(this.url(studentId, path), {}, { headers }));
+    });
+  }
 }

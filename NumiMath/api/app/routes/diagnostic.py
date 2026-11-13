@@ -91,10 +91,12 @@ async def create_diagnostic_exercise(
     # Falla cerrado: sin poder leer el progreso no se ofrece (la práctica sigue en nivel 1).
     try:
         progress = await gateway.list_skill_progress(student.tutor_id, student.student_id)
+        # Rechazado una vez = nunca más para ese perfil y tema (decisión del dueño).
+        declined = await gateway.list_diagnostic_declines(student.tutor_id, student.student_id)
     except GatewayError as exc:
         log_event(logger, "diagnostic.denied", stage="progress", code=f"gateway_{exc.reason}")
         raise ApiError(503, "service_unavailable") from None
-    if body.topic in progress:
+    if body.topic in progress or body.topic in declined:
         raise ApiError(409, "diagnostic_not_available")
     level = level_for_step(body.step)
     ttl = request.app.state.settings.exercise_token_ttl_seconds
@@ -110,6 +112,31 @@ async def create_diagnostic_exercise(
         expires_in=ttl,
         answer_kind="fraction" if issued.exercise.is_fraction else "integer",
     )
+
+
+class DiagnosticDeclineOut(BaseModel):
+    declined: bool
+
+
+@router.post("/{student_id}/diagnostic/{topic}/decline")
+async def decline_diagnostic(
+    topic: str, student: AuthorizedStudentDep, request: Request
+) -> DiagnosticDeclineOut:
+    """ "No, empezar a practicar" confirmado: el test de ese tema no se vuelve a ofrecer nunca para
+    este perfil, y no hay forma de volver a habilitarlo. Idempotente (un reintento no es error).
+    Si falla, la app no lo da por guardado y el test se ofrece otra vez más tarde."""
+    await _check_topic(request, student.tutor_id, student.student_id, topic)
+    gateway: Gateway = request.app.state.gateway
+    try:
+        outcome = await gateway.decline_diagnostic(student.tutor_id, student.student_id, topic)
+    except GatewayError as exc:
+        log_event(logger, "diagnostic.decline_failed", code=f"gateway_{exc.reason}")
+        raise ApiError(503, "service_unavailable") from None
+    if outcome == "student_not_found":
+        raise ApiError(403, "forbidden")
+    if outcome != "ok":
+        raise ApiError(422, "invalid_request")
+    return DiagnosticDeclineOut(declined=True)
 
 
 def _is_correct(verified: VerifiedExercise, answer: DiagnosticAnswer) -> bool:

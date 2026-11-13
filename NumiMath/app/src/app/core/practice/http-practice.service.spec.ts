@@ -271,6 +271,22 @@ describe('HttpPracticeService: diagnóstico inicial (CU-A2)', () => {
     expect(await result).toBe(2);
   });
 
+  it('rechazar el test inicial: POST a /diagnostic/{tema}/decline; un error no se da por guardado', async () => {
+    const { service, http } = setup();
+    const ok = service.declineDiagnostic('perfil-1', '1-06');
+    await tick();
+    const req = http.expectOne(`${BASE}/diagnostic/1-06/decline`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ declined: true });
+    await expect(ok).resolves.toBeUndefined();
+    const fail = service.declineDiagnostic('perfil-1', '1-06');
+    await tick();
+    http
+      .expectOne(`${BASE}/diagnostic/1-06/decline`)
+      .flush({ error: { code: 'service_unavailable' } }, { status: 503, statusText: 'Unavailable' });
+    await expect(fail).rejects.toBeInstanceOf(PracticeError);
+  });
+
   it('un 409 (ya no disponible) se traduce como ya respondido', async () => {
     const { service, http } = setup();
     const result = service.submitDiagnostic('perfil-1', '1-06', []);

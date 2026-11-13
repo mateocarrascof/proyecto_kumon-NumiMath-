@@ -96,6 +96,11 @@ class GameMeasureOut(BaseModel):
     length: int
 
 
+class GameBlocksOut(BaseModel):
+    tens: int
+    ones: int
+
+
 class GameExerciseOut(BaseModel):
     token: str
     game_id: str
@@ -110,6 +115,7 @@ class GameExerciseOut(BaseModel):
     scene: GameSceneOut | None = None
     picto: list[GamePictoRowOut] | None = None
     measure: GameMeasureOut | None = None
+    blocks: GameBlocksOut | None = None
 
 
 class GameAnswerIn(BaseModel):
@@ -201,6 +207,9 @@ async def new_game_exercise(
             )
             if ex.measure is not None
             else None
+        ),
+        blocks=(
+            GameBlocksOut(tens=ex.blocks[0], ones=ex.blocks[1]) if ex.blocks is not None else None
         ),
     )
 

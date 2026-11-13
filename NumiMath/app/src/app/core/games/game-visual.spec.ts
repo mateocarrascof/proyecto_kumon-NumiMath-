@@ -151,6 +151,17 @@ describe('GameVisualComponent (CU-A21)', () => {
     expect(groups).toEqual(['⭐⭐⭐⭐⭐', '⭐⭐⭐']);
   });
 
+  it('bloques: barras de diez y cubitos, descritos sin decir el número', () => {
+    const { q } = render(base({ blocks: { tens: 4, ones: 1 } }));
+    const blocks = q('visual-blocks')!;
+    expect(blocks.querySelectorAll('.rod').length).toBe(4);
+    expect(blocks.querySelectorAll('.rod')[0].querySelectorAll('rect').length).toBe(10);
+    expect(blocks.querySelectorAll('.cube').length).toBe(1);
+    expect(blocks.getAttribute('role')).toBe('img');
+    expect(blocks.getAttribute('aria-label')).toBe('4 barras de diez y 1 cubito');
+    expect(blocks.getAttribute('aria-label')).not.toContain('41');
+  });
+
   it('medición: lo medido tiene el mismo largo que la fila de clips, y cada clip se puede contar', () => {
     const { q } = render(
       base({ measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 5 } }),

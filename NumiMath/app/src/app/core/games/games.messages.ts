@@ -38,6 +38,9 @@ export const GAME_TEXT = {
   // Parte 3: lo que se dibuja (para el lector de pantalla).
   patternRow: (labels: string[]) => `En la fila: ${labels.join(', ')}. ¿Qué sigue?`,
   pictoCaption: 'Pictograma',
+  // Bloques (2°): describe lo que se ve, sin decir el número (que es la respuesta).
+  blocksLabel: (tens: number, ones: number) =>
+    `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`,
   measureClips: 'Clips',
   measureSteps: 'Pasos',
   /** `name` viene con artículo ("el lápiz"): "El lápiz y, debajo, clips en fila." */
@@ -72,6 +75,13 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
   'donde-esta-1': 'Mira la caja y toca lo que te pido.',
   'mide-clips-1': 'Cuenta los clips o los pasos y toca el número.',
   'pictograma-1': 'Mira el pictograma y cuenta.',
+  // CU-A21, parte 4 (2° básico).
+  'cuenta-mil-2': 'Pon los números que faltan en el camino.',
+  'lee-numero-2': 'Lee el número y tócalo.',
+  'arma-numero-2': 'Cada barra vale diez y cada cubito vale uno. Toca el número.',
+  'suma-bloques-2': 'Junta los bloques. Diez cubitos forman una barra.',
+  'grupos-iguales-2': 'Cuenta los grupos iguales y toca el total.',
+  'completa-patron-2': 'Mira si el patrón sube o baja y pon los que faltan.',
 };
 export const DEFAULT_INSTRUCTION = 'Mira bien y elige.';
 

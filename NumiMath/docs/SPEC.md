@@ -1451,3 +1451,25 @@ Sin bloqueantes de tiendas. Corregidos en `fix(diagnostico)`:
 - El foco va al título del error (sin repetirlo en la región viva).
 - Pruebas de la API con el estado exacto (403 y 422) y que no se guarda nada.
 
+## Jugar un juego de refuerzo (CU-A21), parte 4: juegos de 2° básico
+
+Al menos un juego por cada uno de los 11 temas de 2°, con los tipos y componentes de las partes 1
+a 3. Generadores deterministas con salidas guardadas por semilla; ids nuevos (ADR 0004). El
+generador de completar de 1° pasó a tener parámetros (`_fill_path`) sin cambiar la salida de
+`completa-camino-1`.
+
+### Temas y juegos
+| Tema | Juego | Habilidad |
+|---|---|---|
+| 1. Conteo hasta 1.000 | `cuenta-mil-2` completar, de 10 en 10 o de 100 en 100 (5 números) | 2-01 |
+| 2. Leer y representar 0 a 100 | `lee-numero-2` el número en palabras → tocarlo | 2-02 |
+| 3. Valor posicional | `arma-numero-2` bloques → "¿qué número forman?" | 2-04 |
+| 4. Sumas hasta 100 | `suma-bloques-2` mitad sin y mitad con reserva (agrupar 10 cubitos) | 2-07 |
+| 5. Multiplicación como suma repetida | `grupos-iguales-2` grupos de 2, 5 o 10 objetos | 2-11 |
+| 6. Patrones que suben y bajan | `completa-patron-2` completar, de 2, 5 o 10 | 2-15 |
+
+### Bloques (`blocks`)
+Barras de diez (con sus 10 cuadritos) y cubitos sueltos, en SVG propio; la forma los distingue,
+no solo el color. Para el lector de pantalla: "4 barras de diez y 7 cubitos" (sin decir el
+número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
+

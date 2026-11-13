@@ -44,6 +44,8 @@ export interface GameExercise {
   scene?: GameScene | null;
   picto?: GamePictoRow[] | null;
   measure?: GameMeasure | null;
+  /** 2°: decenas y unidades dibujadas como bloques. */
+  blocks?: { tens: number; ones: number } | null;
 }
 
 /** Escena en cruz: un objeto al centro y cada opción en una posición. */

@@ -125,9 +125,10 @@ def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
         "scene",
         "picto",
         "measure",
+        "blocks",
     }
     # Solo completar trae lugares fijos, y solo los juegos de la parte 3 traen algo que dibujar.
-    assert all(body[k] is None for k in ("slots", "pattern", "scene", "picto", "measure"))
+    assert all(body[k] is None for k in ("slots", "pattern", "scene", "picto", "measure", "blocks"))
     assert body["kind"] == GAMES[game_id].kind
     assert all(set(o) == {"id", "kind", "label"} for o in body["options"])
     payload = json.loads(base64.urlsafe_b64decode(body["token"].split(".")[0] + "=="))
@@ -522,7 +523,7 @@ def test_pictograma_es_valido_en_miles_de_ejercicios() -> None:
 )
 def test_juegos_de_la_parte_3_traen_lo_que_se_dibuja(game_id: str, field: str | None) -> None:
     body = _new(_client(_gateway()), game_id).json()
-    for key in ("pattern", "scene", "picto", "measure"):
+    for key in ("pattern", "scene", "picto", "measure", "blocks"):
         assert (body[key] is not None) == (key == field)
     if field == "scene":
         assert [p["id"] for p in body["scene"]["places"]] == [o["id"] for o in body["options"]]
@@ -577,3 +578,90 @@ def test_completar_rechaza_si_una_tarjeta_fija_se_mueve_o_falta(break_it: str) -
     else:
         answer[gap_i] = "n:999"
     assert _answer(client, token, answer).status_code == 422
+
+
+# ---- CU-A21, parte 4: 2° básico ---------------------------------------------------------------
+
+
+def _path(e: Any) -> tuple[list[int], int]:
+    values = [_num(i) for i in e.solution]
+    return values, values[1] - values[0]
+
+
+def test_cuenta_hasta_mil_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("cuenta-mil-2"):
+        values, step = _path(e)
+        assert step in (10, 100) and len(values) == 5
+        assert all(b - a == step for a, b in zip(values, values[1:], strict=False))
+        assert values[0] >= 0 and values[-1] <= 1000
+        assert e.slots is not None and e.slots[0] is not None and e.slots[1] is not None
+        loose = {o.id for o in e.options} - {s for s in e.slots if s is not None}
+        assert len(loose) == 4 and all(0 <= _num(i) <= 1000 for i in loose)
+        assert valid_answer(e, list(e.solution))
+
+
+def test_completa_patron_sube_y_baja_en_miles_de_ejercicios() -> None:
+    seen = set()
+    for e in _many("completa-patron-2"):
+        values, step = _path(e)
+        assert abs(step) in (2, 5, 10) and len(values) == 6
+        assert all(b - a == step for a, b in zip(values, values[1:], strict=False))
+        assert min(values) >= 0 and max(values) <= 100
+        word = "baja" if step < 0 else "sube"
+        assert e.text == f"Completa el patrón: {word} de {abs(step)} en {abs(step)}."
+        seen.add(word)
+        assert valid_answer(e, list(e.solution))
+    assert seen == {"sube", "baja"}
+
+
+def test_number_words() -> None:
+    from app.exercises.games import number_words
+
+    cases = {0: "cero", 16: "dieciséis", 21: "veintiuno", 22: "veintidós", 30: "treinta"}
+    cases |= {47: "cuarenta y siete", 99: "noventa y nueve", 100: "cien"}
+    assert {n: number_words(n) for n in cases} == cases
+
+
+def test_lee_el_numero_es_valido_en_miles_de_ejercicios() -> None:
+    from app.exercises.games import number_words
+
+    for e in _many("lee-numero-2"):
+        n = _num(e.solution[0])
+        assert 20 <= n <= 99 and e.text == f"Toca el número {number_words(n)}."
+        assert len({o.id for o in e.options}) == 3
+
+
+def test_decenas_y_unidades_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("arma-numero-2"):
+        assert e.blocks is not None
+        tens, ones = e.blocks
+        assert 1 <= tens <= 9 and 0 <= ones <= 9
+        assert e.solution == (f"n:{tens * 10 + ones}",)
+
+
+def test_suma_con_bloques_mezcla_sin_y_con_reserva() -> None:
+    kinds = set()
+    for e in _many("suma-bloques-2"):
+        a, b = (int(x) for x in e.text.split(" = ")[0].split(" + "))
+        assert e.blocks is not None
+        tens, ones = e.blocks
+        assert tens * 10 + ones == a + b <= 99  # los bloques suman lo mismo
+        assert e.solution == (f"n:{a + b}",)
+        kinds.add(ones >= 10)
+        if ones >= 10:  # olvidar la decena agrupada es un distractor
+            assert f"n:{a + b - 10}" in {o.id for o in e.options}
+    assert kinds == {True, False}
+
+
+def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("grupos-iguales-2"):
+        groups = e.text.rsplit("? ", 1)[1].split(" ")
+        sizes = {len(g) // len(g[0]) for g in groups}
+        assert len(sizes) == 1 and sizes <= {2, 5, 10} and len(groups) >= 2
+        assert _num(e.solution[0]) == sizes.pop() * len(groups)
+        assert e.text.startswith("¿Cuántas ")
+
+
+def test_bloques_viajan_en_el_ejercicio() -> None:
+    body = _new(_client(_gateway(grade=2)), "arma-numero-2").json()
+    assert set(body["blocks"]) == {"tens", "ones"}

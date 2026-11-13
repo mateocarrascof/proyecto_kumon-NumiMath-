@@ -37,6 +37,7 @@ interface ExerciseDto {
   } | null;
   picto?: GamePictoRow[] | null;
   measure?: GameMeasure | null;
+  blocks?: { tens: number; ones: number } | null;
 }
 
 interface AnswerDto {
@@ -133,6 +134,7 @@ export class HttpGamesService extends GamesPort {
               length: dto.measure.length,
             }
           : null,
+        blocks: dto.blocks ? { tens: dto.blocks.tens, ones: dto.blocks.ones } : null,
       };
     });
   }

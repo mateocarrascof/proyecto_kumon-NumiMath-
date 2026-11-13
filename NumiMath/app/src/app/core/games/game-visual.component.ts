@@ -45,6 +45,27 @@ export const MEASURE_UNIT_PX = 34;
           </tr>
         }
       </table>
+    } @else if (exercise.blocks; as b) {
+      <!-- Bloques: barras de diez (con sus 10 cuadritos) y cubitos sueltos. La forma los
+           distingue (barra larga y cubito), no solo el color. -->
+      <div class="blocks" role="img" [attr.aria-label]="text.blocksLabel(b.tens, b.ones)" data-testid="visual-blocks">
+        <div class="rods">
+          @for (r of units(b.tens); track r) {
+            <svg class="rod" viewBox="0 0 14 104" aria-hidden="true" focusable="false">
+              @for (i of units(10); track i) {
+                <rect x="2" [attr.y]="2 + i * 10" width="10" height="10" fill="#90cdf4" stroke="#1a202c" stroke-width="1.5" />
+              }
+            </svg>
+          }
+        </div>
+        <div class="cubes">
+          @for (c of units(b.ones); track c) {
+            <svg class="cube" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+              <rect x="2" y="2" width="10" height="10" fill="#faf089" stroke="#1a202c" stroke-width="1.5" />
+            </svg>
+          }
+        </div>
+      </div>
     } @else if (exercise.measure; as m) {
       <figure class="measure" data-testid="visual-measure">
         <svg
@@ -135,6 +156,30 @@ export const MEASURE_UNIT_PX = 34;
       }
       .five {
         white-space: nowrap;
+      }
+      /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 17 = 259 px. */
+      .blocks {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 12px;
+      }
+      .rods {
+        display: flex;
+        gap: 4px;
+      }
+      .rod {
+        width: 14px;
+        height: 104px;
+      }
+      .cubes {
+        display: grid;
+        grid-template-columns: repeat(5, 14px);
+        gap: 3px;
+      }
+      .cube {
+        width: 14px;
+        height: 14px;
       }
       .measure {
         margin: 0 auto;

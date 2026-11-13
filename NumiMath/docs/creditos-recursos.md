@@ -10,6 +10,7 @@ Actualizar cada vez que se agregue o reemplace una fuente, ilustración, sonido 
 | Íconos de interfaz | paquete `ionicons` | Ionic | MIT | En uso |
 | Figuras de los juegos (círculo, cuadrado, triángulo, rectángulo, cubo, esfera, cilindro; SVG) | `app/src/app/core/games/figure.component.ts` | Hechas por el equipo del proyecto | Propia | En uso (CU-A21) |
 | Lápiz, cinta y alfombra para medir (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21) |
+| Bloques de decenas y unidades: barras de diez y cubitos (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
 
 Notas:
 - La fuente se sirve desde los archivos de la app, nunca desde un CDN, para no enviar la IP del dispositivo a terceros.

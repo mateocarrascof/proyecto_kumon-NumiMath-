@@ -693,7 +693,7 @@ def test_resta_con_bloques_sin_reserva_en_miles_de_ejercicios() -> None:
     sizes, errors = set(), set()
     for e in _many("resta-bloques-2"):
         a, b = (int(x) for x in e.text.split(" = ")[0].split(" − "))
-        assert e.text == f"{a} − {b} = ? Quita los bloques tachados. ¿Cuántos quedan?"
+        assert e.text == f"{a} − {b} = ? Los bloques tachados se quitan. ¿Cuántos quedan?"
         assert e.blocks == (a // 10, a % 10) and e.removed == (b // 10, b % 10)
         assert 11 <= a <= 99 and 1 <= b < a
         assert b % 10 <= a % 10 and b // 10 <= a // 10  # sin reserva

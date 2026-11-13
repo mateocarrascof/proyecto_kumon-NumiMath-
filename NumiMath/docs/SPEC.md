@@ -1494,7 +1494,7 @@ número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
 Cuatro temas de 2° que no tenían juego. Ids nuevos, tipo `choice`, sin migración; salidas
 guardadas por semilla. Distintos de la práctica (que es solo texto), de "Contar de 2, 5, 10"
 (un camino de números) y de "Grupos iguales" (emoji en el enunciado, hasta 5 grupos).
-- **`resta-bloques-2` "Quita bloques" (2-08):** "56 − 23 = ? Quita los bloques tachados. ¿Cuántos quedan?" El
+- **`resta-bloques-2` "Quita bloques" (2-08):** "56 − 23 = ? Los bloques tachados se quitan. ¿Cuántos quedan?" El
   primer número en bloques y lo que se resta tachado (campo `removed`: decenas y unidades); el
   niño cuenta lo que queda. Hasta 99, sin reserva; mitad 2 cifras − 1 cifra y mitad 2 − 2.
   Distractores: dos al azar entre sumar en vez de restar (si no pasa de 100), una decena de más

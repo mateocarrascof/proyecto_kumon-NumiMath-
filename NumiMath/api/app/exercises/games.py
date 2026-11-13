@@ -638,7 +638,7 @@ def _blocks_subtract(rng: random.Random) -> GameExercise:
     wrong = rng.sample(pool, 2)
     return GameExercise(
         "choice",
-        f"{a} − {b} = ? Quita los bloques tachados. ¿Cuántos quedan?",
+        f"{a} − {b} = ? Los bloques tachados se quitan. ¿Cuántos quedan?",
         _shuffled(rng, [_number(v) for v in (rest, *wrong)]),
         (f"n:{rest}",),
         blocks=(a // 10, a % 10),

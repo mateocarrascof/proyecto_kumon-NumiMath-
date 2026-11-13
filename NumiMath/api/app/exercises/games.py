@@ -654,10 +654,14 @@ def _egg_boxes(size: int) -> Callable[[random.Random], GameExercise]:
         total = count * size
         errors = [total - size, total + size, count + size, count]
         pool = [v for v in dict.fromkeys(errors) if 0 < v <= 100 and v != total]
-        boxes = f"Hay {count} caja" if count == 1 else f"Hay {count} cajas"
+        boxes = (
+            f"Hay 1 caja. Tiene {size} huevos."
+            if count == 1
+            else f"Hay {count} cajas. Cada caja tiene {size} huevos."
+        )
         return GameExercise(
             "choice",
-            f"{boxes}. Cada caja tiene {size} huevos. ¿Cuántos huevos hay?",
+            f"{boxes} ¿Cuántos huevos hay?",
             _shuffled(rng, [_number(v) for v in (total, *rng.sample(pool, 2))]),
             (f"n:{total}",),
             boxes=(count, size),

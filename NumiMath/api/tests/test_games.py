@@ -718,8 +718,12 @@ def test_cajas_de_huevos_son_la_tabla_con_factores_de_1_a_10(game_id: str, size:
         assert e.boxes is not None
         count, box = e.boxes
         assert box == size and 1 <= count <= 10
-        cajas = "1 caja" if count == 1 else f"{count} cajas"
-        assert e.text == f"Hay {cajas}. Cada caja tiene {size} huevos. ¿Cuántos huevos hay?"
+        boxes = (
+            f"Hay 1 caja. Tiene {size} huevos."
+            if count == 1
+            else f"Hay {count} cajas. Cada caja tiene {size} huevos."
+        )
+        assert e.text == f"{boxes} ¿Cuántos huevos hay?"
         assert "×" not in e.text  # solo palabras
         assert e.solution == (f"n:{count * size}",)
         values = [_num(o.id) for o in e.options]

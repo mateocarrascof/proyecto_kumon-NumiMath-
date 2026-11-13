@@ -152,6 +152,7 @@ separada de "Progreso" (que sigue siendo la vista del niño, con Numi). Se entra
 con "Panel del tutor", junto a "Perfiles de niños", y siempre pide el **PIN**. Arriba hay pestañas
 con el apodo de cada perfil; al cambiar se recargan informe y tareas. Estilo sobrio, sin mascota.
 Contiene: resumen, gráfico semanal, feedback, aciertos por tema, tareas, "Cambiar PIN" y "Salir".
+**Orden (2026-11-13):** cuatro pestañas en una barra inferior dentro de `/panel`, sin cambiar de ruta (no borran el token del PIN y no se recuerdan: se entra en Progreso, o en Mis hijos si no hay perfiles): **Progreso** (resumen, "Cómo va", gráfico, aciertos por tema e historial), **Tareas**, **Mis hijos** (perfiles, docentes, hojas guardadas y exportar) y **Cuenta** ("Cambiar PIN", "Cerrar sesión" solo con conexión, y al fondo, separados, revocar el consentimiento y eliminar la cuenta). El selector de niño queda fijo arriba, salvo en Cuenta; las secciones secundarias se pliegan; el botón atrás de Android sale del panel como antes.
 
 ### PIN del tutor (control parental)
 Reemplaza la "pregunta de adulto" provisional. Tabla `tutor_pins` (migración `api_support`), solo

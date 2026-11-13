@@ -19,7 +19,7 @@ import {
 
 /** Apodo repetido en el mismo curso (ADR 0005): amable y con una salida concreta. */
 export function duplicateNicknameMessage(grade: Grade): string {
-  return `Ya tienes un perfil con ese apodo en ${grade}° básico. Elige otro, por ejemplo agrégale un número.`;
+  return `Ya tienes un perfil con ese apodo en ${grade}° básico. Elige otro, por ejemplo agrégale una letra o una palabra.`;
 }
 
 const MESSAGES: Record<Exclude<CreateFailure, 'duplicate'>, string> = {

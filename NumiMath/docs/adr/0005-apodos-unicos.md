@@ -22,8 +22,9 @@ RLS); FastAPI no tiene rutas para crearlos ni editarlos.
    cambiar de curso, venga de donde venga, y resiste dos altas simultáneas. Como incluye
    `tutor_id`, el error nunca revela apodos de otro tutor.
 4. **Error:** PostgREST responde **409** con el código `23505` y el nombre del índice; la app lo
-   traduce a: "Ya tienes un perfil con ese apodo en N° básico. Elige otro, por ejemplo agrégale un
-   número." No se movió el alta a FastAPI.
+   traduce a: "Ya tienes un perfil con ese apodo en N° básico. Elige otro, por ejemplo agrégale una
+   letra o una palabra." **El mensaje no sugiere números**, para no invitar a escribir la edad ni el
+   año de nacimiento (no se guardan: CLAUDE.md). No se movió el alta a FastAPI.
 5. **Duplicados ya existentes:** la migración (`20261118100000_unique_student_nickname.sql`) revisa
    antes de crear el índice. Si los hay, **se detiene** con la cantidad de grupos (sin apodos ni
    ids) y **no borra ni renombra nada**. La app **no tiene pantalla para renombrar**, así que el

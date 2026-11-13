@@ -40,14 +40,21 @@ describe('ProfileFormComponent: apodo repetido (ADR 0005)', () => {
     expect(create).toHaveBeenCalledWith('Juanito', 1);
     const error = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="profile-form-error"]');
     expect(error?.textContent).toContain(
-      'Ya tienes un perfil con ese apodo en 1° básico. Elige otro, por ejemplo agrégale un número.',
+      'Ya tienes un perfil con ese apodo en 1° básico. Elige otro, por ejemplo agrégale una letra o una palabra.',
     );
     expect(form.nickname).toBe('Juanito'); // no se borra lo escrito: solo hay que cambiarlo
   });
 
+  it('no sugiere números (no invita a escribir la edad ni el año de nacimiento)', () => {
+    for (const grade of [1, 2, 3, 4] as const) {
+      const text = duplicateNicknameMessage(grade).replace(`${grade}° básico`, '');
+      expect(text).not.toMatch(/\d|número|edad|año/i);
+    }
+  });
+
   it('el mensaje usa el curso elegido', () => {
     expect(duplicateNicknameMessage(3)).toBe(
-      'Ya tienes un perfil con ese apodo en 3° básico. Elige otro, por ejemplo agrégale un número.',
+      'Ya tienes un perfil con ese apodo en 3° básico. Elige otro, por ejemplo agrégale una letra o una palabra.',
     );
   });
 });

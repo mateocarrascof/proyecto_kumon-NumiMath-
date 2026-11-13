@@ -28,8 +28,8 @@ $$;
 comment on function public.student_nickname_key(text) is
   'Apodo normalizado para la regla de apodos únicos por tutor y curso (ADR 0005).';
 
--- Sin revoke: el índice la evalúa con los permisos de quien inserta o actualiza (el tutor). Es pura
--- (solo transforma el texto que recibe) y no lee ninguna tabla.
+-- Permisos: los ajusta 20261118110000_student_nickname_key_grants.sql (sin execute para public ni
+-- anon; sí para authenticated, porque el índice la evalúa con el rol del tutor, y service_role).
 
 do $$
 declare

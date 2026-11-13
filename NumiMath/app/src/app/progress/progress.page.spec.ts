@@ -162,9 +162,22 @@ describe('ProgressPage: evolución (CU-A23)', () => {
     const weeks = WEEKS.map((w, i) => (i === 7 ? { ...w, total: 2, correct: 1 } : { ...w, total: 0, correct: 0 }));
     const el = await load({ ...PROGRESS, total: 2, correct: 1, weeks });
     expect(el.querySelector('app-weekly-chart')).toBeNull();
+    const text = el.querySelector('[data-testid="evolution-few"]')?.textContent ?? '';
+    expect(text).toContain('Aún hay pocos ejercicios. Faltan 3 para ver tu avance.');
+    // Texto para el niño: sin palabras de adulto.
+    expect(text).not.toMatch(/mínimo|evolución/);
+  });
+
+  it('con 4 ejercicios dice "Falta 1" en singular', async () => {
+    const weeks = WEEKS.map((w, i) => (i === 7 ? { ...w, total: 4, correct: 2 } : { ...w, total: 0, correct: 0 }));
+    const el = await load({ ...PROGRESS, total: 4, correct: 2, weeks });
     expect(el.querySelector('[data-testid="evolution-few"]')?.textContent).toContain(
-      'Aún hay pocos ejercicios para ver tu avance',
+      'Aún hay pocos ejercicios. Falta 1 para ver tu avance.',
     );
+  });
+
+  it('sin ejercicios en las 8 semanas dice que faltan 5', () => {
+    expect(EVOLUTION_MESSAGES.few(5)).toBe('Aún hay pocos ejercicios. Faltan 5 para ver tu avance.');
   });
 
   it('desde 5 ejercicios en 8 semanas ya muestra el gráfico', async () => {

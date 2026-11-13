@@ -401,7 +401,7 @@ datos nuevos.
 
 | Regla | Condición | Frase (ejemplo) |
 |---|---|---|
-| Pocos datos | < 5 intentos en total | "Aún hay pocos ejercicios para sacar conclusiones. ¡Anímalo a practicar!" |
+| Pocos datos | < 5 intentos en total | "Aún hay pocos ejercicios. Faltan N para sacar conclusiones. ¡Anímalo a practicar!" (N = 5 − total; "Falta 1" en singular) |
 | Punto fuerte | tema con mayor %, ≥ 5 intentos y ≥ 70 % | "Su punto fuerte es Sumas hasta 20 (90 % de aciertos)." |
 | A reforzar | tema con menor %, ≥ 5 intentos y < 70 % (distinto del fuerte) | "Le conviene practicar más Restas con canje (45 % de aciertos)." |
 | Constancia baja | < 3 días practicados en 7 | "Practicó 1 día esta semana: unos 10 minutos diarios ayudan mucho." |
@@ -546,7 +546,7 @@ el mismo 404**, exista o no un niño con ese id. Las rutas del docente solo acep
 - **D6 Evolución** (docente, `GET /v1/teacher/students/{id}/evolution`): ejercicios y aciertos por semana de las
   últimas 8 semanas (hora de Chile), **solo práctica desde `accepted_at`** (sin diagnóstico ni juegos), solo
   totales (sin duración, hora ni textos). Mismo `teacher_can_view` y 404 genérico. Gráfico `app-weekly-chart`
-  con tabla accesible; con menos de 5 ejercicios: "Aún hay pocos ejercicios para sacar conclusiones".
+  con tabla accesible; con menos de 5 ejercicios: "Aún hay pocos ejercicios. Faltan N para ver la evolución (mínimo 5)." ("Falta 1" en singular).
 
 ### Vincular y quitar docentes (T25, con T24 integrado, y T26)
 Hecho en el panel del tutor, sección "Docentes de <apodo>" del perfil seleccionado. **Cada hijo se
@@ -787,7 +787,7 @@ En "Mi progreso", el niño ve un gráfico de barras de las **últimas 8 semanas*
 | Situación | Resultado |
 |---|---|
 | Sin intentos | Se muestra lo de siempre ("Todavía no hay intentos…"); no aparece la sección |
-| Menos de 5 ejercicios en las 8 semanas | "Aún hay pocos ejercicios para ver tu avance", sin gráfico. Es la misma regla de "pocos datos" del informe del tutor |
+| Menos de 5 ejercicios en las 8 semanas | "Aún hay pocos ejercicios. Faltan N para ver tu avance." ("Falta 1" en singular; sin "mínimo" ni "evolución": lo lee el niño), sin gráfico. Es la misma regla de "pocos datos" del informe del tutor |
 | 5 o más | Gráfico con la frase "¡Cada semana que practicas, aprendes más!" |
 
 - **Semanas:** 8 periodos de 7 días que terminan "hoy", la fecha local del dispositivo validada a ±1 día como en la racha. Las semanas sin práctica aparecen con 0, como un hueco.

@@ -34,7 +34,9 @@ export const STREAK_BADGE = 5;
 export const MIN_EVOLUTION_EXERCISES = 5;
 
 export const EVOLUTION_MESSAGES = {
-  few: 'Aún hay pocos ejercicios para ver tu avance',
+  /** Cuántos faltan, en singular o plural (texto para el niño: sin "mínimo" ni "evolución"). */
+  few: (missing: number): string =>
+    `Aún hay pocos ejercicios. ${missing === 1 ? 'Falta 1' : `Faltan ${missing}`} para ver tu avance.`,
   cheer: '¡Cada semana que practicas, aprendes más!',
 } as const;
 
@@ -64,6 +66,11 @@ export class ProgressPage implements OnInit {
   /** Ejercicios de las últimas 8 semanas (solo práctica: el diagnóstico no cuenta). */
   get weeksTotal(): number {
     return (this.progress?.weeks ?? []).reduce((n, w) => n + w.total, 0);
+  }
+
+  /** Ejercicios que faltan para ver el gráfico (0 si ya se muestra). */
+  get missingExercises(): number {
+    return Math.max(0, MIN_EVOLUTION_EXERCISES - this.weeksTotal);
   }
 
   get showEvolution(): boolean {

@@ -34,11 +34,23 @@ describe('TeacherEvolutionPage (D6)', () => {
     expect(el.querySelector('[data-testid="evolution-few"]')).toBeNull();
   });
 
-  it('con muy pocos ejercicios dice que aún no hay conclusiones', async () => {
+  it('con muy pocos ejercicios dice cuántos faltan', async () => {
     const el = await render({ ok: true, weeks: weeks([0, 0, 0, 0, 0, 1, 1, 0]) });
     expect(el.querySelector('[data-testid="evolution-few"]')?.textContent).toContain(
-      'Aún hay pocos ejercicios para sacar conclusiones',
+      'Aún hay pocos ejercicios. Faltan 3 para ver la evolución (mínimo 5).',
     );
+  });
+
+  it('con 4 ejercicios dice "Falta 1" en singular', async () => {
+    const el = await render({ ok: true, weeks: weeks([0, 0, 0, 0, 0, 2, 2, 0]) });
+    expect(el.querySelector('[data-testid="evolution-few"]')?.textContent).toContain(
+      'Aún hay pocos ejercicios. Falta 1 para ver la evolución (mínimo 5).',
+    );
+  });
+
+  it('sin ejercicios dice que faltan 5', async () => {
+    const el = await render({ ok: true, weeks: weeks([0, 0, 0, 0, 0, 0, 0, 0]) });
+    expect(el.querySelector('[data-testid="evolution-few"]')?.textContent).toContain('Faltan 5 para ver la evolución');
   });
 
   it('sin vínculo (404) dice lo mismo que si el alumno no existiera', async () => {

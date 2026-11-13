@@ -263,3 +263,6 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .fold > summary::after { transition: none; }
 }
+
+[role='tabpanel']:focus { outline: none; }
+[role='tabpanel']:focus-visible { outline: 3px solid var(--ion-color-primary); outline-offset: 4px; border-radius: var(--kid-radius-sm); }

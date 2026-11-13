@@ -36,7 +36,7 @@
     }
 
     <!-- ===== Progreso ===== -->
-    <div role="tabpanel" id="panel-progreso" aria-labelledby="tab-progreso" [hidden]="tab !== 'progreso'">
+    <div role="tabpanel" id="panel-progreso" aria-labelledby="tab-progreso" tabindex="0" [hidden]="tab !== 'progreso'">
       @if (!studentId && !loading && !profilesError) {
         <p class="hint">Todavía no hay perfiles. Crea el primero en la pestaña "Mis hijos".</p>
       }
@@ -102,7 +102,7 @@
     </div>
 
     <!-- ===== Tareas ===== -->
-    <div role="tabpanel" id="panel-tareas" aria-labelledby="tab-tareas" [hidden]="tab !== 'tareas'">
+    <div role="tabpanel" id="panel-tareas" aria-labelledby="tab-tareas" tabindex="0" [hidden]="tab !== 'tareas'">
       @if (!studentId && !loading && !profilesError) {
         <p class="hint">Todavía no hay perfiles. Crea el primero en la pestaña "Mis hijos".</p>
       }
@@ -215,7 +215,7 @@
     </div>
 
     <!-- ===== Mis hijos ===== -->
-    <div role="tabpanel" id="panel-hijos" aria-labelledby="tab-hijos" [hidden]="tab !== 'hijos'">
+    <div role="tabpanel" id="panel-hijos" aria-labelledby="tab-hijos" tabindex="0" [hidden]="tab !== 'hijos'">
       <!-- ===== Perfiles (crear y eliminar) ===== -->
       <section aria-labelledby="h-profiles" class="profiles-admin">
         <h2 id="h-profiles">Perfiles</h2>
@@ -310,7 +310,7 @@
     </div>
 
     <!-- ===== Cuenta ===== -->
-    <div role="tabpanel" id="panel-cuenta" aria-labelledby="tab-cuenta" [hidden]="tab !== 'cuenta'">
+    <div role="tabpanel" id="panel-cuenta" aria-labelledby="tab-cuenta" tabindex="0" [hidden]="tab !== 'cuenta'">
       <section aria-labelledby="h-account">
         <h2 id="h-account">Tu cuenta</h2>
         <!-- Línea fija (no plegada): dónde ejercer cada derecho sobre los datos. -->

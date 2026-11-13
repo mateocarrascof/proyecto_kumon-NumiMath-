@@ -430,6 +430,7 @@ describe('TutorPanelPage: pestañas', () => {
       const target = el.querySelector(`#${t.getAttribute('aria-controls')}`)!;
       expect(target.getAttribute('role')).toBe('tabpanel');
       expect(target.getAttribute('aria-labelledby')).toBe(t.id);
+      expect(target.getAttribute('tabindex')).toBe('0'); // el panel recibe foco aunque empiece sin controles
       expect(t.tagName).toBe('BUTTON');
     }
     expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false', 'false']);

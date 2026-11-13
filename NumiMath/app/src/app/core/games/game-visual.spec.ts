@@ -18,7 +18,7 @@ function base(over: Partial<GameExercise>): GameExercise {
 }
 
 describe('FigureComponent (CU-A21)', () => {
-  const SHAPES = ['circulo', 'cuadrado', 'triangulo', 'rectangulo', 'cubo', 'esfera', 'cilindro'];
+  const SHAPES = ['circulo', 'cuadrado', 'triangulo', 'rectangulo', 'cubo', 'esfera', 'cilindro', 'pentagono', 'hexagono'];
 
   beforeEach(() => TestBed.configureTestingModule({ imports: [FigureComponent] }));
 
@@ -149,6 +149,31 @@ describe('GameVisualComponent (CU-A21)', () => {
     const { q } = render(base({ picto: [{ glyph: '⭐', name: 'estrellas', count: 8 }] }));
     const groups = [...q('visual-picto')!.querySelectorAll('.five')].map((g) => g.textContent);
     expect(groups).toEqual(['⭐⭐⭐⭐⭐', '⭐⭐⭐']);
+  });
+
+  it('figura grande: se dibuja y su etiqueta dice nombre y color', () => {
+    const { q } = render(base({ figure: FIG('hexagono', 'verde', 'hexágono verde') }));
+    const fig = q('visual-figure')!;
+    expect(fig.getAttribute('aria-label')).toBe('hexágono verde');
+    expect(fig.querySelector('svg')!.getAttribute('data-shape')).toBe('hexagono');
+  });
+
+  it('reloj: manecilla corta gruesa y larga fina; se describe sin decir la hora', () => {
+    const { q } = render(base({ clock: { hour: 3, minute: 30 } }));
+    const clock = q('visual-clock')!;
+    expect(clock.querySelectorAll('text').length).toBe(12);
+    const hourHand = clock.querySelector('.hour-hand')!;
+    const minuteHand = clock.querySelector('.minute-hand')!;
+    expect(Number(hourHand.getAttribute('stroke-width'))).toBeGreaterThan(Number(minuteHand.getAttribute('stroke-width')));
+    expect(minuteHand.getAttribute('x2')).toBe('60'); // la larga en el 6: abajo
+    expect(Number(minuteHand.getAttribute('y2'))).toBeGreaterThan(60);
+    expect(clock.getAttribute('aria-label')).toBe('Reloj: la manecilla corta está entre el 3 y el 4 y la larga en el 6.');
+    expect(clock.getAttribute('aria-label')).not.toMatch(/media|:30/);
+  });
+
+  it('pictograma con escala: el lector oye cuántos íconos (no el total)', () => {
+    const { q } = render(base({ picto: [{ glyph: '⭐', name: 'estrellas', count: 3 }], scale: 2 }));
+    expect(q('visual-picto')!.querySelector('.sr-only:not(caption)')!.textContent).toBe('3 íconos');
   });
 
   it('bloques: barras de diez y cubitos, descritos sin decir el número', () => {

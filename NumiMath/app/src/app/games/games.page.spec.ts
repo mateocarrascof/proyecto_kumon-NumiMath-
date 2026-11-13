@@ -304,10 +304,17 @@ describe('GamesPage (CU-A21)', () => {
       'ordena-2': { kind: 'order', options: [n(50), n(20)] },
       'arma-numero-2': { options: [n(47), n(74)], blocks: { tens: 4, ones: 7 } },
       'suma-bloques-2': { options: [n(41), n(31)], blocks: { tens: 3, ones: 11 } },
+      'cuenta-lados-2': { options: [n(5), n(6)], figure: { id: 'f:pentagono-rojo', kind: 'figure', label: 'pentágono rojo' } },
+      'elige-unidad-2': { options: [{ id: 's:cm', kind: 'symbol', label: 'cm' }, { id: 's:m', kind: 'symbol', label: 'm' }] },
+      'lee-reloj-2': { options: [{ id: 't:3-30', kind: 'time', label: '3:30' }, { id: 't:3-00', kind: 'time', label: '3:00' }], clock: { hour: 3, minute: 30 } },
+      'pictograma-escala-2': { options: [n(6), n(3)], picto: [{ glyph: '⭐', name: 'estrellas', count: 3 }], scale: 2 },
     };
     const CATALOG = [
       { module: 'Números y operaciones', ids: ['mayor-2', 'ordena-2', 'cuenta-mil-2', 'lee-numero-2', 'arma-numero-2', 'suma-bloques-2', 'grupos-iguales-2'] },
       { module: 'Patrones y álgebra', ids: ['que-sigue-2', 'compara-signo-2', 'completa-patron-2'] },
+      { module: 'Geometría', ids: ['cuenta-lados-2'] },
+      { module: 'Medición', ids: ['elige-unidad-2', 'lee-reloj-2'] },
+      { module: 'Datos y probabilidades', ids: ['pictograma-escala-2'] },
     ];
     const kindOf = (id: string) => (SAMPLE[id]?.kind ?? 'choice') as GameExercise['kind'];
     const groups = CATALOG.map((c) => ({ module: c.module, games: c.ids.map((id) => ({ id, name: `Juego ${id}`, kind: kindOf(id) })) }));
@@ -329,6 +336,9 @@ describe('GamesPage (CU-A21)', () => {
         q('game-start')!.click();
         await render();
         if (SAMPLE[game.id]?.blocks) expect(q('visual-blocks'), game.id).not.toBeNull();
+        if (SAMPLE[game.id]?.figure) expect(q('visual-figure'), game.id).not.toBeNull();
+        if (SAMPLE[game.id]?.clock) expect(q('visual-clock'), game.id).not.toBeNull();
+        if (SAMPLE[game.id]?.scale) expect(q('visual-picto'), game.id).not.toBeNull();
         if (game.kind === 'choice') {
           q(`option-${(SAMPLE[game.id]?.options ?? [n(1)])[0].id}`)!.click();
         } else {
@@ -343,7 +353,7 @@ describe('GamesPage (CU-A21)', () => {
         expect(q('game-result')?.textContent, game.id).toContain('¡Muy bien!');
       }
     }
-    expect(answer).toHaveBeenCalledTimes(10);
+    expect(answer).toHaveBeenCalledTimes(14); // los 14 juegos de 2° (11 temas)
   });
 
   it('5 rondas y resumen con jugar de nuevo, otro juego o volver a practicar; medalla a los 5 seguidos', async () => {

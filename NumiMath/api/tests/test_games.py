@@ -126,9 +126,25 @@ def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
         "picto",
         "measure",
         "blocks",
+        "figure",
+        "clock",
+        "scale",
     }
     # Solo completar trae lugares fijos, y solo los juegos de la parte 3 traen algo que dibujar.
-    assert all(body[k] is None for k in ("slots", "pattern", "scene", "picto", "measure", "blocks"))
+    assert all(
+        body[k] is None
+        for k in (
+            "slots",
+            "pattern",
+            "scene",
+            "picto",
+            "measure",
+            "blocks",
+            "figure",
+            "clock",
+            "scale",
+        )
+    )
     assert body["kind"] == GAMES[game_id].kind
     assert all(set(o) == {"id", "kind", "label"} for o in body["options"])
     payload = json.loads(base64.urlsafe_b64decode(body["token"].split(".")[0] + "=="))
@@ -339,7 +355,7 @@ def test_cada_juego_cumple_sus_invariantes_con_muchas_semillas(game_id: str) -> 
         exercise = issued.exercise
         ids = [o.id for o in exercise.options]
         assert len(set(ids)) == len(ids)
-        assert all(o.id.split(":")[0] in {"n", "e", "s", "f"} for o in exercise.options)
+        assert all(o.id.split(":")[0] in {"n", "e", "s", "f", "t"} for o in exercise.options)
         if game.kind == "choice":
             assert 2 <= len(ids) <= 4
             assert len(exercise.solution) == 1 and exercise.solution[0] in ids
@@ -523,7 +539,7 @@ def test_pictograma_es_valido_en_miles_de_ejercicios() -> None:
 )
 def test_juegos_de_la_parte_3_traen_lo_que_se_dibuja(game_id: str, field: str | None) -> None:
     body = _new(_client(_gateway()), game_id).json()
-    for key in ("pattern", "scene", "picto", "measure", "blocks"):
+    for key in ("pattern", "scene", "picto", "measure", "blocks", "figure", "clock", "scale"):
         assert (body[key] is not None) == (key == field)
     if field == "scene":
         assert [p["id"] for p in body["scene"]["places"]] == [o["id"] for o in body["options"]]
@@ -665,3 +681,46 @@ def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
 def test_bloques_viajan_en_el_ejercicio() -> None:
     body = _new(_client(_gateway(grade=2)), "arma-numero-2").json()
     assert set(body["blocks"]) == {"tens", "ones"}
+
+
+def test_lados_y_vertices_es_valido_en_miles_de_ejercicios() -> None:
+    sides = {"triangulo": 3, "cuadrado": 4, "rectangulo": 4, "pentagono": 5, "hexagono": 6}
+    for e in _many("cuenta-lados-2"):
+        assert e.figure is not None and e.figure.kind == "figure"
+        assert len(e.figure.label.split()) == 2  # nombre y color
+        assert e.text in (
+            "¿Cuántos lados tiene esta figura?",
+            "¿Cuántos vértices tiene esta figura?",
+        )
+        assert e.solution == (f"n:{sides[_shape(e.figure.id)]}",)
+        assert len({o.id for o in e.options}) == 3 and all(_num(o.id) >= 3 for o in e.options)
+
+
+def test_elige_unidad_conviene_cm_a_lo_chico_y_m_a_lo_grande() -> None:
+    small = ("lápiz", "llave", "cuchara")
+    for e in _many("elige-unidad-2"):
+        assert {o.id for o in e.options} == {"s:cm", "s:m"}
+        expected = "s:cm" if any(f" {w}:" in e.text for w in small) else "s:m"
+        assert e.solution == (expected,)
+
+
+def test_lee_el_reloj_es_valido_en_miles_de_ejercicios() -> None:
+    seen = set()
+    for e in _many("lee-reloj-2"):
+        assert e.clock is not None
+        hour, minute = e.clock
+        assert 1 <= hour <= 12 and minute in (0, 30)
+        assert e.solution == (f"t:{hour}-{minute:02d}",)
+        assert all(o.kind == "time" for o in e.options) and len({o.id for o in e.options}) == 3
+        seen.add(minute)
+    assert seen == {0, 30}
+
+
+def test_pictograma_con_escala_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("pictograma-escala-2"):
+        assert e.picto is not None and e.scale in (2, 5)
+        asked = next(r for r in e.picto if f" {r.name} hay?" in e.text)
+        assert e.solution == (f"n:{asked.count * e.scale}",)
+        assert f"Cada ícono vale {e.scale}." in e.text
+        ids = {o.id for o in e.options}
+        assert len(ids) == 3 and f"n:{asked.count}" in ids  # contar sin la escala

@@ -40,11 +40,26 @@ export const MEASURE_UNIT_PX = 34;
                   <span class="five">{{ repeat(row.glyph, n) }}</span>
                 }
               </span>
-              <span class="sr-only">{{ row.count }}</span>
+              <span class="sr-only">{{ exercise.scale ? text.pictoIcons(row.count) : row.count }}</span>
             </td>
           </tr>
         }
       </table>
+    } @else if (exercise.figure; as f) {
+      <div class="big-figure" role="img" [attr.aria-label]="f.label" data-testid="visual-figure">
+        <app-figure class="big" [figureId]="f.id"></app-figure>
+      </div>
+    } @else if (exercise.clock; as c) {
+      <!-- Reloj propio: la manecilla corta es más gruesa y la larga más fina (forma, no color). -->
+      <svg class="clock" viewBox="0 0 120 120" role="img" [attr.aria-label]="text.clockLabel(c.hour, c.minute)" data-testid="visual-clock">
+        <circle cx="60" cy="60" r="56" fill="#ffffff" stroke="#1a202c" stroke-width="4" />
+        @for (h of hours; track h) {
+          <text [attr.x]="handX(h * 30, 44)" [attr.y]="handY(h * 30, 44)" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="700" fill="#1a202c">{{ h }}</text>
+        }
+        <line class="hour-hand" x1="60" y1="60" [attr.x2]="handX(hourAngle(c), 28)" [attr.y2]="handY(hourAngle(c), 28)" stroke="#1a202c" stroke-width="7" stroke-linecap="round" />
+        <line class="minute-hand" x1="60" y1="60" [attr.x2]="handX(c.minute * 6, 42)" [attr.y2]="handY(c.minute * 6, 42)" stroke="#1a202c" stroke-width="3" stroke-linecap="round" />
+        <circle cx="60" cy="60" r="4" fill="#1a202c" />
+      </svg>
     } @else if (exercise.blocks; as b) {
       <!-- Bloques: barras de diez (con sus 10 cuadritos) y cubitos sueltos. La forma los
            distingue (barra larga y cubito), no solo el color. -->
@@ -157,6 +172,20 @@ export const MEASURE_UNIT_PX = 34;
       .five {
         white-space: nowrap;
       }
+      .big-figure {
+        display: flex;
+        justify-content: center;
+      }
+      .big {
+        width: 112px;
+        height: 112px;
+      }
+      .clock {
+        display: block;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto;
+      }
       /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 17 = 259 px. */
       .blocks {
         display: flex;
@@ -221,6 +250,21 @@ export class GameVisualComponent {
 
   protected get patternLabel(): string {
     return GAME_TEXT.patternRow((this.exercise.pattern ?? []).map((f) => f.label));
+  }
+
+  protected readonly hours = Array.from({ length: 12 }, (_, i) => i + 1);
+
+  /** Ángulo de la manecilla corta: avanza media hora entre dos números en "y media". */
+  protected hourAngle(c: { hour: number; minute: number }): number {
+    return ((c.hour % 12) + c.minute / 60) * 30;
+  }
+
+  protected handX(degrees: number, length: number): number {
+    return Math.round((60 + length * Math.sin((degrees * Math.PI) / 180)) * 10) / 10;
+  }
+
+  protected handY(degrees: number, length: number): number {
+    return Math.round((60 - length * Math.cos((degrees * Math.PI) / 180)) * 10) / 10;
   }
 
   protected repeat(glyph: string, count: number): string {

@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 GameKind = Literal["choice", "order", "fill"]
-OptionKind = Literal["number", "emoji", "symbol", "figure"]
+OptionKind = Literal["number", "emoji", "symbol", "figure", "time"]
 
 # Ejes del catálogo curricular (columna `modulo` de docs/habilidades_1a4_basico.csv).
 NUMBERS = "Números y operaciones"
@@ -62,6 +62,9 @@ class GameExercise:
     picto: tuple[PictoRow, ...] | None = None  # pictograma: una fila por categoría
     measure: GameMeasure | None = None  # un objeto medido con clips o pasos
     blocks: tuple[int, int] | None = None  # (decenas, unidades) en bloques (2°, parte 4)
+    figure: GameOption | None = None  # una figura grande sobre las opciones (2°)
+    clock: tuple[int, int] | None = None  # (hora 1 a 12, minuto 0 o 30): reloj dibujado (2°)
+    scale: int | None = None  # pictograma con escala: cada ícono vale `scale` (2°)
 
 
 @dataclass(frozen=True)
@@ -129,7 +132,9 @@ _OBJECTS: dict[str, tuple[str, str]] = {
     "pelota": ("⚽", "pelotas"),
     "flor": ("🌸", "flores"),
 }
-_SYMBOLS = {"mayor": ">", "menor": "<", "igual": "="}
+# Símbolos y unidades (2°: `s:cm` y `s:m`). Ningún juego recorre este diccionario: agregar no
+# cambia los publicados.
+_SYMBOLS = {"mayor": ">", "menor": "<", "igual": "=", "cm": "cm", "m": "m"}
 
 
 def _number(value: int) -> GameOption:
@@ -364,8 +369,15 @@ _PATTERN_SHAPES = ("circulo", "cuadrado", "triangulo")
 _PATTERN_UNITS: tuple[tuple[int, ...], ...] = ((0, 1), (0, 1, 2), (0, 0, 1), (0, 1, 1))
 
 
+# Polígonos de 2° (lados y vértices). Aparte de _SHAPES: "Toca la figura" (publicado) recorre
+# _SHAPES y no debe cambiar.
+_POLYGONS: dict[str, tuple[str, bool]] = {"pentagono": ("pentágono", False)}
+_POLYGONS["hexagono"] = ("hexágono", False)
+_SIDES = {"triangulo": 3, "cuadrado": 4, "rectangulo": 4, "pentagono": 5, "hexagono": 6}
+
+
 def _figure(shape: str, color: str) -> GameOption:
-    name, feminine = _SHAPES[shape]
+    name, feminine = _SHAPES[shape] if shape in _SHAPES else _POLYGONS[shape]
     return GameOption(f"f:{shape}-{color}", "figure", f"{name} {_COLORS[color][int(feminine)]}")
 
 
@@ -612,6 +624,84 @@ _fill_pattern = _fill_path(
 )
 
 
+def _count_sides(rng: random.Random) -> GameExercise:
+    """Figuras 2D (2°, tema 8): una figura grande y "¿cuántos lados (o vértices) tiene?"."""
+    shape = rng.choice(sorted(_SIDES))
+    figure = _figure(shape, rng.choice(sorted(_COLORS)))
+    what = rng.choice(("lados", "vértices"))
+    n = _SIDES[shape]
+    values = [n, n + 1, n - 1 if n > 3 else n + 2]
+    return GameExercise(
+        "choice",
+        f"¿Cuántos {what} tiene esta figura?",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{n}",),
+        figure=figure,
+    )
+
+
+# Objetos para elegir la unidad (2°, tema 9): (nombre con artículo, emoji, unidad que conviene).
+_TO_MEASURE = (
+    ("el lápiz", "✏️", "cm"),
+    ("la llave", "🔑", "cm"),
+    ("la cuchara", "🥄", "cm"),
+    ("el bus", "🚌", "m"),
+    ("la casa", "🏠", "m"),
+    ("la ballena", "🐋", "m"),
+)
+
+
+def _choose_unit(rng: random.Random) -> GameExercise:
+    """Longitud en cm y m (2°, tema 9): ¿con qué unidad conviene medir este objeto?"""
+    name, glyph, unit = rng.choice(_TO_MEASURE)
+    return GameExercise(
+        "choice",
+        f"¿Qué usarías para medir {name}: centímetros o metros? {glyph}",
+        _shuffled(rng, [_symbol("cm"), _symbol("m")]),
+        (f"s:{unit}",),
+    )
+
+
+def _time(hour: int, minute: int) -> GameOption:
+    return GameOption(f"t:{hour}-{minute:02d}", "time", f"{hour}:{minute:02d}")
+
+
+def _read_clock(rng: random.Random) -> GameExercise:
+    """Horas y medias horas (2°, tema 10): un reloj dibujado y "¿qué hora marca?". Distractores:
+    la otra media hora de la misma hora y la hora siguiente (leer mal la manecilla corta)."""
+    hour = rng.randint(1, 12)
+    minute = rng.choice((0, 30))
+    options = [_time(hour, minute), _time(hour, 30 - minute), _time(hour % 12 + 1, minute)]
+    return GameExercise(
+        "choice",
+        "¿Qué hora marca el reloj?",
+        _shuffled(rng, options),
+        (options[0].id,),
+        clock=(hour, minute),
+    )
+
+
+def _scaled_pictogram(rng: random.Random) -> GameExercise:
+    """Pictograma con escala (2°, tema 11): cada ícono vale 2 o 5. Distractores: contar los
+    íconos sin la escala (el error típico) y el valor de otra fila."""
+    scale = rng.choice((2, 5))
+    objects = rng.sample(sorted(_OBJECTS), rng.choice((2, 3)))
+    icons = rng.sample(range(1, 7), len(objects))
+    rows = tuple(PictoRow(*_OBJECTS[o], c) for o, c in zip(objects, icons, strict=True))
+    asked = rng.randrange(len(rows))
+    right = icons[asked] * scale
+    other = next(c * scale for i, c in enumerate(icons) if i != asked)
+    values = list(dict.fromkeys([right, icons[asked], other, right + scale]))[:3]
+    return GameExercise(
+        "choice",
+        f"Cada ícono vale {scale}. ¿{_how_many_word(objects[asked])} {rows[asked].name} hay?",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{right}",),
+        picto=rows,
+        scale=scale,
+    )
+
+
 def _which_sign(rng: random.Random) -> GameExercise:
     a = rng.randint(0, 100)
     # Uno de cada cinco, iguales: que "=" también sea respuesta posible.
@@ -676,6 +766,20 @@ GAMES: dict[str, Game] = {
         Game("arma-numero-2", "Decenas y unidades", NUMBERS, 2, "choice", "2-04", _blocks_number),
         Game("suma-bloques-2", "Suma con bloques", NUMBERS, 2, "choice", "2-07", _blocks_sum),
         Game("grupos-iguales-2", "Grupos iguales", NUMBERS, 2, "choice", "2-11", _equal_groups),
+        Game("cuenta-lados-2", "Lados y vértices", GEOMETRY, 2, "choice", "2-18", _count_sides),
+        Game(
+            "elige-unidad-2", "Centímetros o metros", MEASUREMENT, 2, "choice", "2-22", _choose_unit
+        ),
+        Game("lee-reloj-2", "¿Qué hora es?", MEASUREMENT, 2, "choice", "2-21", _read_clock),
+        Game(
+            "pictograma-escala-2",
+            "Pictograma con escala",
+            DATA,
+            2,
+            "choice",
+            "2-24",
+            _scaled_pictogram,
+        ),
         Game(
             "completa-patron-2",
             "Patrones que suben y bajan",

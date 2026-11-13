@@ -1467,9 +1467,32 @@ generador de completar de 1° pasó a tener parámetros (`_fill_path`) sin cambi
 | 4. Sumas hasta 100 | `suma-bloques-2` mitad sin y mitad con reserva (agrupar 10 cubitos) | 2-07 |
 | 5. Multiplicación como suma repetida | `grupos-iguales-2` grupos de 2, 5 o 10 objetos | 2-11 |
 | 6. Patrones que suben y bajan | `completa-patron-2` completar, de 2, 5 o 10 | 2-15 |
+| 7. Igualdad y desigualdad (=, >, <) | `compara-signo-2` (ya existía); el lector oye "¿Qué signo va entre 35 y 42?" | 2-16 |
+| 8. Lados y vértices | `cuenta-lados-2` una figura grande (triángulo a hexágono) | 2-18 |
+| 9. Centímetros y metros | `elige-unidad-2` un objeto en emoji → cm o m | 2-22 |
+| 10. Reloj | `lee-reloj-2` reloj dibujado, horas y medias horas | 2-21 |
+| 11. Pictograma con escala | `pictograma-escala-2` cada ícono vale 2 o 5 | 2-24 |
+
+Los temas 8 a 11 usan habilidades de fase B (no se practican): sus juegos se abren desde "Jugar",
+no con "Aprender jugando".
 
 ### Bloques (`blocks`)
 Barras de diez (con sus 10 cuadritos) y cubitos sueltos, en SVG propio; la forma los distingue,
 no solo el color. Para el lector de pantalla: "4 barras de diez y 7 cubitos" (sin decir el
 número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
+
+### Campos de la tanda 2
+- **`figure`**: una figura grande (SVG propio, ahora también pentágono y hexágono), con etiqueta
+  "hexágono verde". "Toca la figura" de 1° no cambia (los polígonos nuevos van aparte).
+- **`clock`** (hora y minuto 0 o 30) y opciones de hora `t:3-30` ("3:30"; el lector oye "3 y
+  media"). Reloj propio: la manecilla corta es más gruesa y la larga más fina (forma, no color).
+  Para el lector: "la manecilla corta está entre el 3 y el 4 y la larga en el 6" (no la hora).
+- **`scale`** en el pictograma: el enunciado dice "Cada ícono vale 2." y el lector oye cuántos
+  íconos tiene cada fila ("3 íconos"), no el total.
+- Unidades `s:cm` y `s:m` ("centímetros" y "metros" para el lector).
+
+### Pendientes (variedad)
+1. Regla en cm, calendario, gráfico de barras, restas con bloques y caras de los cuerpos 3D (2-19).
+2. Mecánicas distintas a tocar una opción (armar el número tocando bloques, contar grupos
+   tocándolos): no eran baratas con los componentes actuales.
 

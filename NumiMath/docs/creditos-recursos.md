@@ -11,8 +11,10 @@ Actualizar cada vez que se agregue o reemplace una fuente, ilustración, sonido 
 | Figuras de los juegos (círculo, cuadrado, triángulo, rectángulo, cubo, esfera, cilindro; SVG) | `app/src/app/core/games/figure.component.ts` | Hechas por el equipo del proyecto | Propia | En uso (CU-A21) |
 | Lápiz, cinta y alfombra para medir (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21) |
 | Bloques de decenas y unidades: barras de diez y cubitos (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
+| Pentágono y hexágono (SVG, se suman a las figuras de los juegos) | `app/src/app/core/games/figure.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
+| Reloj analógico (esfera, números y manecillas; SVG) | `app/src/app/core/games/game-visual.component.ts` | Hecho por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
 
 Notas:
 - La fuente se sirve desde los archivos de la app, nunca desde un CDN, para no enviar la IP del dispositivo a terceros.
 - Los símbolos de los temas (+ − × ÷ ½ …) son caracteres de texto. No son ilustraciones con autor.
-- Los emoji de los juegos (🍎 ⭐ ⚽ 🌸 📦 📎 👣) son caracteres de texto que dibuja la fuente del dispositivo; la app no incluye imágenes de emoji.
+- Los emoji de los juegos (🍎 ⭐ ⚽ 🌸 📦 📎 👣 ✏️ 🔑 🥄 🚌 🏠 🐋) son caracteres de texto que dibuja la fuente del dispositivo; la app no incluye imágenes de emoji.

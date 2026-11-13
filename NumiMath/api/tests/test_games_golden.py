@@ -138,6 +138,32 @@ GOLDEN = {
         ("choice", "¿Cuántas manzanas hay? 🍎🍎🍎", ("n:4", "n:3", "n:2"), ("n:3",), None, None),
         ("choice", "¿Cuántas pelotas hay? ⚽⚽⚽⚽⚽", ("n:4", "n:5", "n:7"), ("n:5",), None, None),
     ],
+    "cuenta-lados-2": [
+        (
+            "choice",
+            "¿Cuántos vértices tiene esta figura?",
+            ("n:4", "n:5", "n:6"),
+            ("n:5",),
+            None,
+            ("figure", "f:pentagono-morado"),
+        ),
+        (
+            "choice",
+            "¿Cuántos lados tiene esta figura?",
+            ("n:5", "n:6", "n:4"),
+            ("n:5",),
+            None,
+            ("figure", "f:pentagono-amarillo"),
+        ),
+        (
+            "choice",
+            "¿Cuántos lados tiene esta figura?",
+            ("n:3", "n:5", "n:4"),
+            ("n:4",),
+            None,
+            ("figure", "f:rectangulo-verde"),
+        ),
+    ],
     "cuenta-mil-2": [
         (
             "fill",
@@ -244,6 +270,32 @@ GOLDEN = {
             "¿Dónde hay más?",
             ("e:pelota-6", "e:pelota-5", "e:pelota-2"),
             ("e:pelota-6",),
+            None,
+            None,
+        ),
+    ],
+    "elige-unidad-2": [
+        (
+            "choice",
+            "¿Qué usarías para medir la cuchara: centímetros o metros? 🥄",
+            ("s:cm", "s:m"),
+            ("s:cm",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "¿Qué usarías para medir la cuchara: centímetros o metros? 🥄",
+            ("s:m", "s:cm"),
+            ("s:cm",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "¿Qué usarías para medir el bus: centímetros o metros? 🚌",
+            ("s:m", "s:cm"),
+            ("s:m",),
             None,
             None,
         ),
@@ -376,6 +428,32 @@ GOLDEN = {
             None,
         ),
     ],
+    "lee-reloj-2": [
+        (
+            "choice",
+            "¿Qué hora marca el reloj?",
+            ("t:5-30", "t:6-30", "t:5-00"),
+            ("t:5-30",),
+            None,
+            ("clock", 5, 30),
+        ),
+        (
+            "choice",
+            "¿Qué hora marca el reloj?",
+            ("t:6-00", "t:5-30", "t:5-00"),
+            ("t:5-00",),
+            None,
+            ("clock", 5, 0),
+        ),
+        (
+            "choice",
+            "¿Qué hora marca el reloj?",
+            ("t:9-00", "t:8-30", "t:8-00"),
+            ("t:8-00",),
+            None,
+            ("clock", 8, 0),
+        ),
+    ],
     "mayor-1": [
         ("choice", "¿Cuál es el número mayor?", ("n:11", "n:8", "n:10"), ("n:11",), None, None),
         ("choice", "¿Cuál es el número mayor?", ("n:9", "n:3", "n:7"), ("n:9",), None, None),
@@ -490,6 +568,32 @@ GOLDEN = {
             (("🌸", "flores", 2), ("⭐", "estrellas", 4), ("⚽", "pelotas", 6)),
         ),
     ],
+    "pictograma-escala-2": [
+        (
+            "choice",
+            "Cada ícono vale 5. ¿Cuántas manzanas hay?",
+            ("n:10", "n:15", "n:3"),
+            ("n:15",),
+            None,
+            ((("🍎", "manzanas", 3), ("🌸", "flores", 2), ("⭐", "estrellas", 4)), ("scale", 5)),
+        ),
+        (
+            "choice",
+            "Cada ícono vale 5. ¿Cuántas manzanas hay?",
+            ("n:5", "n:20", "n:1"),
+            ("n:5",),
+            None,
+            ((("🌸", "flores", 4), ("🍎", "manzanas", 1)), ("scale", 5)),
+        ),
+        (
+            "choice",
+            "Cada ícono vale 5. ¿Cuántas pelotas hay?",
+            ("n:5", "n:1", "n:30"),
+            ("n:5",),
+            None,
+            ((("🌸", "flores", 6), ("⚽", "pelotas", 1)), ("scale", 5)),
+        ),
+    ],
     "que-sigue-1": [
         (
             "choice",
@@ -596,8 +700,13 @@ def _visual(e: GameExercise) -> object:
         return tuple(p.id for p in e.pattern)
     if e.blocks is not None:
         return ("blocks", *e.blocks)
+    if e.figure is not None:
+        return ("figure", e.figure.id)
+    if e.clock is not None:
+        return ("clock", *e.clock)
     if e.picto is not None:
-        return tuple(astuple(r) for r in e.picto)
+        rows = tuple(astuple(r) for r in e.picto)
+        return rows if e.scale is None else (rows, ("scale", e.scale))
     for drawn in (e.scene, e.measure):
         if drawn is not None:
             return astuple(drawn)

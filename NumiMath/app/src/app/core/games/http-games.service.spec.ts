@@ -145,6 +145,17 @@ describe('Textos accesibles de los juegos', () => {
     expect(optionLabel({ id: 's:mayor', kind: 'symbol', label: '>' })).toBe('mayor que');
   });
 
+  it('"35 __ 42": el hueco del signo se dice ("entre 35 y 42")', () => {
+    expect(spokenEquation('¿Qué signo va? 35 __ 42', '')).toBe('¿Qué signo va entre 35 y 42?');
+  });
+
+  it('las horas y las unidades se leen con palabras', () => {
+    expect(optionLabel({ id: 't:3-30', kind: 'time', label: '3:30' })).toBe('3 y media');
+    expect(optionLabel({ id: 't:12-00', kind: 'time', label: '12:00' })).toBe('12 en punto');
+    expect(optionLabel({ id: 's:cm', kind: 'symbol', label: 'cm' })).toBe('centímetros');
+    expect(optionLabel({ id: 's:m', kind: 'symbol', label: 'm' })).toBe('metros');
+  });
+
   it('el "?" suelto de "5 = 3 + ?" se dice, concordando con el objeto', () => {
     expect(spokenEquation('5 = 3 + ? ', '🍎🍎🍎')).toBe('5 es igual a 3 más ¿cuántas manzanas?');
     expect(spokenEquation('9 = 4 + ? ', '⚽⚽⚽⚽')).toBe('9 es igual a 4 más ¿cuántas pelotas?');

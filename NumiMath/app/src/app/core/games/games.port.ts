@@ -46,6 +46,12 @@ export interface GameExercise {
   measure?: GameMeasure | null;
   /** 2°: decenas y unidades dibujadas como bloques. */
   blocks?: { tens: number; ones: number } | null;
+  /** 2°: una figura grande sobre las opciones (lados y vértices). */
+  figure?: GameOption | null;
+  /** 2°: reloj dibujado (hora 1 a 12, minuto 0 o 30). */
+  clock?: { hour: number; minute: number } | null;
+  /** 2°: pictograma con escala (cada ícono vale `scale`). */
+  scale?: number | null;
 }
 
 /** Escena en cruz: un objeto al centro y cada opción en una posición. */

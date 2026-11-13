@@ -39,6 +39,13 @@ export const GAME_TEXT = {
   patternRow: (labels: string[]) => `En la fila: ${labels.join(', ')}. ¿Qué sigue?`,
   pictoCaption: 'Pictograma',
   // Bloques (2°): describe lo que se ve, sin decir el número (que es la respuesta).
+  pictoIcons: (n: number) => `${n} ${n === 1 ? 'ícono' : 'íconos'}`,
+  /** El reloj por sus manecillas (no la hora, que es la respuesta). */
+  clockLabel: (hour: number, minute: number) => {
+    const next = (hour % 12) + 1;
+    const short = minute === 0 ? `en el ${hour}` : `entre el ${hour} y el ${next}`;
+    return `Reloj: la manecilla corta está ${short} y la larga en el ${minute === 0 ? 12 : 6}.`;
+  },
   blocksLabel: (tens: number, ones: number) =>
     `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`,
   measureClips: 'Clips',
@@ -82,6 +89,10 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
   'suma-bloques-2': 'Junta los bloques. Diez cubitos forman una barra.',
   'grupos-iguales-2': 'Cuenta los grupos iguales y toca el total.',
   'completa-patron-2': 'Mira si el patrón sube o baja y pon los que faltan.',
+  'cuenta-lados-2': 'Cuenta los lados o las esquinas de la figura.',
+  'elige-unidad-2': 'Piensa si es chico o grande y elige la unidad.',
+  'lee-reloj-2': 'La manecilla corta marca la hora. Toca la hora del reloj.',
+  'pictograma-escala-2': 'Mira cuánto vale cada ícono y cuenta.',
 };
 export const DEFAULT_INSTRUCTION = 'Mira bien y elige.';
 
@@ -100,6 +111,8 @@ const SYMBOL_NAMES: Record<string, string> = {
   mayor: 'mayor que',
   menor: 'menor que',
   igual: 'igual a',
+  cm: 'centímetros',
+  m: 'metros',
 };
 
 /** Nombre de un objeto de la escena (`e:pelota-1` → "pelota"). */
@@ -120,6 +133,9 @@ export function optionLabel(option: GameOption): string {
     }
   }
   if (prefix === 's' && SYMBOL_NAMES[value]) return SYMBOL_NAMES[value];
+  // Hora (`t:3-30`): "3 y media" o "3 en punto" (el lector no lee "3:30" como hora).
+  const time = prefix === 't' ? /^(\d{1,2})-(00|30)$/.exec(value) : null;
+  if (time) return `${Number(time[1])} ${time[2] === '30' ? 'y media' : 'en punto'}`;
   return option.label;
 }
 
@@ -129,6 +145,9 @@ export function optionLabel(option: GameOption): string {
  * "5 es igual a 3 más ¿cuántas manzanas?". Sin hueco, null (se lee el enunciado tal cual).
  */
 export function spokenEquation(before: string, glyphs: string): string | null {
+  // "¿Qué signo va? 35 __ 42": el lector no lee el hueco → "¿Qué signo va entre 35 y 42?".
+  const sign = /^(.*)\?\s+(\S+)\s+__\s+(\S+)$/.exec(before.trim());
+  if (sign) return `${sign[1]} entre ${sign[2]} y ${sign[3]}?`;
   if (!/(^|\s)\?(?=\s|$)/.test(before)) return null;
   const names = Object.values(EMOJI_NAMES).find((n) => glyphs.includes(n.glyph));
   const blank = names ? `¿${names.feminine ? 'cuántas' : 'cuántos'} ${names.plural}?` : '¿cuántos?';

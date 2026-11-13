@@ -55,7 +55,7 @@
             <app-weekly-chart [data]="progress.weeks" [kid]="true"></app-weekly-chart>
             <p class="evolution-note" data-testid="evolution-cheer">{{ evolutionMessages.cheer }}</p>
           } @else {
-            <p class="evolution-note" data-testid="evolution-few">{{ evolutionMessages.few }}</p>
+            <p class="evolution-note" data-testid="evolution-few">{{ evolutionMessages.few(missingExercises, progress.weeks.length) }}</p>
           }
         </section>
 

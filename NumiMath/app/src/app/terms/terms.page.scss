@@ -26,3 +26,19 @@ ion-item {
 ion-button {
   margin-top: 16px;
 }
+
+.leave {
+  margin: 24px 0 0;
+  text-align: center;
+}
+
+.leave-link {
+  padding: 8px;
+  border: 0;
+  background: none;
+  color: var(--ion-color-medium-shade);
+  font: inherit;
+  font-size: 0.95rem;
+  text-decoration: underline;
+  cursor: pointer;
+}

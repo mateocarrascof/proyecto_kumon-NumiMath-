@@ -18,6 +18,7 @@ async function hash(text: string): Promise<string> {
 
 interface Setup {
   inserted: unknown[];
+  eqCalls: [string, string][];
   service: SupabaseConsentService;
 }
 
@@ -29,6 +30,8 @@ async function setup(opts: {
   /** La tabla de versiones vigentes responde vacía (sin error). */
   noVersions?: boolean;
   insertError?: { message: string } | null;
+  /** Sin sesión de tutor. */
+  noUser?: boolean;
 }): Promise<Setup> {
   const rows = [
     { id: 't1', kind: 'terms', version: 'tos-1', content_sha256: await hash(TEXTS['terminos.md']) },
@@ -43,6 +46,7 @@ async function setup(opts: {
     { id: 'd1', kind: 'teacher_authorization', version: 'doc-1', content_sha256: 'f'.repeat(64) },
   ];
   const inserted: unknown[] = [];
+  const eqCalls: [string, string][] = [];
   const client = {
     from: (table: string) => {
       if (table === 'legal_document_versions') {
@@ -50,14 +54,17 @@ async function setup(opts: {
           select: () => ({ eq: async () => ({ data: opts.noVersions ? [] : rows, error: null }) }),
         };
       }
+      const result = async () => ({
+        data: opts.consentError ? null : opts.lastConsent ? [opts.lastConsent] : [],
+        error: opts.consentError ?? null,
+      });
       return {
         select: () => ({
-          order: () => ({
-            limit: async () => ({
-              data: opts.consentError ? null : opts.lastConsent ? [opts.lastConsent] : [],
-              error: opts.consentError ?? null,
-            }),
-          }),
+          order: () => ({ limit: result }),
+          eq: (column: string, value: string) => {
+            eqCalls.push([column, value]);
+            return { limit: result };
+          },
         }),
         insert: async (row: unknown) => {
           inserted.push(row);
@@ -77,10 +84,13 @@ async function setup(opts: {
   TestBed.configureTestingModule({
     providers: [
       { provide: SUPABASE_CLIENT, useValue: client },
-      { provide: AuthPort, useValue: { user: signal({ id: 'tutor-1', email: 'a@b.test' }) } },
+      {
+        provide: AuthPort,
+        useValue: { user: signal(opts.noUser ? null : { id: 'tutor-1', email: 'a@b.test' }) },
+      },
     ],
   });
-  return { inserted, service: TestBed.inject(SupabaseConsentService) };
+  return { inserted, eqCalls, service: TestBed.inject(SupabaseConsentService) };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -164,5 +174,29 @@ describe('SupabaseConsentService', () => {
   it('consentStatus: si la consulta falla (sin red) es unknown, no missing', async () => {
     const { service } = await setup({ consentError: { message: 'Failed to fetch' } });
     expect(await service.consentStatus()).toBe('unknown');
+  });
+
+  it('hasConsentHistory: sin eventos es false (primera vez)', async () => {
+    const { service } = await setup({ lastConsent: null });
+    expect(await service.hasConsentHistory()).toBe(false);
+  });
+
+  it('hasConsentHistory: con algún evento (grant o revoke) es true, filtrando por el tutor', async () => {
+    const { service, eqCalls } = await setup({
+      lastConsent: { event_type: 'revoke', terms_version_id: 't1', privacy_version_id: 'p1' },
+    });
+    expect(await service.hasConsentHistory()).toBe(true);
+    expect(eqCalls).toEqual([['tutor_id', 'tutor-1']]);
+  });
+
+  it('hasConsentHistory: sin sesión es null (no consulta)', async () => {
+    const { service, eqCalls } = await setup({ noUser: true });
+    expect(await service.hasConsentHistory()).toBeNull();
+    expect(eqCalls).toEqual([]);
+  });
+
+  it('hasConsentHistory: si la consulta falla es null (no se sabe)', async () => {
+    const { service } = await setup({ consentError: { message: 'Failed to fetch' } });
+    expect(await service.hasConsentHistory()).toBeNull();
   });
 });

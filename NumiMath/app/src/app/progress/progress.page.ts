@@ -34,7 +34,17 @@ export const STREAK_BADGE = 5;
 export const MIN_EVOLUTION_EXERCISES = 5;
 
 export const EVOLUTION_MESSAGES = {
-  few: 'Aún hay pocos ejercicios para ver tu avance',
+  /**
+   * Para el niño (6–7 años): la acción primero, sin "mínimo" ni "evolución". `missing` y `weeks`
+   * salen de la misma regla que decide si se muestra el gráfico (suma de `progress.weeks`), y el
+   * texto dice esa ventana para que no choque con el total de siempre.
+   */
+  few: (missing: number, weeks: number): string => {
+    const action = missing === 1 ? '¡Haz 1 ejercicio más' : `¡Haz ${missing} ejercicios más`;
+    const window =
+      weeks === 1 ? 'de esta semana' : weeks > 1 ? `de las últimas ${weeks} semanas` : 'de las últimas semanas';
+    return `${action} y verás tu avance! Aquí cuentan los ejercicios ${window}.`;
+  },
   cheer: '¡Cada semana que practicas, aprendes más!',
 } as const;
 
@@ -64,6 +74,11 @@ export class ProgressPage implements OnInit {
   /** Ejercicios de las últimas 8 semanas (solo práctica: el diagnóstico no cuenta). */
   get weeksTotal(): number {
     return (this.progress?.weeks ?? []).reduce((n, w) => n + w.total, 0);
+  }
+
+  /** Ejercicios que faltan para ver el gráfico (0 si ya se muestra). */
+  get missingExercises(): number {
+    return Math.max(0, MIN_EVOLUTION_EXERCISES - this.weeksTotal);
   }
 
   get showEvolution(): boolean {

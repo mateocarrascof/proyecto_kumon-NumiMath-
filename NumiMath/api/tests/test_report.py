@@ -35,7 +35,15 @@ def _kinds(feedback: list) -> list[str]:  # type: ignore[type-arg]
 def test_con_pocos_datos_solo_da_un_aviso() -> None:
     out = build_feedback(3, [TopicStat("Sumas", 3, 3)], 1, [])
     assert _kinds(out) == ["info"]
-    assert "pocos ejercicios" in out[0].text
+    assert out[0].text == (
+        "Aún hay pocos ejercicios. Faltan 2 para sacar conclusiones. ¡Anímalo a practicar!"
+    )
+
+
+def test_con_pocos_datos_dice_cuantos_faltan_en_singular_y_plural() -> None:
+    assert "Falta 1 para" in build_feedback(4, [], 0, [])[0].text
+    assert "Faltan 5 para" in build_feedback(0, [], 0, [])[0].text
+    assert all("pocos" not in f.text for f in build_feedback(5, [], 0, []))
 
 
 def test_punto_fuerte_y_tema_a_reforzar() -> None:

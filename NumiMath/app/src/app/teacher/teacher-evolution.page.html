@@ -16,7 +16,7 @@
     } @else {
       <p>Ejercicios y aciertos por semana, desde que el tutor te vinculó con este alumno (últimas 8 semanas).</p>
       @if (fewExercises) {
-        <p data-testid="evolution-few">Aún hay pocos ejercicios para sacar conclusiones.</p>
+        <p data-testid="evolution-few">{{ fewMessage }}</p>
       }
       <app-weekly-chart [data]="weeks" data-testid="evolution-chart"></app-weekly-chart>
     }

@@ -31,5 +31,11 @@ export abstract class ConsentPort {
    *   para no borrar los datos guardados sin conexión por una simple falla de red (CU-A12).
    */
   abstract consentStatus(): Promise<ConsentStatus>;
+  /**
+   * ¿El tutor registró alguna vez un evento de consentimiento (aceptó antes, revocó o hay una
+   * versión nueva)? `false` = primera vez; `null` = no se pudo consultar (quien llama decide; la
+   * pantalla de términos falla abierto y deja ver "Eliminar mi cuenta").
+   */
+  abstract hasConsentHistory(): Promise<boolean | null>;
   abstract accept(bundle: LegalBundle): Promise<ConsentResult>;
 }

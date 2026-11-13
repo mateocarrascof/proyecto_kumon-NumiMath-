@@ -55,10 +55,12 @@ def build_feedback(
 ) -> list[Feedback]:
     """`weeks` va de la más antigua a la más reciente (la última es la semana actual)."""
     if total < MIN_ATTEMPTS:
+        missing = MIN_ATTEMPTS - max(total, 0)
+        count = "Falta 1" if missing == 1 else f"Faltan {missing}"
         return [
             Feedback(
                 "info",
-                "Aún hay pocos ejercicios para sacar conclusiones. ¡Anímalo a practicar!",
+                f"Aún hay pocos ejercicios. {count} para sacar conclusiones. ¡Anímalo a practicar!",
             )
         ]
 

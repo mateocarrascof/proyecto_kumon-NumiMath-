@@ -18,7 +18,13 @@ function doc(kind: 'terms' | 'privacy' | 'adult_declaration', verified: boolean)
   return { id: kind, kind, version: `${kind}-1`, text: 'texto', verified };
 }
 
-function setup(verified = true, loadFails = false, query: Record<string, string> = {}) {
+/** `history`: respuesta de hasConsentHistory (false = primera vez; 'throw' = la consulta lanza). */
+function setup(
+  verified = true,
+  loadFails = false,
+  query: Record<string, string> = {},
+  history: boolean | null | 'throw' = false,
+) {
   const bundle: LegalBundle = {
     terms: doc('terms', verified),
     privacy: doc('privacy', true),
@@ -40,6 +46,10 @@ function setup(verified = true, loadFails = false, query: Record<string, string>
             return bundle;
           },
           accept,
+          hasConsentHistory: vi.fn(async () => {
+            if (history === 'throw') throw new Error('x');
+            return history;
+          }),
         },
       },
       { provide: NavController, useValue: { navigateRoot } },
@@ -131,10 +141,44 @@ describe('TermsPage', () => {
     expect(page.revocation?.days).toBeNull();
   });
 
-  it('ofrece eliminar la cuenta aunque no se acepten los términos', async () => {
-    const { page, fixture } = setup();
-    await page.ngOnInit();
+  async function deleteShown(fixture: ReturnType<typeof setup>['fixture']): Promise<boolean> {
+    await fixture.componentInstance.ngOnInit();
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="open-delete-account"]')).not.toBeNull();
+    return !!(fixture.nativeElement as HTMLElement).querySelector('[data-testid="open-delete-account"]');
+  }
+
+  it('primera aceptación: solo un enlace discreto, que abre el bloque para eliminar la cuenta', async () => {
+    const { fixture, page } = setup(true, false, {}, false);
+    expect(await deleteShown(fixture)).toBe(false);
+    const el = fixture.nativeElement as HTMLElement;
+    const link = el.querySelector<HTMLButtonElement>('[data-testid="reveal-delete-account"]');
+    expect(link?.textContent).toContain('¿No quieres continuar? Eliminar mi cuenta');
+    link?.click();
+    fixture.detectChanges();
+    expect(page.deleteRevealed).toBe(true);
+    expect(el.querySelector('[data-testid="open-delete-account"]')).not.toBeNull();
+    expect(el.querySelector('[data-testid="reveal-delete-account"]')).toBeNull();
+  });
+
+  it('con el bloque visible (revocación o historial) no muestra el enlace', async () => {
+    const { fixture } = setup(true, false, {}, true);
+    await deleteShown(fixture);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="reveal-delete-account"]')).toBeNull();
+  });
+
+  it('tras una revocación: ofrece eliminar la cuenta aunque no se acepten los términos', async () => {
+    const { fixture } = setup(true, false, { revocado: '2026-11-11T15:30:00+00:00' }, false);
+    expect(await deleteShown(fixture)).toBe(true);
+  });
+
+  it('por cambio de versión (ya aceptó antes): ofrece eliminar la cuenta', async () => {
+    const { fixture } = setup(true, false, {}, true);
+    expect(await deleteShown(fixture)).toBe(true);
+  });
+
+  it('si la consulta del historial falla: ofrece eliminar la cuenta (falla abierto)', async () => {
+    expect(await deleteShown(setup(true, false, {}, null).fixture)).toBe(true);
+    TestBed.resetTestingModule();
+    expect(await deleteShown(setup(true, false, {}, 'throw').fixture)).toBe(true);
   });
 });

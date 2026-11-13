@@ -28,6 +28,19 @@ export class TermsPage implements OnInit {
   /** Constancia que llega desde "Revocar mi consentimiento" (solo fechas; sin datos personales). */
   revocation: { when: string; purgeOn: string | null; days: number | null } | null = null;
 
+  /**
+   * Bloque "Eliminar mi cuenta" visible desde el inicio: tras una revocación, por una versión nueva
+   * o ante la duda (falla abierto). En la primera aceptación queda tras un enlace discreto
+   * (`deleteRevealed`): sin consentimiento el panel no se abre, así que debe poder salir desde aquí.
+   */
+  showDeleteAccount = false;
+  deleteRevealed = false;
+
+  revealDelete(): void {
+    this.deleteRevealed = true;
+    this.cdr.markForCheck();
+  }
+
   get verified(): boolean {
     return !!this.bundle && this.bundle.terms.verified && this.bundle.privacy.verified;
   }
@@ -35,6 +48,7 @@ export class TermsPage implements OnInit {
   async ngOnInit(): Promise<void> {
     this.readRevocation();
     this.mascot.set('thinking');
+    const history = this.revocation ? Promise.resolve(true) : this.consentHistory();
     try {
       this.bundle = await this.consent.loadCurrent();
       if (this.verified) {
@@ -47,8 +61,17 @@ export class TermsPage implements OnInit {
       this.error = 'No pude cargar los términos. Revisa que la base esté encendida e inténtalo de nuevo.';
       this.mascot.set('sad');
     } finally {
+      this.showDeleteAccount = (await history) !== false;
       this.loading = false;
       this.cdr.markForCheck();
+    }
+  }
+
+  private async consentHistory(): Promise<boolean | null> {
+    try {
+      return await this.consent.hasConsentHistory();
+    } catch {
+      return null;
     }
   }
 

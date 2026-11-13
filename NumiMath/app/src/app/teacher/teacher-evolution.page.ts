@@ -32,6 +32,13 @@ export class TeacherEvolutionPage implements OnInit {
     return this.total < MIN_EXERCISES;
   }
 
+  /** "Aún hay pocos ejercicios. Faltan N para ver la evolución (mínimo 5)." (singular con 1). */
+  get fewMessage(): string {
+    const missing = Math.max(0, MIN_EXERCISES - this.total);
+    const count = missing === 1 ? 'Falta 1' : `Faltan ${missing}`;
+    return `Aún hay pocos ejercicios. ${count} para ver la evolución (mínimo ${MIN_EXERCISES}).`;
+  }
+
   async ngOnInit(): Promise<void> {
     this.studentId = this.route?.snapshot.paramMap.get('id') ?? '';
     const result = await this.teacher.getEvolution(this.studentId);

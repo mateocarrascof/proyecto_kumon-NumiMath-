@@ -1,11 +1,16 @@
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { NavController } from '@ionic/angular/lazy';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { IonContent, NavController } from '@ionic/angular/lazy';
+import { addIcons } from 'ionicons';
+import { clipboard, people, personCircle, statsChart } from 'ionicons/icons';
 
 import {
   Assignment,
   AssignmentsPort,
   TutorError,
 } from '../core/assignments/assignments.port';
+import { AuthPort } from '../core/auth/auth.port';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { isOffline } from '../core/offline/offline-access';
 import { requestPersistentStorage } from '../core/offline/persistent-storage';
 import { ParentalSession } from '../core/parental/parental-session';
 import { ParentalPort, PinError } from '../core/parental/parental.port';
@@ -24,6 +29,16 @@ const ERRORS: Record<string, string> = {
   unavailable: 'No pude cargar los datos. Inténtalo en un momento.',
   not_found: 'Esa tarea ya no se puede borrar (quizás ya la respondió).',
 };
+
+/** Pestañas del panel (barra inferior). Cambiar de pestaña no navega: no sale de la zona del tutor. */
+export type PanelTab = 'progreso' | 'tareas' | 'hijos' | 'cuenta';
+
+export const PANEL_TABS: readonly { id: PanelTab; label: string; icon: string }[] = [
+  { id: 'progreso', label: 'Progreso', icon: 'stats-chart' },
+  { id: 'tareas', label: 'Tareas', icon: 'clipboard' },
+  { id: 'hijos', label: 'Mis hijos', icon: 'people' },
+  { id: 'cuenta', label: 'Cuenta', icon: 'person-circle' },
+];
 
 const FEEDBACK_ICONS: Record<FeedbackKind, string> = {
   info: 'ℹ️',
@@ -52,6 +67,24 @@ export class TutorPanelPage implements OnInit {
   private readonly parental = inject(ParentalPort);
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly auth = inject(AuthPort);
+  private readonly connectivity = inject(ConnectivityService);
+  @ViewChild(IonContent) private readonly content?: IonContent;
+
+  constructor() {
+    addIcons({ statsChart, clipboard, people, personCircle });
+  }
+
+  /**
+   * Pestaña visible. No se guarda (ni URL ni almacenamiento): al entrar abre Progreso, o Mis hijos
+   * si no hay perfiles. Es solo estado de la página: no hay navegación, así que el token del PIN
+   * sigue vivo (ParentalZoneWatcher solo lo borra al salir de /panel o /pin).
+   */
+  tab: PanelTab = 'progreso';
+  /** "Cerrar sesión" en curso: el botón queda desactivado (evita el doble toque). */
+  signingOut = false;
+  protected readonly tabs = PANEL_TABS;
 
   profiles: Profile[] = [];
   studentId = '';
@@ -115,8 +148,66 @@ export class TutorPanelPage implements OnInit {
     // porque el navegador puede mostrar un diálogo que un niño no debe ver.
     void requestPersistentStorage();
     await this.loadProfiles();
+    if (!this.profiles.length && !this.profilesError) this.tab = 'hijos';
     this.loading = false;
     this.cdr.markForCheck();
+  }
+
+  selectTab(id: PanelTab): void {
+    if (id === this.tab || !this.pinStillValid()) return;
+    this.tab = id;
+    void this.content?.scrollToTop(0);
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Enlaces de "Tus derechos sobre los datos": va a la pestaña, abre la sección plegada y le da el
+   * foco (sin subir al inicio: la sección queda a la vista).
+   */
+  openSection(tab: PanelTab, fold: 'fold-export' | 'fold-revoke' | 'fold-delete'): void {
+    if (!this.pinStillValid()) return;
+    this.tab = tab;
+    this.cdr.detectChanges();
+    const details = this.host.nativeElement.querySelector<HTMLDetailsElement>(`[data-testid="${fold}"]`);
+    if (!details) return; // exportar sin perfiles: solo se abre "Mis hijos"
+    details.open = true;
+    const summary = details.querySelector<HTMLElement>(':scope > summary');
+    summary?.focus();
+    summary?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+  }
+
+  /**
+   * Si el token del PIN venció con el panel abierto, cambiar de pestaña vuelve a pedirlo (la misma
+   * salida que cuando el servidor responde `parental_required`). Usa ParentalSession.isUnlocked().
+   */
+  private pinStillValid(): boolean {
+    if (this.session.isUnlocked()) return true;
+    this.session.end();
+    void this.nav.navigateRoot('/pin');
+    return false;
+  }
+
+  /** Teclado en la barra de pestañas (patrón WAI-ARIA "tabs", activación automática). */
+  onTabKey(event: KeyboardEvent): void {
+    const i = this.tabs.findIndex((t) => t.id === this.tab);
+    const last = this.tabs.length - 1;
+    const next: Record<string, number> = {
+      ArrowRight: i === last ? 0 : i + 1,
+      ArrowLeft: i === 0 ? last : i - 1,
+      Home: 0,
+      End: last,
+    };
+    if (!(event.key in next)) return;
+    event.preventDefault();
+    const id = this.tabs[next[event.key]].id;
+    this.selectTab(id);
+    const bar = (event.currentTarget as HTMLElement | null)?.closest('[role="tablist"]');
+    bar?.querySelector<HTMLElement>(`#tab-${id}`)?.focus();
+  }
+
+  /** Igual que en /home: sin conexión no se ofrece (borraría los intentos sin enviar, CU-A12). */
+  protected offline(): boolean {
+    return isOffline(this.connectivity);
   }
 
   /** Lee los perfiles y mantiene el elegido si sigue existiendo. */
@@ -213,6 +304,25 @@ export class TutorPanelPage implements OnInit {
 
   changePin(): Promise<boolean> {
     return this.nav.navigateForward('/pin', { queryParams: { cambiar: '1' } });
+  }
+
+  /**
+   * Cerrar sesión, el mismo mecanismo que /home. Borra el token del PIN antes (además lo borran
+   * ParentalZoneWatcher al navegar a /login y al cambiar el usuario conectado).
+   */
+  async signOut(): Promise<void> {
+    if (this.offline() || this.signingOut) return;
+    this.signingOut = true;
+    this.session.end();
+    this.cdr.markForCheck();
+    try {
+      await this.auth.signOut();
+    } catch {
+      // Aunque falle, se sale del panel: el token ya se borró y los datos no deben quedar a la vista.
+    } finally {
+      // navigateRoot vacía la pila: el panel (con los datos de los niños) no queda en memoria.
+      await this.nav.navigateRoot('/login');
+    }
   }
 
   /** Cierra la zona del tutor: borra el token del PIN. */

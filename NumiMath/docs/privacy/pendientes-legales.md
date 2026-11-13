@@ -269,6 +269,11 @@ Las referencias a artículos de la Ley 21.719 y de las demás leyes están **sin
 5. **Bloqueos previos:** los perfiles que ya estaban bloqueados (`tutor_request`, `arcop_claim`) no se purgan al revocar, así que pueden quedar guardados sin plazo y sin consentimiento. ¿Se purgan con el mismo plazo, o con otro?
 6. **Borrar un solo perfil sin consentimiento:** la API lo permite, pero la interfaz solo ofrece eliminar la cuenta entera tras revocar. ¿Hay que ofrecer el borrado por perfil en `/terminos`?
 **Respuesta:** _pendiente_
+
+## 32. Revocar y eliminar dentro de una sección plegable del panel del tutor
+**Pregunta.** ¿Basta tener revocar y eliminar dentro de una sección plegable del panel del tutor para cumplir el acceso "sencillo y expedito" de la Ley 21.719?
+**Estado actual.** Desde 2026-11-13 el panel tiene cuatro pestañas. En **Cuenta** hay una línea fija, sin plegar: "Tus derechos sobre los datos: exportar, revocar, eliminar", con enlaces que abren cada sección. Al fondo, en una "Zona delicada", están "Revocar mi consentimiento" y "Eliminar mi cuenta" como secciones plegables con su título a la vista. "Exportar sus datos" está plegado en **Mis hijos**. Todo exige el PIN (zona del tutor). La política provisional (`docs/legal-provisional/privacidad.md`, punto 7) no dice dónde se ejerce cada derecho.
+**Respuesta:** _pendiente_
 ---
 
 # P3 — Después, con fecha

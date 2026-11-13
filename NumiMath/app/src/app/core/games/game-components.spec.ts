@@ -166,6 +166,17 @@ describe('ChoiceOptionsComponent: color por posición (solo decoración)', () =>
     }
   });
 
+  it('protección: un contenido largo se ajusta dentro del botón y todas las opciones crecen juntas', () => {
+    const css = componentCss();
+    const block = (sel: string) => css.match(new RegExp(String.raw`${sel}\[[^\]]+\]\s*\{([^}]*)\}`))?.[1] ?? '';
+    const option = block(String.raw`\.option`);
+    expect(option).toMatch(/min-height:\s*68px/);
+    expect(option).not.toMatch(/(^|[^-])height:\s*\d/); // sin alto fijo que corte el contenido
+    expect(option).toMatch(/flex-wrap:\s*wrap/);
+    expect(block(String.raw`\.options`)).toMatch(/grid-auto-rows:\s*1fr/); // mismo alto para todas
+    expect(block(String.raw`\.value`)).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+
   it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3', () => {
     for (const { bg, accent } of OPTION_POSITION_COLORS) {
       expect(contrast('#1a202c', bg), bg).toBeGreaterThanOrEqual(4.5);

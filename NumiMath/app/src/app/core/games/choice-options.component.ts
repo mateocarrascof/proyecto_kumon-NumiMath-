@@ -79,6 +79,8 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
       .options {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+        /* Filas iguales: si un contenido largo hace crecer una opción, crecen todas (mismo alto). */
+        grid-auto-rows: 1fr;
         gap: 10px;
         width: 100%;
         max-width: 480px;
@@ -86,7 +88,10 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
       }
       .option {
         position: relative;
-        height: 68px; /* objetivo táctil grande para dedos pequeños */
+        /* Objetivo táctil grande para dedos pequeños. Mínimo y no fijo: un contenido largo se ajusta
+           dentro del botón (en varias líneas) en vez de salirse. */
+        min-height: 68px;
+        min-width: 0;
         padding: 4px 20px; /* simétrico: deja lugar a la franja y el valor queda al centro */
         border-radius: 18px;
         border: 3px solid var(--pos-accent, #4a5568);
@@ -96,9 +101,11 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
         color: #1a202c;
         display: flex;
         flex-direction: row;
+        flex-wrap: wrap; /* sin espacio, "Esta era" / "Tu elección" pasa abajo del valor */
         align-items: center;
+        align-content: center;
         justify-content: center;
-        gap: 10px;
+        gap: 2px 10px;
         font: inherit;
         cursor: pointer;
         transition: transform 0.15s ease;
@@ -119,6 +126,8 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
         padding: 4px 8px 4px 14px;
       }
       .value {
+        min-width: 0;
+        max-width: 100%;
         font-size: 1.8rem;
         font-weight: 700;
         line-height: 1.1;
@@ -165,6 +174,7 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
         box-shadow: none;
       }
       .badge {
+        flex: none;
         font-size: 0.95rem;
         font-weight: 700;
       }
@@ -178,7 +188,7 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
           gap: 8px;
         }
         .option {
-          height: 62px;
+          min-height: 62px;
         }
       }
       @media (prefers-reduced-motion: reduce) {

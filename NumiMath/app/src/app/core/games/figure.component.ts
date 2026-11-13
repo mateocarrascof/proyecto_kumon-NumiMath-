@@ -33,6 +33,12 @@ const UNKNOWN_COLOR = '#cbd5e0';
           @case ('triangulo') {
             <polygon points="30,6 56,52 4,52" />
           }
+          @case ('pentagono') {
+            <polygon points="30,4 56,23 46,54 14,54 4,23" />
+          }
+          @case ('hexagono') {
+            <polygon points="16,6 44,6 58,30 44,54 16,54 2,30" />
+          }
           @case ('rectangulo') {
             <rect x="2" y="17" width="56" height="26" />
           }

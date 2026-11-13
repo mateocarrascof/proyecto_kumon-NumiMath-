@@ -96,6 +96,16 @@ class GameMeasureOut(BaseModel):
     length: int
 
 
+class GameClockOut(BaseModel):
+    hour: int
+    minute: int
+
+
+class GameBlocksOut(BaseModel):
+    tens: int
+    ones: int
+
+
 class GameExerciseOut(BaseModel):
     token: str
     game_id: str
@@ -110,6 +120,10 @@ class GameExerciseOut(BaseModel):
     scene: GameSceneOut | None = None
     picto: list[GamePictoRowOut] | None = None
     measure: GameMeasureOut | None = None
+    blocks: GameBlocksOut | None = None
+    figure: GameOptionOut | None = None
+    clock: GameClockOut | None = None
+    scale: int | None = None
 
 
 class GameAnswerIn(BaseModel):
@@ -202,6 +216,16 @@ async def new_game_exercise(
             if ex.measure is not None
             else None
         ),
+        blocks=(
+            GameBlocksOut(tens=ex.blocks[0], ones=ex.blocks[1]) if ex.blocks is not None else None
+        ),
+        figure=(
+            GameOptionOut(id=ex.figure.id, kind=ex.figure.kind, label=ex.figure.label)
+            if ex.figure is not None
+            else None
+        ),
+        clock=GameClockOut(hour=ex.clock[0], minute=ex.clock[1]) if ex.clock is not None else None,
+        scale=ex.scale,
     )
 
 

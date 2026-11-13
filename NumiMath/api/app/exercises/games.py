@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 GameKind = Literal["choice", "order", "fill"]
-OptionKind = Literal["number", "emoji", "symbol", "figure"]
+OptionKind = Literal["number", "emoji", "symbol", "figure", "time"]
 
 # Ejes del catálogo curricular (columna `modulo` de docs/habilidades_1a4_basico.csv).
 NUMBERS = "Números y operaciones"
@@ -61,6 +61,10 @@ class GameExercise:
     scene: GameScene | None = None  # escena en cruz: cada opción en una posición
     picto: tuple[PictoRow, ...] | None = None  # pictograma: una fila por categoría
     measure: GameMeasure | None = None  # un objeto medido con clips o pasos
+    blocks: tuple[int, int] | None = None  # (decenas, unidades) en bloques (2°, parte 4)
+    figure: GameOption | None = None  # una figura grande sobre las opciones (2°)
+    clock: tuple[int, int] | None = None  # (hora 1 a 12, minuto 0 o 30): reloj dibujado (2°)
+    scale: int | None = None  # pictograma con escala: cada ícono vale `scale` (2°)
 
 
 @dataclass(frozen=True)
@@ -128,7 +132,9 @@ _OBJECTS: dict[str, tuple[str, str]] = {
     "pelota": ("⚽", "pelotas"),
     "flor": ("🌸", "flores"),
 }
-_SYMBOLS = {"mayor": ">", "menor": "<", "igual": "="}
+# Símbolos y unidades (2°: `s:cm` y `s:m`). Ningún juego recorre este diccionario: agregar no
+# cambia los publicados.
+_SYMBOLS = {"mayor": ">", "menor": "<", "igual": "=", "cm": "cm", "m": "m"}
 
 
 def _number(value: int) -> GameOption:
@@ -223,29 +229,64 @@ def _what_next(steps: tuple[int, ...], high: int) -> Callable[[random.Random], G
     return make
 
 
-def _fill_steps(rng: random.Random) -> GameExercise:
-    """Completa el camino (tema 1): 6 números contando de 1, 2, 5 o 10 hasta 100, con 2 huecos.
-    Los dos primeros siempre se ven (para descubrir de cuánto en cuánto se cuenta)."""
-    step = rng.choice((1, 2, 5, 10))
-    start = rng.randint(0, (100 - 5 * step) // step) * step
-    values = [start + i * step for i in range(6)]
-    gaps = sorted(rng.sample(range(2, 6), 2))
-    # Dos tarjetas que no van: cerca del camino (±3), distintas de todo el camino y dentro de 0 a
-    # 100 (con pasos de 1 los vecinos de un hueco ya están en el camino: por eso un rango).
-    near = [
-        v for v in range(max(0, values[0] - 3), min(100, values[-1] + 3) + 1) if v not in values
-    ]
-    wrong = rng.sample(near, 2)
-    fixed = [_number(v) for i, v in enumerate(values) if i not in gaps]
-    candidates = _shuffled(rng, [*(_number(values[g]) for g in gaps), *(_number(v) for v in wrong)])
-    slots = tuple(None if i in gaps else f"n:{v}" for i, v in enumerate(values))
-    return GameExercise(
-        "fill",
-        f"Completa el camino: de {step} en {step}.",
-        (*fixed, *candidates),
-        tuple(f"n:{v}" for v in values),
-        slots,
-    )
+def _near_range(values: list[int], gaps: list[int], step: int, high: int) -> list[int]:
+    """Tarjetas que no van (1°): cerca del camino (±3), distintas de todo el camino y dentro de 0
+    a `high` (con pasos de 1 los vecinos de un hueco ya están en el camino: por eso un rango)."""
+    low_end, high_end = min(values), max(values)
+    return [v for v in range(max(0, low_end - 3), min(high, high_end + 3) + 1) if v not in values]
+
+
+def _near_step(values: list[int], gaps: list[int], step: int, high: int) -> list[int]:
+    """Tarjetas que no van (2°): errores creíbles para el paso (±1/10 y ±1/2 del paso de cada
+    hueco: 349 o 345 en un camino de 10 en 10), distintas del camino y dentro de 0 a `high`."""
+    small = max(1, step // 10)
+    pool = {
+        values[g] + sign * delta for g in gaps for sign in (-1, 1) for delta in (small, step // 2)
+    }
+    return sorted(v for v in pool if 0 <= v <= high and v not in values)
+
+
+def _fill_path(
+    steps: tuple[int, ...],
+    high: int,
+    count: int,
+    near: Callable[[list[int], list[int], int, int], list[int]],
+    text: Callable[[int, bool], str],
+    directions: tuple[bool, ...] = (False,),
+) -> Callable[[random.Random], GameExercise]:
+    """Completar un camino de `count` números contando de `step` en `step` (sube o baja), con 2
+    huecos. Los dos primeros siempre se ven (para descubrir de cuánto en cuánto se cuenta)."""
+
+    def make(rng: random.Random) -> GameExercise:
+        step = rng.choice(steps)
+        start = rng.randint(0, (high - (count - 1) * step) // step) * step
+        values = [start + i * step for i in range(count)]
+        # Con una sola dirección no se gasta azar (así completa-camino-1 da lo mismo que antes).
+        down = rng.choice(directions) if len(directions) > 1 else directions[0]
+        if down:
+            values.reverse()
+        gaps = sorted(rng.sample(range(2, count), 2))
+        wrong = rng.sample(near(values, gaps, step, high), 2)
+        fixed = [_number(v) for i, v in enumerate(values) if i not in gaps]
+        candidates = _shuffled(
+            rng, [*(_number(values[g]) for g in gaps), *(_number(v) for v in wrong)]
+        )
+        slots = tuple(None if i in gaps else f"n:{v}" for i, v in enumerate(values))
+        return GameExercise(
+            "fill",
+            text(step, down),
+            (*fixed, *candidates),
+            tuple(f"n:{v}" for v in values),
+            slots,
+        )
+
+    return make
+
+
+# Completa el camino (1°, tema 1): 6 números de 1, 2, 5 o 10 hasta 100.
+_fill_steps = _fill_path(
+    (1, 2, 5, 10), 100, 6, _near_range, lambda step, _: f"Completa el camino: de {step} en {step}."
+)
 
 
 # Objetos con nombre masculino (hoy ninguno: "las manzanas", "las pelotas"). Los textos de los
@@ -328,8 +369,15 @@ _PATTERN_SHAPES = ("circulo", "cuadrado", "triangulo")
 _PATTERN_UNITS: tuple[tuple[int, ...], ...] = ((0, 1), (0, 1, 2), (0, 0, 1), (0, 1, 1))
 
 
+# Polígonos de 2° (lados y vértices). Aparte de _SHAPES: "Toca la figura" (publicado) recorre
+# _SHAPES y no debe cambiar.
+_POLYGONS: dict[str, tuple[str, bool]] = {"pentagono": ("pentágono", False)}
+_POLYGONS["hexagono"] = ("hexágono", False)
+_SIDES = {"triangulo": 3, "cuadrado": 4, "rectangulo": 4, "pentagono": 5, "hexagono": 6}
+
+
 def _figure(shape: str, color: str) -> GameOption:
-    name, feminine = _SHAPES[shape]
+    name, feminine = _SHAPES[shape] if shape in _SHAPES else _POLYGONS[shape]
     return GameOption(f"f:{shape}-{color}", "figure", f"{name} {_COLORS[color][int(feminine)]}")
 
 
@@ -441,6 +489,220 @@ def _pictogram(rng: random.Random) -> GameExercise:
     )
 
 
+# ---- 2° básico (CU-A21, parte 4) --------------------------------------------------------------
+
+_UNITS_WORDS = [
+    "cero",
+    "uno",
+    "dos",
+    "tres",
+    "cuatro",
+    "cinco",
+    "seis",
+    "siete",
+    "ocho",
+    "nueve",
+    "diez",
+    "once",
+    "doce",
+    "trece",
+    "catorce",
+    "quince",
+    "dieciséis",
+    "diecisiete",
+    "dieciocho",
+    "diecinueve",
+    "veinte",
+    "veintiuno",
+    "veintidós",
+    "veintitrés",
+    "veinticuatro",
+    "veinticinco",
+    "veintiséis",
+    "veintisiete",
+    "veintiocho",
+    "veintinueve",
+]
+_TENS_WORDS = {3: "treinta", 4: "cuarenta", 5: "cincuenta", 6: "sesenta", 7: "setenta"}
+_TENS_WORDS |= {8: "ochenta", 9: "noventa"}
+
+
+def number_words(n: int) -> str:
+    """Número de 0 a 100 en palabras: 47 → "cuarenta y siete"."""
+    if not 0 <= n <= 100:
+        raise ValueError(n)
+    if n == 100:
+        return "cien"
+    if n < 30:
+        return _UNITS_WORDS[n]
+    tens, ones = divmod(n, 10)
+    return _TENS_WORDS[tens] if ones == 0 else f"{_TENS_WORDS[tens]} y {_UNITS_WORDS[ones]}"
+
+
+def _read_number(rng: random.Random) -> GameExercise:
+    """Leer números hasta 100 (2°, tema 2): el número en palabras y tocar su representación.
+    Distractores: las cifras al revés (74 por 47) y uno cercano."""
+    n = rng.randint(20, 99)
+    swapped = (n % 10) * 10 + n // 10
+    pool = [v for v in (swapped, n + 10, n - 10, n + 1, n - 1) if 10 <= v <= 100 and v != n]
+    wrong = list(dict.fromkeys(pool))[:1] + rng.sample(list(dict.fromkeys(pool))[1:], 1)
+    return GameExercise(
+        "choice",
+        f"Toca el número {number_words(n)}.",
+        _shuffled(rng, [_number(v) for v in (n, *wrong)]),
+        (f"n:{n}",),
+    )
+
+
+def _blocks_number(rng: random.Random) -> GameExercise:
+    """Componer números (2°, tema 3): decenas y unidades en bloques; "¿qué número forman?"."""
+    tens = rng.randint(1, 9)
+    ones = rng.randint(0, 9)
+    n = tens * 10 + ones
+    pool = [ones * 10 + tens, n + 10, n - 10, n + 1, n - 1]
+    pool = [v for v in dict.fromkeys(pool) if 1 <= v <= 99 and v != n]
+    return GameExercise(
+        "choice",
+        "¿Qué número forman los bloques?",
+        _shuffled(rng, [_number(v) for v in (n, *rng.sample(pool, 2))]),
+        (f"n:{n}",),
+        blocks=(tens, ones),
+    )
+
+
+def _blocks_sum(rng: random.Random) -> GameExercise:
+    """Sumas hasta 100 (2°, tema 4): mitad de las rondas sin reserva y mitad con reserva. Los
+    bloques muestran las decenas y las unidades juntas: con 10 o más unidades hay que agrupar 10
+    en una decena. El error típico (olvidar la decena) es un distractor."""
+    carry = rng.random() < 0.5
+    while True:
+        a, b = rng.randint(11, 79), rng.randint(2, 39)
+        ones = a % 10 + b % 10
+        if a + b <= 99 and (ones >= 10) == carry:
+            break
+    total = a + b
+    # Sin agrupar la decena (con reserva) o agrupando de más (sin reserva); nunca sobre 100.
+    forgot = total - 10 if carry or total + 10 > 100 else total + 10
+    near = rng.choice([v for v in (total + 1, total - 1) if v != forgot])
+    return GameExercise(
+        "choice",
+        f"{a} + {b} = ? Junta los bloques.",
+        _shuffled(rng, [_number(v) for v in (total, forgot, near)]),
+        (f"n:{total}",),
+        blocks=(a // 10 + b // 10, ones),
+    )
+
+
+def _equal_groups(rng: random.Random) -> GameExercise:
+    """Multiplicación como suma repetida (2°, tema 5): grupos iguales de 2, 5 o 10 objetos.
+    Distractores: un grupo de más o de menos (contar mal los grupos)."""
+    size = rng.choice((2, 5, 10))
+    groups = rng.randint(2, 3 if size == 10 else 5)
+    obj = rng.choice(sorted(_OBJECTS))
+    glyph, plural = _OBJECTS[obj]
+    total = size * groups
+    values = [total, total + size, total - size if groups > 1 else total + 2 * size]
+    return GameExercise(
+        "choice",
+        f"¿{_how_many_word(obj)} {plural} hay en total? {' '.join([glyph * size] * groups)}",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{total}",),
+    )
+
+
+# Contar hasta 1.000 (2°, tema 1): 5 números de 10 en 10 o de 100 en 100.
+_count_to_1000 = _fill_path(
+    (10, 100), 1000, 5, _near_step, lambda step, _: f"Completa el camino: de {step} en {step}."
+)
+# Patrones que suben o bajan (2°, tema 6): 6 números de 2, 5 o 10, hasta 100.
+_fill_pattern = _fill_path(
+    (2, 5, 10),
+    100,
+    6,
+    _near_step,
+    lambda step, down: f"Completa el patrón: {'baja' if down else 'sube'} de {step} en {step}.",
+    directions=(False, True),
+)
+
+
+def _count_sides(rng: random.Random) -> GameExercise:
+    """Figuras 2D (2°, tema 8): una figura grande y "¿cuántos lados (o vértices) tiene?"."""
+    shape = rng.choice(sorted(_SIDES))
+    figure = _figure(shape, rng.choice(sorted(_COLORS)))
+    what = rng.choice(("lados", "vértices"))
+    n = _SIDES[shape]
+    values = [n, n + 1, n - 1 if n > 3 else n + 2]
+    return GameExercise(
+        "choice",
+        f"¿Cuántos {what} tiene esta figura?",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{n}",),
+        figure=figure,
+    )
+
+
+# Objetos para elegir la unidad (2°, tema 9): (nombre con artículo, emoji, unidad que conviene).
+_TO_MEASURE = (
+    ("el lápiz", "✏️", "cm"),
+    ("la llave", "🔑", "cm"),
+    ("la cuchara", "🥄", "cm"),
+    ("el bus", "🚌", "m"),
+    ("la casa", "🏠", "m"),
+    ("la ballena", "🐋", "m"),
+)
+
+
+def _choose_unit(rng: random.Random) -> GameExercise:
+    """Longitud en cm y m (2°, tema 9): ¿con qué unidad conviene medir este objeto?"""
+    name, glyph, unit = rng.choice(_TO_MEASURE)
+    return GameExercise(
+        "choice",
+        f"¿Qué usarías para medir {name}: centímetros o metros? {glyph}",
+        _shuffled(rng, [_symbol("cm"), _symbol("m")]),
+        (f"s:{unit}",),
+    )
+
+
+def _time(hour: int, minute: int) -> GameOption:
+    return GameOption(f"t:{hour}-{minute:02d}", "time", f"{hour}:{minute:02d}")
+
+
+def _read_clock(rng: random.Random) -> GameExercise:
+    """Horas y medias horas (2°, tema 10): un reloj dibujado y "¿qué hora marca?". Distractores:
+    la otra media hora de la misma hora y la hora siguiente (leer mal la manecilla corta)."""
+    hour = rng.randint(1, 12)
+    minute = rng.choice((0, 30))
+    options = [_time(hour, minute), _time(hour, 30 - minute), _time(hour % 12 + 1, minute)]
+    return GameExercise(
+        "choice",
+        "¿Qué hora marca el reloj?",
+        _shuffled(rng, options),
+        (options[0].id,),
+        clock=(hour, minute),
+    )
+
+
+def _scaled_pictogram(rng: random.Random) -> GameExercise:
+    """Pictograma con escala (2°, tema 11): cada ícono vale 2 o 5. Distractores: contar los
+    íconos sin la escala (el error típico) y el valor de otra fila."""
+    scale = rng.choice((2, 5))
+    objects = rng.sample(sorted(_OBJECTS), rng.choice((2, 3)))
+    icons = rng.sample(range(1, 7), len(objects))
+    rows = tuple(PictoRow(*_OBJECTS[o], c) for o, c in zip(objects, icons, strict=True))
+    asked = rng.randrange(len(rows))
+    right = icons[asked] * scale
+    other = next(c * scale for i, c in enumerate(icons) if i != asked)
+    values = list(dict.fromkeys([right, icons[asked], other, right + scale]))[:3]
+    return GameExercise(
+        "choice",
+        f"Cada ícono vale {scale}. ¿{_how_many_word(objects[asked])} {rows[asked].name} hay?",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{right}",),
+        picto=rows,
+        scale=scale,
+    )
+
+
 def _which_sign(rng: random.Random) -> GameExercise:
     a = rng.randint(0, 100)
     # Uno de cada cinco, iguales: que "=" también sea respuesta posible.
@@ -499,6 +761,35 @@ GAMES: dict[str, Game] = {
             _what_next((2, 5, 10), 100),
         ),
         Game("compara-signo-2", "¿Qué signo va?", PATTERNS, 2, "choice", "2-16", _which_sign),
+        # CU-A21, parte 4 (2° básico, un juego por tema). Ids nuevos.
+        Game("cuenta-mil-2", "Cuenta hasta 1.000", NUMBERS, 2, "fill", "2-01", _count_to_1000),
+        Game("lee-numero-2", "Lee el número", NUMBERS, 2, "choice", "2-02", _read_number),
+        Game("arma-numero-2", "Decenas y unidades", NUMBERS, 2, "choice", "2-04", _blocks_number),
+        Game("suma-bloques-2", "Suma con bloques", NUMBERS, 2, "choice", "2-07", _blocks_sum),
+        Game("grupos-iguales-2", "Grupos iguales", NUMBERS, 2, "choice", "2-11", _equal_groups),
+        Game("cuenta-lados-2", "Lados y vértices", GEOMETRY, 2, "choice", "2-18", _count_sides),
+        Game(
+            "elige-unidad-2", "Centímetros o metros", MEASUREMENT, 2, "choice", "2-22", _choose_unit
+        ),
+        Game("lee-reloj-2", "¿Qué hora es?", MEASUREMENT, 2, "choice", "2-21", _read_clock),
+        Game(
+            "pictograma-escala-2",
+            "Pictograma con escala",
+            DATA,
+            2,
+            "choice",
+            "2-24",
+            _scaled_pictogram,
+        ),
+        Game(
+            "completa-patron-2",
+            "Patrones que suben y bajan",
+            PATTERNS,
+            2,
+            "fill",
+            "2-15",
+            _fill_pattern,
+        ),
     )
 }
 

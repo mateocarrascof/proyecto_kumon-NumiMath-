@@ -22,6 +22,32 @@ KEY = b"clave-fija-solo-para-salidas-guardadas"
 SEEDS = [uuid.UUID(f"00000000-0000-0000-0000-00000000000{i}") for i in (1, 2, 3)]
 
 GOLDEN = {
+    "arma-numero-2": [
+        (
+            "choice",
+            "¿Qué número forman los bloques?",
+            ("n:45", "n:56", "n:55"),
+            ("n:55",),
+            None,
+            ("blocks", 5, 5),
+        ),
+        (
+            "choice",
+            "¿Qué número forman los bloques?",
+            ("n:52", "n:61", "n:51"),
+            ("n:51",),
+            None,
+            ("blocks", 5, 1),
+        ),
+        (
+            "choice",
+            "¿Qué número forman los bloques?",
+            ("n:88", "n:89", "n:99"),
+            ("n:89",),
+            None,
+            ("blocks", 8, 9),
+        ),
+    ],
     "compara-signo-2": [
         (
             "choice",
@@ -74,6 +100,32 @@ GOLDEN = {
             None,
         ),
     ],
+    "completa-patron-2": [
+        (
+            "fill",
+            "Completa el patrón: baja de 5 en 5.",
+            ("n:75", "n:70", "n:60", "n:50", "n:63", "n:55", "n:65", "n:54"),
+            ("n:75", "n:70", "n:65", "n:60", "n:55", "n:50"),
+            ("n:75", "n:70", None, "n:60", None, "n:50"),
+            None,
+        ),
+        (
+            "fill",
+            "Completa el patrón: sube de 5 en 5.",
+            ("n:15", "n:20", "n:30", "n:35", "n:26", "n:40", "n:25", "n:42"),
+            ("n:15", "n:20", "n:25", "n:30", "n:35", "n:40"),
+            ("n:15", "n:20", None, "n:30", "n:35", None),
+            None,
+        ),
+        (
+            "fill",
+            "Completa el patrón: sube de 5 en 5.",
+            ("n:35", "n:40", "n:45", "n:50", "n:55", "n:60", "n:57", "n:54"),
+            ("n:35", "n:40", "n:45", "n:50", "n:55", "n:60"),
+            ("n:35", "n:40", "n:45", "n:50", None, None),
+            None,
+        ),
+    ],
     "cuantos-1": [
         (
             "choice",
@@ -85,6 +137,58 @@ GOLDEN = {
         ),
         ("choice", "¿Cuántas manzanas hay? 🍎🍎🍎", ("n:4", "n:3", "n:2"), ("n:3",), None, None),
         ("choice", "¿Cuántas pelotas hay? ⚽⚽⚽⚽⚽", ("n:4", "n:5", "n:7"), ("n:5",), None, None),
+    ],
+    "cuenta-lados-2": [
+        (
+            "choice",
+            "¿Cuántos vértices tiene esta figura?",
+            ("n:4", "n:5", "n:6"),
+            ("n:5",),
+            None,
+            ("figure", "f:pentagono-morado"),
+        ),
+        (
+            "choice",
+            "¿Cuántos lados tiene esta figura?",
+            ("n:5", "n:6", "n:4"),
+            ("n:5",),
+            None,
+            ("figure", "f:pentagono-amarillo"),
+        ),
+        (
+            "choice",
+            "¿Cuántos lados tiene esta figura?",
+            ("n:3", "n:5", "n:4"),
+            ("n:4",),
+            None,
+            ("figure", "f:rectangulo-verde"),
+        ),
+    ],
+    "cuenta-mil-2": [
+        (
+            "fill",
+            "Completa el camino: de 100 en 100.",
+            ("n:600", "n:700", "n:800", "n:890", "n:1000", "n:900", "n:910"),
+            ("n:600", "n:700", "n:800", "n:900", "n:1000"),
+            ("n:600", "n:700", "n:800", None, None),
+            None,
+        ),
+        (
+            "fill",
+            "Completa el camino: de 100 en 100.",
+            ("n:0", "n:100", "n:400", "n:250", "n:200", "n:300", "n:150"),
+            ("n:0", "n:100", "n:200", "n:300", "n:400"),
+            ("n:0", "n:100", None, None, "n:400"),
+            None,
+        ),
+        (
+            "fill",
+            "Completa el camino: de 100 en 100.",
+            ("n:400", "n:500", "n:700", "n:790", "n:810", "n:800", "n:600"),
+            ("n:400", "n:500", "n:600", "n:700", "n:800"),
+            ("n:400", "n:500", None, "n:700", None),
+            None,
+        ),
     ],
     "descompone-1": [
         ("choice", "8 = 3 + ? 🍎🍎🍎", ("n:3", "n:5", "n:6"), ("n:5",), None, None),
@@ -170,6 +274,32 @@ GOLDEN = {
             None,
         ),
     ],
+    "elige-unidad-2": [
+        (
+            "choice",
+            "¿Qué usarías para medir la cuchara: centímetros o metros? 🥄",
+            ("s:cm", "s:m"),
+            ("s:cm",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "¿Qué usarías para medir la cuchara: centímetros o metros? 🥄",
+            ("s:m", "s:cm"),
+            ("s:cm",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "¿Qué usarías para medir el bus: centímetros o metros? 🚌",
+            ("s:m", "s:cm"),
+            ("s:m",),
+            None,
+            None,
+        ),
+    ],
     "figura-sigue-1": [
         (
             "choice",
@@ -220,6 +350,32 @@ GOLDEN = {
             ),
         ),
     ],
+    "grupos-iguales-2": [
+        (
+            "choice",
+            "¿Cuántas manzanas hay en total? 🍎🍎🍎🍎🍎 🍎🍎🍎🍎🍎 🍎🍎🍎🍎🍎 🍎🍎🍎🍎🍎",
+            ("n:15", "n:20", "n:25"),
+            ("n:20",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "¿Cuántas flores hay en total? 🌸🌸🌸🌸🌸 🌸🌸🌸🌸🌸",
+            ("n:10", "n:15", "n:5"),
+            ("n:10",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "¿Cuántas flores hay en total? 🌸🌸🌸🌸🌸 🌸🌸🌸🌸🌸 🌸🌸🌸🌸🌸",
+            ("n:10", "n:15", "n:20"),
+            ("n:15",),
+            None,
+            None,
+        ),
+    ],
     "junta-1": [
         (
             "choice",
@@ -244,6 +400,58 @@ GOLDEN = {
             ("n:8",),
             None,
             None,
+        ),
+    ],
+    "lee-numero-2": [
+        (
+            "choice",
+            "Toca el número cincuenta y cinco.",
+            ("n:55", "n:56", "n:65"),
+            ("n:55",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "Toca el número cincuenta y nueve.",
+            ("n:69", "n:95", "n:59"),
+            ("n:59",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "Toca el número setenta y ocho.",
+            ("n:68", "n:87", "n:78"),
+            ("n:78",),
+            None,
+            None,
+        ),
+    ],
+    "lee-reloj-2": [
+        (
+            "choice",
+            "¿Qué hora marca el reloj?",
+            ("t:5-30", "t:6-30", "t:5-00"),
+            ("t:5-30",),
+            None,
+            ("clock", 5, 30),
+        ),
+        (
+            "choice",
+            "¿Qué hora marca el reloj?",
+            ("t:6-00", "t:5-30", "t:5-00"),
+            ("t:5-00",),
+            None,
+            ("clock", 5, 0),
+        ),
+        (
+            "choice",
+            "¿Qué hora marca el reloj?",
+            ("t:9-00", "t:8-30", "t:8-00"),
+            ("t:8-00",),
+            None,
+            ("clock", 8, 0),
         ),
     ],
     "mayor-1": [
@@ -360,6 +568,32 @@ GOLDEN = {
             (("🌸", "flores", 2), ("⭐", "estrellas", 4), ("⚽", "pelotas", 6)),
         ),
     ],
+    "pictograma-escala-2": [
+        (
+            "choice",
+            "Cada ícono vale 5. ¿Cuántas manzanas hay?",
+            ("n:10", "n:15", "n:3"),
+            ("n:15",),
+            None,
+            ((("🍎", "manzanas", 3), ("🌸", "flores", 2), ("⭐", "estrellas", 4)), ("scale", 5)),
+        ),
+        (
+            "choice",
+            "Cada ícono vale 5. ¿Cuántas manzanas hay?",
+            ("n:5", "n:20", "n:1"),
+            ("n:5",),
+            None,
+            ((("🌸", "flores", 4), ("🍎", "manzanas", 1)), ("scale", 5)),
+        ),
+        (
+            "choice",
+            "Cada ícono vale 5. ¿Cuántas pelotas hay?",
+            ("n:5", "n:1", "n:30"),
+            ("n:5",),
+            None,
+            ((("🌸", "flores", 6), ("⚽", "pelotas", 1)), ("scale", 5)),
+        ),
+    ],
     "que-sigue-1": [
         (
             "choice",
@@ -405,6 +639,32 @@ GOLDEN = {
             None,
         ),
     ],
+    "suma-bloques-2": [
+        (
+            "choice",
+            "43 + 17 = ? Junta los bloques.",
+            ("n:59", "n:50", "n:60"),
+            ("n:60",),
+            None,
+            ("blocks", 5, 10),
+        ),
+        (
+            "choice",
+            "50 + 9 = ? Junta los bloques.",
+            ("n:59", "n:69", "n:60"),
+            ("n:59",),
+            None,
+            ("blocks", 5, 9),
+        ),
+        (
+            "choice",
+            "42 + 15 = ? Junta los bloques.",
+            ("n:67", "n:57", "n:56"),
+            ("n:57",),
+            None,
+            ("blocks", 5, 7),
+        ),
+    ],
     "toca-figura-1": [
         (
             "choice",
@@ -438,8 +698,15 @@ def _visual(e: GameExercise) -> object:
     """Lo que se dibuja encima de las opciones (parte 3), o None."""
     if e.pattern is not None:
         return tuple(p.id for p in e.pattern)
+    if e.blocks is not None:
+        return ("blocks", *e.blocks)
+    if e.figure is not None:
+        return ("figure", e.figure.id)
+    if e.clock is not None:
+        return ("clock", *e.clock)
     if e.picto is not None:
-        return tuple(astuple(r) for r in e.picto)
+        rows = tuple(astuple(r) for r in e.picto)
+        return rows if e.scale is None else (rows, ("scale", e.scale))
     for drawn in (e.scene, e.measure):
         if drawn is not None:
             return astuple(drawn)

@@ -296,6 +296,66 @@ describe('GamesPage (CU-A21)', () => {
     expect(answer).toHaveBeenCalledTimes(13);
   });
 
+  it('recorre el catálogo de 2°: cada juego abre, se juega y corrige', async () => {
+    const n = (v: number) => ({ id: `n:${v}`, kind: 'number', label: String(v) });
+    const SAMPLE: Record<string, Partial<GameExercise>> = {
+      'cuenta-mil-2': { kind: 'fill', options: [n(100), n(200), n(300), n(350)], slots: ['n:100', 'n:200', null] },
+      'completa-patron-2': { kind: 'fill', options: [n(20), n(15), n(10), n(11)], slots: ['n:20', 'n:15', null] },
+      'ordena-2': { kind: 'order', options: [n(50), n(20)] },
+      'arma-numero-2': { options: [n(47), n(74)], blocks: { tens: 4, ones: 7 } },
+      'suma-bloques-2': { options: [n(41), n(31)], blocks: { tens: 3, ones: 11 } },
+      'cuenta-lados-2': { options: [n(5), n(6)], figure: { id: 'f:pentagono-rojo', kind: 'figure', label: 'pentágono rojo' } },
+      'elige-unidad-2': { options: [{ id: 's:cm', kind: 'symbol', label: 'cm' }, { id: 's:m', kind: 'symbol', label: 'm' }] },
+      'lee-reloj-2': { options: [{ id: 't:3-30', kind: 'time', label: '3:30' }, { id: 't:3-00', kind: 'time', label: '3:00' }], clock: { hour: 3, minute: 30 } },
+      'pictograma-escala-2': { options: [n(6), n(3)], picto: [{ glyph: '⭐', name: 'estrellas', count: 3 }], scale: 2 },
+    };
+    const CATALOG = [
+      { module: 'Números y operaciones', ids: ['mayor-2', 'ordena-2', 'cuenta-mil-2', 'lee-numero-2', 'arma-numero-2', 'suma-bloques-2', 'grupos-iguales-2'] },
+      { module: 'Patrones y álgebra', ids: ['que-sigue-2', 'compara-signo-2', 'completa-patron-2'] },
+      { module: 'Geometría', ids: ['cuenta-lados-2'] },
+      { module: 'Medición', ids: ['elige-unidad-2', 'lee-reloj-2'] },
+      { module: 'Datos y probabilidades', ids: ['pictograma-escala-2'] },
+    ];
+    const kindOf = (id: string) => (SAMPLE[id]?.kind ?? 'choice') as GameExercise['kind'];
+    const groups = CATALOG.map((c) => ({ module: c.module, games: c.ids.map((id) => ({ id, name: `Juego ${id}`, kind: kindOf(id) })) }));
+    const exercise = vi.fn(async (_s: string, id: string): Promise<GameExercise> => ({
+      token: `tok-${id}`, gameId: id, kind: 'choice', text: `Pregunta de ${id}`, options: [n(1), n(2)], ...SAMPLE[id],
+    }));
+    const answer = vi.fn(async (_s: string, _t: string, a: string[]) => ({ correct: true, correctAnswer: a, message: '¡Muy bien!' }));
+    const { page, q, el, render } = setup({ list: vi.fn(async () => groups), exercise, answer });
+    await render(); // la creación ya llamó a ngOnInit
+    for (const [axis, group] of groups.entries()) {
+      for (const game of group.games) {
+        page.otherGame();
+        await render();
+        q(`axis-${axis}`)!.click();
+        await render();
+        q(`game-${game.id}`)!.click();
+        await render();
+        expect(GAME_INSTRUCTIONS[game.id], game.id).toBeDefined();
+        q('game-start')!.click();
+        await render();
+        if (SAMPLE[game.id]?.blocks) expect(q('visual-blocks'), game.id).not.toBeNull();
+        if (SAMPLE[game.id]?.figure) expect(q('visual-figure'), game.id).not.toBeNull();
+        if (SAMPLE[game.id]?.clock) expect(q('visual-clock'), game.id).not.toBeNull();
+        if (SAMPLE[game.id]?.scale) expect(q('visual-picto'), game.id).not.toBeNull();
+        if (game.kind === 'choice') {
+          q(`option-${(SAMPLE[game.id]?.options ?? [n(1)])[0].id}`)!.click();
+        } else {
+          let card: HTMLElement | null;
+          while ((card = el().querySelector('[data-testid^="pool-"]:not([disabled])')) && q('order-ready')!.hasAttribute('disabled')) {
+            card.click();
+            await render();
+          }
+          q('order-ready')!.click();
+        }
+        await render();
+        expect(q('game-result')?.textContent, game.id).toContain('¡Muy bien!');
+      }
+    }
+    expect(answer).toHaveBeenCalledTimes(14); // los 14 juegos de 2° (11 temas)
+  });
+
   it('5 rondas y resumen con jugar de nuevo, otro juego o volver a practicar; medalla a los 5 seguidos', async () => {
     const { page, nav, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit
@@ -480,6 +540,8 @@ describe('GamesPage (CU-A21)', () => {
     const groups = [...q('game-prompt')!.querySelectorAll('[data-testid="glyph-group"]')];
     expect(groups.map((g) => g.textContent)).toEqual(['🌸'.repeat(9), '🌸'.repeat(9)]);
     expect(groups.every((g) => g.classList.contains('boxed'))).toBe(true);
+    // Grupos de 8 o más: emoji más chicos para que cada grupo quepa en una línea a 360 px.
+    expect(q('game-prompt')!.querySelector('.glyphs')!.classList).toContain('dense');
     expect(q('game-prompt')!.querySelector('.sr-only')?.textContent).toContain('9 flores y 9 flores');
   });
 });

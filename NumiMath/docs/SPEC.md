@@ -1451,3 +1451,64 @@ Sin bloqueantes de tiendas. Corregidos en `fix(diagnostico)`:
 - El foco va al título del error (sin repetirlo en la región viva).
 - Pruebas de la API con el estado exacto (403 y 422) y que no se guarda nada.
 
+## Jugar un juego de refuerzo (CU-A21), parte 4: juegos de 2° básico
+
+Al menos un juego por cada uno de los 11 temas de 2°, con los tipos y componentes de las partes 1
+a 3. Generadores deterministas con salidas guardadas por semilla; ids nuevos (ADR 0004). El
+generador de completar de 1° pasó a tener parámetros (`_fill_path`) sin cambiar la salida de
+`completa-camino-1`.
+
+### Temas y juegos
+| Tema | Juego | Habilidad |
+|---|---|---|
+| 1. Conteo hasta 1.000 | `cuenta-mil-2` completar, de 10 en 10 o de 100 en 100 (5 números) | 2-01 |
+| 2. Leer y representar 0 a 100 | `lee-numero-2` el número en palabras → tocarlo | 2-02 |
+| 3. Valor posicional | `arma-numero-2` bloques → "¿qué número forman?" | 2-04 |
+| 4. Sumas hasta 100 | `suma-bloques-2` mitad sin y mitad con reserva (agrupar 10 cubitos) | 2-07 |
+| 5. Multiplicación como suma repetida | `grupos-iguales-2` grupos de 2, 5 o 10 objetos | 2-11 |
+| 6. Patrones que suben y bajan | `completa-patron-2` completar, de 2, 5 o 10 | 2-15 |
+| 7. Igualdad y desigualdad (=, >, <) | `compara-signo-2` (ya existía); el lector oye "¿Qué signo va entre 35 y 42?" | 2-16 |
+| 8. Lados y vértices | `cuenta-lados-2` una figura grande (triángulo a hexágono) | 2-18 |
+| 9. Centímetros y metros | `elige-unidad-2` un objeto en emoji → cm o m | 2-22 |
+| 10. Reloj | `lee-reloj-2` reloj dibujado, horas y medias horas | 2-21 |
+| 11. Pictograma con escala | `pictograma-escala-2` cada ícono vale 2 o 5 | 2-24 |
+
+Los temas 8 a 11 usan habilidades de fase B (no se practican): sus juegos se abren desde "Jugar",
+no con "Aprender jugando".
+
+### Bloques (`blocks`)
+Barras de diez (con sus 10 cuadritos) y cubitos sueltos, en SVG propio; la forma los distingue,
+no solo el color. Para el lector de pantalla: "4 barras de diez y 7 cubitos" (sin decir el
+número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
+
+### Campos de la tanda 2
+- **`figure`**: una figura grande (SVG propio, ahora también pentágono y hexágono), con etiqueta
+  "hexágono verde". "Toca la figura" de 1° no cambia (los polígonos nuevos van aparte).
+- **`clock`** (hora y minuto 0 o 30) y opciones de hora `t:3-30` ("3:30"; el lector oye "3 y
+  media"). Reloj propio: la manecilla corta es más gruesa y la larga más fina (forma, no color).
+  Para el lector: "la manecilla corta está entre el 3 y el 4 y la larga en el 6" (no la hora).
+- **`scale`** en el pictograma: el enunciado dice "Cada ícono vale 2." y el lector oye cuántos
+  íconos tiene cada fila ("3 íconos"), no el total.
+- Unidades `s:cm` y `s:m` ("centímetros" y "metros" para el lector).
+
+### Pendientes (variedad)
+1. Regla en cm, calendario, gráfico de barras, restas con bloques y caras de los cuerpos 3D (2-19).
+2. Mecánicas distintas a tocar una opción (armar el número tocando bloques, contar grupos
+   tocándolos): no eran baratas con los componentes actuales.
+3. **Confirmar con el dueño:** el catálogo describe 2-18 con triángulo, cuadrado, rectángulo y
+   círculo; `cuenta-lados-2` suma pentágono y hexágono (aprobados en el plan) para que la
+   respuesta no sea siempre 3 o 4.
+4. **Bajos de la revisión (no implementados):** la manecilla larga tapa en parte el 12 y el 6
+   (acortarla a ~36); "vértices" en la ronda y "esquinas" en la instrucción; cubitos de 10 px
+   difíciles de contar; "las 3 en punto" sonaría más natural; "m" sola como opción; cinco grupos
+   se leen largo ("5 grupos de 5 pelotas" sería mejor); tarjetas "1000" y nombre "1.000"; la
+   etiqueta "pentágono" ya da una pista (aceptado: es lo accesible); el recorrido del catálogo
+   responde siempre "correcto"; comentarios y cuentas de CSS desfasados; ramas que no se usan.
+
+### Revisión (`code-reviewer` y `child-safety-ai-reviewer`)
+Sin altos ni bloqueantes de tiendas. Los 16 juegos publicados dan la misma salida (20 000
+semillas). Corregidos en `fix(cu-a21)`:
+- Los grupos de 8 o más emoji usan emoji más chicos: un grupo de 10 cabe en su recuadro a 360 px.
+- En las sumas sin reserva, el distractor "una decena de más" ya no pasa de 100.
+- Pruebas de rango de los distractores y de la salida de `figure`, `clock` y `scale` (API y app).
+

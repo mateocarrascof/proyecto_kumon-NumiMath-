@@ -74,7 +74,7 @@
               {{ prompt.before }}
             }
             @if (prompt.glyphs) {
-              <span class="glyphs" aria-hidden="true">
+              <span class="glyphs" [class.dense]="denseGlyphs" aria-hidden="true">
                 @for (group of glyphGroups; track $index) {
                   <span class="glyph-group" [class.boxed]="glyphGroups.length > 1" data-testid="glyph-group">{{ group }}</span>
                 }

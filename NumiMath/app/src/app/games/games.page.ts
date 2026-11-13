@@ -89,6 +89,12 @@ export class GamesPage implements OnInit {
     return this.prompt.glyphs.trim().split(/\s+/).filter(Boolean);
   }
 
+  /** Algún grupo de 8 o más emoji (grupos de 10, 2°): emoji más chicos para que cada grupo quepa
+   * en una línea a 360 px y se vean grupos iguales. */
+  get denseGlyphs(): boolean {
+    return this.glyphGroups.some((g) => [...g].length >= 8);
+  }
+
   /** "5 = 3 + ?" dicho en voz alta: "5 es igual a 3 más ¿cuántas manzanas?" (o null). */
   get spokenBefore(): string | null {
     const { before, glyphs } = this.prompt;

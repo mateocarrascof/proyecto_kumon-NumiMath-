@@ -59,6 +59,26 @@ describe('HttpGamesService (CU-A21)', () => {
       pattern: null, picto: null, measure: null,
       scene: { center: '📦', center_name: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },
     });
+    const blocks = service.exercise('p1', 'arma-numero-2');
+    await tick();
+    http.expectOne(`${BASE}/games/arma-numero-2/exercise`).flush({
+      token: 'tb', game_id: 'arma-numero-2', kind: 'choice', text: '¿Qué número?', options: [],
+      blocks: { tens: 4, ones: 7 },
+    });
+    expect(await blocks).toMatchObject({ blocks: { tens: 4, ones: 7 }, scene: null, figure: null, clock: null, scale: null });
+
+    const drawn = service.exercise('p1', 'lee-reloj-2');
+    await tick();
+    http.expectOne(`${BASE}/games/lee-reloj-2/exercise`).flush({
+      token: 'tc', game_id: 'lee-reloj-2', kind: 'choice', text: '¿Qué hora?',
+      options: [{ id: 't:3-30', kind: 'time', label: '3:30' }],
+      clock: { hour: 3, minute: 30 }, scale: 2,
+      figure: { id: 'f:hexagono-verde', kind: 'figure', label: 'hexágono verde' },
+    });
+    expect(await drawn).toMatchObject({
+      clock: { hour: 3, minute: 30 }, scale: 2,
+      figure: { id: 'f:hexagono-verde', kind: 'figure', label: 'hexágono verde' },
+    });
     expect(await scene).toMatchObject({
       pattern: null, picto: null, measure: null,
       scene: { center: '📦', centerName: 'caja', places: [{ position: 'arriba', id: 'e:pelota-1' }] },
@@ -136,6 +156,17 @@ describe('Textos accesibles de los juegos', () => {
     expect(optionLabel({ id: 'e:manzana-3', kind: 'emoji', label: '🍎🍎🍎' })).toBe('3 manzanas');
     expect(optionLabel({ id: 'e:flor-1', kind: 'emoji', label: '🌸' })).toBe('1 flor');
     expect(optionLabel({ id: 's:mayor', kind: 'symbol', label: '>' })).toBe('mayor que');
+  });
+
+  it('"35 __ 42": el hueco del signo se dice ("entre 35 y 42")', () => {
+    expect(spokenEquation('¿Qué signo va? 35 __ 42', '')).toBe('¿Qué signo va entre 35 y 42?');
+  });
+
+  it('las horas y las unidades se leen con palabras', () => {
+    expect(optionLabel({ id: 't:3-30', kind: 'time', label: '3:30' })).toBe('3 y media');
+    expect(optionLabel({ id: 't:12-00', kind: 'time', label: '12:00' })).toBe('12 en punto');
+    expect(optionLabel({ id: 's:cm', kind: 'symbol', label: 'cm' })).toBe('centímetros');
+    expect(optionLabel({ id: 's:m', kind: 'symbol', label: 'm' })).toBe('metros');
   });
 
   it('el "?" suelto de "5 = 3 + ?" se dice, concordando con el objeto', () => {

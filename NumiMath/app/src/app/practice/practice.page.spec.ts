@@ -32,7 +32,7 @@ import { solutionHash } from '../core/offline/offline-grading';
 import { OFFLINE_MESSAGES, OfflineNoticeComponent } from '../core/offline/offline-notice.component';
 import { OfflineStore } from '../core/offline/offline-store.port';
 import { OfflineSyncError, OfflineSyncPort } from '../core/offline/offline-sync.port';
-import { EXPLAIN_MESSAGES, PracticePage, topicIcon } from './practice.page';
+import { EXPLAIN_MESSAGES, PracticePage, SAVE_BACK_LOCK_MAX_MS, topicIcon } from './practice.page';
 import { SkillTilesComponent } from './skill-tiles.component';
 
 const TOPIC = { id: 'sumas_hasta_20', label: 'Sumas hasta 20' };
@@ -64,7 +64,7 @@ function setup(
   query: Record<string, string> = {},
   explain: ExplanationPort['explain'] = async () => undefined,
 ) {
-  const nav = { navigateForward: vi.fn(async () => true) };
+  const nav = { navigateForward: vi.fn(async () => true), navigateBack: vi.fn(async () => true) };
   const games = {
     list: vi.fn(async () => {
       if (gamesFail) throw new Error('red');
@@ -149,6 +149,33 @@ describe('PracticePage', () => {
     await page.ngOnInit();
     expect(port.topics).toHaveBeenCalledWith('perfil-1');
     expect(page.topics).toEqual([TOPIC]);
+  });
+
+  it('botón de arriba en la lista: dice "Perfiles" y sale a /perfiles', async () => {
+    const { page, fixture, nav } = setup();
+    await page.ngOnInit();
+    fixture.detectChanges();
+    const back = query(fixture, '[data-testid="practice-back"]') as HTMLElement;
+    expect(back.textContent).toContain('Perfiles');
+    back.click();
+    expect(nav.navigateBack).toHaveBeenCalledWith('/perfiles');
+  });
+
+  it('botón de arriba en un ejercicio: dice "Temas" y vuelve a la lista sin salir', async () => {
+    const { page, fixture, nav, port } = setup();
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    const back = query(fixture, '[data-testid="practice-back"]') as HTMLElement;
+    expect(back.textContent).toContain('Temas');
+    const topics = vi.mocked(port.topics);
+    const before = topics.mock.calls.length;
+    back.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.topic).toBeNull();
+    expect(page.exercise).toBeNull();
+    expect(nav.navigateBack).not.toHaveBeenCalled();
+    expect(topics.mock.calls.length).toBeGreaterThan(before); // recargó la lista, como "Cambiar de tema"
   });
 
   it('al elegir un tema pide un ejercicio', async () => {
@@ -1634,6 +1661,68 @@ describe('PracticePage: diagnóstico inicial (CU-A2)', () => {
     expect(page.diagLevel).toBe(1);
     expect(port.submitDiagnostic).not.toHaveBeenCalled();
   });
+
+  it('botón de arriba en la oferta de la prueba: "Temas", la olvida y no envía nada', async () => {
+    const { page, port, fixture, nav } = diagSetup();
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="practice-back"]')?.textContent).toContain('Temas');
+    page.goBack();
+    expect(page.diag).toBeNull();
+    expect(page.topic).toBeNull();
+    expect(nav.navigateBack).not.toHaveBeenCalled();
+    expect(port.submitDiagnostic).not.toHaveBeenCalled();
+  });
+
+  it('mientras se guarda la prueba: botón desactivado con indicador, máximo SAVE_BACK_LOCK_MAX_MS', async () => {
+    let finish: (level: 1 | 2 | 3) => void = () => undefined;
+    const { page, fixture } = diagSetup({
+      submitDiagnostic: vi.fn(() => new Promise<1 | 2 | 3>((resolve) => (finish = resolve))),
+    });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    vi.useFakeTimers();
+    try {
+      const saving = answerAll(page, 6);
+      await vi.advanceTimersByTimeAsync(0);
+      fixture.detectChanges();
+      expect(page.diag).toBe('saving');
+      expect(page.backLocked).toBe(true);
+      const back = query(fixture, '[data-testid="practice-back"]') as HTMLIonButtonElement;
+      expect(back.disabled).toBe(true);
+      expect(query(fixture, '[data-testid="practice-back-saving"]')).not.toBeNull();
+      expect(back.textContent).toContain('Guardando');
+      page.goBack(); // bloqueado: no hace nada
+      expect(page.diag).toBe('saving');
+      await vi.advanceTimersByTimeAsync(SAVE_BACK_LOCK_MAX_MS);
+      expect(page.backLocked).toBe(false); // nunca queda sin salida
+      finish(2);
+      await saving;
+      expect(page.diag).toBe('done');
+      expect(page.backLocked).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(SAVE_BACK_LOCK_MAX_MS).toBe(10_000);
+  });
+
+  it('si guardar la prueba falla, el botón vuelve a estar disponible', async () => {
+    const { page } = diagSetup({
+      submitDiagnostic: vi.fn(async () => {
+        throw new PracticeError('expired');
+      }),
+    });
+    await page.ngOnInit();
+    await page.choose(NEW_SKILL);
+    await page.startDiagnostic();
+    await answerAll(page, 6);
+    expect(page.diag).toBe('done');
+    expect(page.backLocked).toBe(false);
+    page.goBack();
+    expect(page.topic).toBeNull();
+  });
 });
 
 describe('PracticePage: sin conexión (CU-A12)', () => {
@@ -1776,6 +1865,19 @@ describe('PracticePage: sin conexión (CU-A12)', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
     expect(query(fixture, '[data-testid="tile-exhausted"]')).not.toBeNull();
+  });
+
+  it('botón de arriba sin conexión: vuelve a la lista del lote, sin salir del modo sin conexión', async () => {
+    const { page, nav } = await offlineSetup();
+    await page.choose(page.topics[0]);
+    expect(page.topic).not.toBeNull();
+    expect(page.backLabel).toBe('Temas');
+    page.goBack();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(page.topic).toBeNull();
+    expect(page.offlineMode).toBe(true);
+    expect(page.topics.map((t) => t.id)).toEqual(['2-06']);
+    expect(nav.navigateBack).not.toHaveBeenCalled();
   });
 
   it('sin lote descargado: pide conectarse una vez', async () => {

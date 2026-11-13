@@ -1,7 +1,19 @@
 <ion-header [translucent]="true">
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/perfiles" text="Perfiles"></ion-back-button>
+      <!-- En la lista: "Perfiles" (a /perfiles). Con un tema abierto (ejercicio, prueba corta,
+           tareas): "Temas" (vuelve a la lista, como "Cambiar de tema"). Mientras se guarda la
+           prueba corta se desactiva un rato, con indicador; nunca deja al niño sin salida. -->
+      <ion-button (click)="goBack()" [disabled]="backLocked" data-testid="practice-back"
+        [attr.aria-label]="backLocked ? 'Guardando, espera un momento' : 'Volver a ' + backLabel">
+        @if (backLocked) {
+          <ion-spinner slot="start" name="dots" data-testid="practice-back-saving"></ion-spinner>
+          Guardando…
+        } @else {
+          <ion-icon slot="start" name="chevron-back" aria-hidden="true"></ion-icon>
+          {{ backLabel }}
+        }
+      </ion-button>
     </ion-buttons>
     <ion-title>Practicar</ion-title>
     @if (dailyLoaded) {

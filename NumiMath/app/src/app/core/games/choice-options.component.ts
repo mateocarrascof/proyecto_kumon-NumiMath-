@@ -106,9 +106,14 @@ export const OPTION_POSITION_COLORS: readonly { bg: string; accent: string }[] =
       .option:active:not(:disabled) {
         transform: scale(0.97);
       }
+      /* Foco del teclado: anillo doble (blanco + casi negro), visible sobre cualquier color de
+         posición y sobre el fondo de la página. */
       .option:focus-visible {
-        outline: 4px solid #1a56db;
+        outline: 4px solid #1a202c;
         outline-offset: 3px;
+        box-shadow:
+          inset 8px 0 0 var(--pos-accent, transparent),
+          0 0 0 3px #ffffff;
       }
       .options.scene .option {
         padding: 4px 8px 4px 14px;

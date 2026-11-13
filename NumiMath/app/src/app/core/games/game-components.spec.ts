@@ -155,6 +155,17 @@ describe('ChoiceOptionsComponent: color por posición (solo decoración)', () =>
     expect(css).toMatch(/\.wrong\[[^\]]+\]\s*\{[^}]*box-shadow:\s*none/);
   });
 
+  it('foco del teclado: anillo doble oscuro + blanco, distinto de todos los colores de posición', () => {
+    const css = componentCss();
+    const focus = css.match(/\.option\[[^\]]+\]:focus-visible\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(focus).toMatch(/outline:\s*4px solid #1a202c/);
+    expect(focus).toMatch(/0 0 0 3px #ffffff/);
+    for (const { accent } of OPTION_POSITION_COLORS) {
+      expect(contrast('#1a202c', accent), accent).toBeGreaterThanOrEqual(1.5);
+      expect(focus).not.toContain(accent);
+    }
+  });
+
   it('contraste WCAG AA: texto sobre el fondo ≥ 4,5; acento sobre el fondo ≥ 3', () => {
     for (const { bg, accent } of OPTION_POSITION_COLORS) {
       expect(contrast('#1a202c', bg), bg).toBeGreaterThanOrEqual(4.5);

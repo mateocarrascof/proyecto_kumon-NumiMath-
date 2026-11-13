@@ -96,6 +96,22 @@ export const MEASURE_UNIT_PX = 34;
           }
         </div>
       </div>
+    } @else if (exercise.boxes; as bx) {
+      <!-- Tablas del 2, 5 y 10: cajas iguales de huevos (SVG propio). Caja de 2 = 1 × 2, de 5 =
+           1 × 5 y de 10 = 2 × 5 huecos, todos con su huevo: se cuentan de a caja. -->
+      <div class="boxes" role="img" [attr.aria-label]="text.boxesLabel(bx.count, bx.size)" data-testid="visual-boxes"
+        [attr.data-size]="bx.size">
+        @for (k of units(bx.count); track k) {
+          <svg class="box" [attr.viewBox]="boxViewBox(bx.size)" aria-hidden="true" focusable="false">
+            <rect x="1" y="1" [attr.width]="boxCols(bx.size) * 12 + 4" [attr.height]="boxRows(bx.size) * 14 + 4"
+              rx="4" fill="#d69e5a" stroke="#1a202c" stroke-width="1.5" />
+            @for (e of units(bx.size); track e) {
+              <ellipse class="egg" [attr.cx]="9 + (e % boxCols(bx.size)) * 12" [attr.cy]="10 + floor(e / boxCols(bx.size)) * 14"
+                rx="4.6" ry="5.6" fill="#fffaf0" stroke="#1a202c" stroke-width="1.2" />
+            }
+          </svg>
+        }
+      </div>
     } @else if (exercise.measure; as m) {
       <figure class="measure" data-testid="visual-measure">
         <svg
@@ -238,6 +254,52 @@ export const MEASURE_UNIT_PX = 34;
       .cross.thin {
         stroke-width: 1.6;
       }
+      /* Cajas: se envuelven en filas; a 360 px caben 5 cajas de 2 o 4 de 5 y de 10 por fila. */
+      .boxes {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 10px;
+        max-width: 340px;
+        margin: 0 auto;
+      }
+      .box {
+        display: block;
+        height: auto;
+      }
+      .boxes[data-size='2'] .box {
+        width: 56px;
+      }
+      .boxes[data-size='5'] .box,
+      .boxes[data-size='10'] .box {
+        width: 72px;
+      }
+      /* Pantallas altas (tablet): cajas más grandes, huevos más fáciles de contar. */
+      @media (min-height: 800px) {
+        .boxes {
+          max-width: 400px;
+        }
+        .boxes[data-size='2'] .box {
+          width: 64px;
+        }
+        .boxes[data-size='5'] .box,
+        .boxes[data-size='10'] .box {
+          width: 88px;
+        }
+      }
+      /* Tablet (ancha y alta): aún más grandes, sobra espacio. */
+      @media (min-width: 600px) and (min-height: 800px) {
+        .boxes {
+          max-width: 520px;
+        }
+        .boxes[data-size='2'] .box {
+          width: 80px;
+        }
+        .boxes[data-size='5'] .box,
+        .boxes[data-size='10'] .box {
+          width: 112px;
+        }
+      }
       .measure {
         margin: 0 auto;
         display: flex;
@@ -286,6 +348,23 @@ export class GameVisualComponent {
     return gone
       ? GAME_TEXT.blocksTakeAwayLabel(b.tens, b.ones, gone.tens, gone.ones)
       : GAME_TEXT.blocksLabel(b.tens, b.ones);
+  }
+
+  /** Caja de 10: 2 filas de 5; de 2 y de 5: una fila. */
+  protected boxCols(size: number): number {
+    return size === 10 ? 5 : size;
+  }
+
+  protected boxRows(size: number): number {
+    return Math.ceil(size / this.boxCols(size));
+  }
+
+  protected boxViewBox(size: number): string {
+    return `0 0 ${this.boxCols(size) * 12 + 6} ${this.boxRows(size) * 14 + 6}`;
+  }
+
+  protected floor(n: number): number {
+    return Math.floor(n);
   }
 
   protected readonly hours = Array.from({ length: 12 }, (_, i) => i + 1);

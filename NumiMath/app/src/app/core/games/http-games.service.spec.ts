@@ -73,7 +73,15 @@ describe('HttpGamesService (CU-A21)', () => {
       token: 'tr', game_id: 'resta-bloques-2', kind: 'choice', text: '56 − 23 = ?', options: [],
       blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 },
     });
-    expect(await takeAway).toMatchObject({ blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 } });
+    expect(await takeAway).toMatchObject({ blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 }, boxes: null });
+
+    const eggs = service.exercise('p1', 'cajas-de-5-2');
+    await tick();
+    http.expectOne(`${BASE}/games/cajas-de-5-2/exercise`).flush({
+      token: 'tc', game_id: 'cajas-de-5-2', kind: 'choice', text: 'Hay 4 cajas.', options: [],
+      boxes: { count: 4, size: 5 },
+    });
+    expect(await eggs).toMatchObject({ boxes: { count: 4, size: 5 }, blocks: null, removed: null });
 
     const drawn = service.exercise('p1', 'lee-reloj-2');
     await tick();

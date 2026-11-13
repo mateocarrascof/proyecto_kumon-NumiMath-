@@ -217,6 +217,34 @@ describe('GameVisualComponent (CU-A21)', () => {
     expect(blocks.getAttribute('aria-label')).toBe('3 barras de diez y 9 cubitos. Tachados, para quitar: 8 cubitos.');
   });
 
+  it.each([
+    [2, 1, 2],
+    [5, 1, 5],
+    [10, 2, 5],
+  ])('cajas de %i huevos: cada caja con todos sus huevos y la etiqueta sin el total', (size, rows, cols) => {
+    const { q } = render(base({ boxes: { count: 4, size } }));
+    const boxes = q('visual-boxes')!;
+    const drawn = [...boxes.querySelectorAll('svg.box')];
+    expect(drawn.length).toBe(4);
+    for (const box of drawn) {
+      expect(box.querySelectorAll('ellipse.egg').length).toBe(size);
+      expect(box.getAttribute('aria-hidden')).toBe('true');
+    }
+    // Filas y columnas de huevos: posiciones distintas, sin encimarse.
+    const eggs = [...drawn[0].querySelectorAll('ellipse.egg')].map((e) => `${e.getAttribute('cx')},${e.getAttribute('cy')}`);
+    expect(new Set(eggs).size).toBe(size);
+    expect(new Set(eggs.map((p) => p.split(',')[1])).size).toBe(rows);
+    expect(new Set(eggs.map((p) => p.split(',')[0])).size).toBe(cols);
+    expect(boxes.getAttribute('role')).toBe('img');
+    expect(boxes.getAttribute('aria-label')).toBe(`4 cajas de ${size} huevos`);
+    expect(boxes.getAttribute('aria-label')).not.toContain(String(4 * size));
+  });
+
+  it('una sola caja: "1 caja"', () => {
+    const { q } = render(base({ boxes: { count: 1, size: 5 } }));
+    expect(q('visual-boxes')!.getAttribute('aria-label')).toBe('1 caja de 5 huevos');
+  });
+
   it('medición: lo medido tiene el mismo largo que la fila de clips, y cada clip se puede contar', () => {
     const { q } = render(
       base({ measure: { thing: 'lapiz', name: 'el lápiz', unit: 'clip', glyph: '📎', length: 5 } }),

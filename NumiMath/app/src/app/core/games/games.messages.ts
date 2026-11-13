@@ -57,6 +57,9 @@ export const GAME_TEXT = {
     const blocks = `${tens} ${tens === 1 ? 'barra' : 'barras'} de diez y ${ones} ${ones === 1 ? 'cubito' : 'cubitos'}`;
     return `${blocks}. Tachados, para quitar: ${gone.join(' y ')}.`;
   },
+  /** Tablas: lo mismo que dice el enunciado, sin el total (la respuesta). */
+  boxesLabel: (count: number, size: number) =>
+    `${count} ${count === 1 ? 'caja' : 'cajas'} de ${size} huevos`,
   measureClips: 'Clips',
   measureSteps: 'Pasos',
   /** `name` viene con artículo ("el lápiz"): "El lápiz y, debajo, clips en fila." */

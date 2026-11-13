@@ -230,7 +230,7 @@ describe('GameVisualComponent (CU-A21)', () => {
     [2, 1, 2],
     [5, 1, 5],
     [10, 2, 5],
-  ])('cajas de %i huevos: cada caja con todos sus huevos y la etiqueta sin el total', (size, rows, cols) => {
+  ])('bandejas de %i huevos: cada bandeja con todos sus huevos y la etiqueta sin el total', (size, rows, cols) => {
     const { q } = render(base({ boxes: { count: 4, size } }));
     const boxes = q('visual-boxes')!;
     const drawn = [...boxes.querySelectorAll('svg.box')];
@@ -245,13 +245,13 @@ describe('GameVisualComponent (CU-A21)', () => {
     expect(new Set(eggs.map((p) => p.split(',')[1])).size).toBe(rows);
     expect(new Set(eggs.map((p) => p.split(',')[0])).size).toBe(cols);
     expect(boxes.getAttribute('role')).toBe('img');
-    expect(boxes.getAttribute('aria-label')).toBe(`4 cajas de ${size} huevos`);
+    expect(boxes.getAttribute('aria-label')).toBe(`4 bandejas de ${size} huevos`);
     expect(boxes.getAttribute('aria-label')).not.toContain(String(4 * size));
   });
 
-  it('una sola caja: "1 caja"', () => {
+  it('una sola bandeja: "1 bandeja"', () => {
     const { q } = render(base({ boxes: { count: 1, size: 5 } }));
-    expect(q('visual-boxes')!.getAttribute('aria-label')).toBe('1 caja de 5 huevos');
+    expect(q('visual-boxes')!.getAttribute('aria-label')).toBe('1 bandeja de 5 huevos');
   });
 
   it('medición: lo medido tiene el mismo largo que la fila de clips, y cada clip se puede contar', () => {

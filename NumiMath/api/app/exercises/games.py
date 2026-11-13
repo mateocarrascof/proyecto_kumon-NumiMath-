@@ -64,7 +64,7 @@ class GameExercise:
     blocks: tuple[int, int] | None = None  # (decenas, unidades) en bloques (2°, parte 4)
     # Restas con bloques (2-08): de `blocks`, las (decenas, unidades) que se quitan (tachadas).
     removed: tuple[int, int] | None = None
-    # Tablas del 2, 5 y 10 (2-12 a 2-14): (cantidad de cajas, huevos por caja), dibujadas.
+    # Tablas del 2, 5 y 10 (2-12 a 2-14): (cantidad de bandejas, huevos por bandeja), dibujadas.
     boxes: tuple[int, int] | None = None
     figure: GameOption | None = None  # una figura grande sobre las opciones (2°)
     clock: tuple[int, int] | None = None  # (hora 1 a 12, minuto 0 o 30): reloj dibujado (2°)
@@ -647,10 +647,11 @@ def _blocks_subtract(rng: random.Random) -> GameExercise:
 
 
 def _egg_boxes(size: int) -> Callable[[random.Random], GameExercise]:
-    """Tablas del 2, 5 y 10 (2°, temas 2-12 a 2-14), con la misma mecánica: de 1 a 10 cajas
+    """Tablas del 2, 5 y 10 (2°, temas 2-12 a 2-14), con la misma mecánica: de 1 a 10 bandejas
     iguales de `size` huevos dibujadas, y "¿Cuántos huevos hay?". Solo palabras, sin "×" (la
-    práctica ya pregunta "5 × 4 = ?"). Distractores: una caja de más o de menos, sumar en vez de
-    multiplicar (cajas + huevos) y contar las cajas en vez de los huevos."""
+    práctica ya pregunta "5 × 4 = ?"). Distractores: una bandeja de más o de menos, sumar en vez
+    de multiplicar (bandejas + huevos) y contar las bandejas en vez de los huevos. Los ids dicen
+    "cajas" (internos, sin cambiar); el niño ve y oye "bandejas"."""
 
     def make(rng: random.Random) -> GameExercise:
         count = rng.randint(1, 10)
@@ -658,9 +659,9 @@ def _egg_boxes(size: int) -> Callable[[random.Random], GameExercise]:
         errors = [total - size, total + size, count + size, count]
         pool = [v for v in dict.fromkeys(errors) if 0 < v <= 100 and v != total]
         boxes = (
-            f"Hay 1 caja. Tiene {size} huevos."
+            f"Hay 1 bandeja. Tiene {size} huevos."
             if count == 1
-            else f"Hay {count} cajas. Cada caja tiene {size} huevos."
+            else f"Hay {count} bandejas. Cada bandeja tiene {size} huevos."
         )
         return GameExercise(
             "choice",
@@ -863,9 +864,11 @@ GAMES: dict[str, Game] = {
         Game("suma-bloques-2", "Suma con bloques", NUMBERS, 2, "choice", "2-07", _blocks_sum),
         # CU-A21, restas y tablas de 2° (un juego por tema). Ids nuevos.
         Game("resta-bloques-2", "Quita bloques", NUMBERS, 2, "choice", "2-08", _blocks_subtract),
-        Game("cajas-de-2-2", "Cajas de 2 huevos", NUMBERS, 2, "choice", "2-12", _egg_boxes(2)),
-        Game("cajas-de-5-2", "Cajas de 5 huevos", NUMBERS, 2, "choice", "2-13", _egg_boxes(5)),
-        Game("cajas-de-10-2", "Cajas de 10 huevos", NUMBERS, 2, "choice", "2-14", _egg_boxes(10)),
+        Game("cajas-de-2-2", "Bandejas de 2 huevos", NUMBERS, 2, "choice", "2-12", _egg_boxes(2)),
+        Game("cajas-de-5-2", "Bandejas de 5 huevos", NUMBERS, 2, "choice", "2-13", _egg_boxes(5)),
+        Game(
+            "cajas-de-10-2", "Bandejas de 10 huevos", NUMBERS, 2, "choice", "2-14", _egg_boxes(10)
+        ),
         Game("grupos-iguales-2", "Grupos iguales", NUMBERS, 2, "choice", "2-11", _equal_groups),
         Game("cuenta-lados-2", "Lados y vértices", GEOMETRY, 2, "choice", "2-18", _count_sides),
         Game(

@@ -1480,7 +1480,7 @@ generador de completar de 1° pasó a tener parámetros (`_fill_path`) sin cambi
 | 10. Reloj | `lee-reloj-2` reloj dibujado, horas y medias horas | 2-21 |
 | 11. Pictograma con escala | `pictograma-escala-2` cada ícono vale 2 o 5 | 2-24 |
 | Restas hasta 100 sin reserva | `resta-bloques-2` bloques con lo que se quita tachado (2026-11-13) | 2-08 |
-| Tablas del 2, 5 y 10 | `cajas-de-2-2`, `cajas-de-5-2`, `cajas-de-10-2`: cajas de huevos (2026-11-13) | 2-12, 2-13, 2-14 |
+| Tablas del 2, 5 y 10 | `cajas-de-2-2`, `cajas-de-5-2`, `cajas-de-10-2`: bandejas de huevos (2026-11-13) | 2-12, 2-13, 2-14 |
 
 Los temas 8 a 11 usan habilidades de fase B (no se practican): sus juegos se abren desde "Jugar",
 no con "Aprender jugando".
@@ -1503,14 +1503,15 @@ guardadas por semilla. Distintos de la práctica (que es solo texto), de "Contar
   quita", no "no hay". Cubitos de 18 px con la ✕ dentro del borde. 9 barras y 9 cubitos caben a
   360 px. El lector oye "5 barras de diez y 6 cubitos. Tachados, para quitar: 2 barras y 3
   cubitos." (nunca cuánto queda).
-- **Tablas del 2, 5 y 10, "Cajas de N huevos" (2-12, 2-13, 2-14):** una sola mecánica con tres
-  ids (`cajas-de-2-2`, `cajas-de-5-2`, `cajas-de-10-2`). "Hay 4 cajas. Cada caja tiene 5 huevos.
-  ¿Cuántos huevos hay?" (con una caja: "Hay 1 caja. Tiene 5 huevos."). Solo palabras, sin "×" (la
-  práctica ya pregunta "5 × 4 = ?"). De 1 a 10 cajas (factores 1 a 10), dibujadas (campo
-  `boxes`: cantidad y huevos por caja): caja de 2 (1 × 2), de 5 (1 × 5) y de 10 (2 × 5), en SVG
-  propio. Distractores: una caja de más o de menos, sumar cajas y huevos, contar las cajas. El
-  lector oye "4 cajas de 5 huevos" (sin el total). 10 cajas de 10 y "Siguiente" caben sin
-  desplazar a 360 × 640. Solo el producto: el factor desconocido (nivel 3) queda para después.
+- **Tablas del 2, 5 y 10, "Bandejas de N huevos" (2-12, 2-13, 2-14):** una sola mecánica con tres
+  ids (`cajas-de-2-2`, `cajas-de-5-2`, `cajas-de-10-2`; internos: el niño ve y oye "bandejas").
+  "Hay 4 bandejas. Cada bandeja tiene 5 huevos. ¿Cuántos huevos hay?" (con una: "Hay 1 bandeja.
+  Tiene 5 huevos."). Solo palabras, sin "×" (la práctica ya pregunta "5 × 4 = ?"). De 1 a 10
+  bandejas (factores 1 a 10), dibujadas (campo `boxes`: cantidad y huevos por bandeja): de 2
+  (1 × 2), de 5 (1 × 5) y de 10 (2 × 5), en SVG propio. Distractores: una bandeja de más o de
+  menos, sumar bandejas y huevos, contar las bandejas. El lector oye "4 bandejas de 5 huevos" (sin
+  el total). 10 bandejas de 10 y "Siguiente" caben sin desplazar a 360 × 640. Solo el producto:
+  el factor desconocido (nivel 3) queda para después.
 
 ### Campos de la tanda 2
 - **`figure`**: una figura grande (SVG propio, ahora también pentágono y hexágono), con etiqueta

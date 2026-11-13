@@ -50,7 +50,7 @@ export interface GameExercise {
   blocks?: { tens: number; ones: number } | null;
   /** 2°, restas: de `blocks`, las decenas y unidades que se quitan (se dibujan tachadas). */
   removed?: { tens: number; ones: number } | null;
-  /** 2°, tablas del 2, 5 y 10: `count` cajas iguales de `size` huevos (se dibujan). */
+  /** 2°, tablas del 2, 5 y 10: `count` bandejas iguales de `size` huevos (se dibujan). */
   boxes?: { count: number; size: number } | null;
   /** 2°: una figura grande sobre las opciones (lados y vértices). */
   figure?: GameOption | null;

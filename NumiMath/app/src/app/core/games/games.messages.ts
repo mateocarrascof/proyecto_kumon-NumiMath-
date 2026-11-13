@@ -62,7 +62,7 @@ export const GAME_TEXT = {
     `${blockParts(tens, ones, ' de diez')}. Tachados, para quitar: ${blockParts(goneTens, goneOnes, '')}.`,
   /** Tablas: lo mismo que dice el enunciado, sin el total (la respuesta). */
   boxesLabel: (count: number, size: number) =>
-    `${count} ${count === 1 ? 'caja' : 'cajas'} de ${size} huevos`,
+    `${count} ${count === 1 ? 'bandeja' : 'bandejas'} de ${size} huevos`,
   measureClips: 'Clips',
   measureSteps: 'Pasos',
   /** `name` viene con artículo ("el lápiz"): "El lápiz y, debajo, clips en fila." */

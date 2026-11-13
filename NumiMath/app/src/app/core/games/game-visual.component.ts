@@ -98,8 +98,8 @@ export const MEASURE_UNIT_PX = 34;
         </div>
       </div>
     } @else if (exercise.boxes; as bx) {
-      <!-- Tablas del 2, 5 y 10: cajas iguales de huevos (SVG propio). Caja de 2 = 1 × 2, de 5 =
-           1 × 5 y de 10 = 2 × 5 huecos, todos con su huevo: se cuentan de a caja. -->
+      <!-- Tablas del 2, 5 y 10: bandejas iguales de huevos (SVG propio). Bandeja de 2 = 1 × 2, de 5
+           = 1 × 5 y de 10 = 2 × 5 huecos, todos con su huevo: se cuentan de a bandeja. -->
       <div class="boxes" role="img" [attr.aria-label]="text.boxesLabel(bx.count, bx.size)" data-testid="visual-boxes"
         [attr.data-size]="bx.size">
         @for (k of units(bx.count); track k) {
@@ -256,7 +256,7 @@ export const MEASURE_UNIT_PX = 34;
       .cross.thin {
         stroke-width: 1.6;
       }
-      /* Cajas: se envuelven en filas; a 360 px caben 5 cajas de 2 o 4 de 5 y de 10 por fila. */
+      /* Bandejas: se envuelven en filas; a 360 px caben 5 de 2 o 4 de 5 y de 10 por fila. */
       .boxes {
         display: flex;
         flex-wrap: wrap;
@@ -276,7 +276,7 @@ export const MEASURE_UNIT_PX = 34;
       .boxes[data-size='10'] .box {
         width: 72px;
       }
-      /* Pantallas altas (tablet): cajas más grandes, huevos más fáciles de contar. */
+      /* Pantallas altas (tablet): bandejas más grandes, huevos más fáciles de contar. */
       @media (min-height: 800px) {
         .boxes {
           max-width: 400px;
@@ -352,7 +352,7 @@ export class GameVisualComponent {
       : GAME_TEXT.blocksLabel(b.tens, b.ones);
   }
 
-  /** Caja de 10: 2 filas de 5; de 2 y de 5: una fila. */
+  /** Bandeja de 10: 2 filas de 5; de 2 y de 5: una fila. */
   protected boxCols(size: number): number {
     return size === 10 ? 5 : size;
   }

@@ -721,16 +721,16 @@ def test_resta_con_bloques_cubre_9_barras_y_9_cubitos() -> None:
 @pytest.mark.parametrize(
     ("game_id", "size"), [("cajas-de-2-2", 2), ("cajas-de-5-2", 5), ("cajas-de-10-2", 10)]
 )
-def test_cajas_de_huevos_son_la_tabla_con_factores_de_1_a_10(game_id: str, size: int) -> None:
+def test_bandejas_de_huevos_son_la_tabla_con_factores_de_1_a_10(game_id: str, size: int) -> None:
     counts = set()
     for e in _many(game_id):
         assert e.boxes is not None
         count, box = e.boxes
         assert box == size and 1 <= count <= 10
         boxes = (
-            f"Hay 1 caja. Tiene {size} huevos."
+            f"Hay 1 bandeja. Tiene {size} huevos."
             if count == 1
-            else f"Hay {count} cajas. Cada caja tiene {size} huevos."
+            else f"Hay {count} bandejas. Cada bandeja tiene {size} huevos."
         )
         assert e.text == f"{boxes} ¿Cuántos huevos hay?"
         assert "×" not in e.text  # solo palabras

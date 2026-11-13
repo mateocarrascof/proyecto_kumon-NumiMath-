@@ -1,7 +1,12 @@
 <ion-header [translucent]="true">
   <ion-toolbar color="primary">
     <ion-buttons slot="start">
-      <ion-back-button [defaultHref]="'/practica/' + studentId" text="Practicar"></ion-back-button>
+      <!-- Siempre a /practica/:id: no depende del historial de Ionic (ion-back-button volvía a la
+           pantalla anterior si la había). -->
+      <ion-button (click)="backToPractice()" data-testid="games-top-back" aria-label="Volver a Practicar">
+        <ion-icon slot="start" name="chevron-back" aria-hidden="true"></ion-icon>
+        Practicar
+      </ion-button>
     </ion-buttons>
     <ion-title>Juegos</ion-title>
   </ion-toolbar>

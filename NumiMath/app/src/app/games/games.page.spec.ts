@@ -82,6 +82,22 @@ function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}, query: Reco
 }
 
 describe('GamesPage (CU-A21)', () => {
+  it('"Practicar" de arriba lleva siempre a /practica/:id, también a mitad de una partida', async () => {
+    const { page, q, nav, render } = setup({}, { juego: 'mayor-1' });
+    await render();
+    const top = q('games-top-back')!;
+    expect(top.textContent).toContain('Practicar');
+    expect(document.querySelector('ion-back-button')).toBeNull(); // no depende del historial
+    top.click();
+    expect(nav.navigateBack).toHaveBeenLastCalledWith(['/practica', 'p1']);
+    await page.start();
+    await render();
+    expect(page.step).toBe('round');
+    q('games-top-back')!.click();
+    expect(nav.navigateBack).toHaveBeenLastCalledWith(['/practica', 'p1']);
+    expect(nav.navigateBack).toHaveBeenCalledTimes(2);
+  });
+
   it('muestra los ejes y, al elegir uno, sus juegos', async () => {
     const { page, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit

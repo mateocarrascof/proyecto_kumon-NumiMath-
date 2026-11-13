@@ -1,6 +1,8 @@
 import { ChangeDetectorRef, Component, Injector, OnInit, afterNextRender, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
+import { addIcons } from 'ionicons';
+import { chevronBack } from 'ionicons/icons';
 
 import {
   BAG_GAMES,
@@ -73,6 +75,10 @@ export class GamesPage implements OnInit {
   streak = 0;
   medals = 0;
   medalNow = false;
+
+  constructor() {
+    addIcons({ chevronBack });
+  }
   /** Aviso amable (sin red, error) y qué hacer al tocar "Intentar otra vez". */
   notice = '';
   private retryAction: (() => Promise<void>) | null = null;

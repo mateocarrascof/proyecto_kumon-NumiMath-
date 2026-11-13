@@ -1231,7 +1231,8 @@ Usa los endpoints de la parte 1 sin cambiar el servidor.
 2. Elegir eje → elegir juego → instrucción corta de Numi (sin voz; CU-A20 no está construido).
 3. **5 rondas**: opciones (un toque responde) u orden (tarjetas + "Listo"). Corrige el servidor; el
    mensaje es el suyo (sin culpa) y la respuesta correcta se muestra solo después.
-4. Resumen: "Jugar de nuevo", "Otro juego" o "Volver a practicar".
+4. Resumen: "Jugar de nuevo", "Otro juego" o "Volver a practicar". (Cambió después: ver "Juegos
+   solo desde su tema" y "Un juego por tema".)
 
 ### Reglas
 - Sin nivel ni progreso. Suman a la racha (en el servidor; la pantalla no la muestra) y a las
@@ -1310,7 +1311,7 @@ los de esta parte tienen ids nuevos.
 |---|---|---|
 | 1. Conteo hasta 100, completar secuencias | `completa-camino-1` "Completa el camino" (tipo `fill`) | 1-01 |
 | 2. Números de 0 a 20 | `cuantos-1` (ya existía, hasta 10) | — |
-| 3. Comparar y ordenar de 0 a 20 | `mayor-1` y `ordena-1` (ya existían) | — |
+| 3. Comparar y ordenar de 0 a 20 | `mayor-1` y `ordena-1` (ya existían; hoy solo se lista `ordena-1`, ver "Un juego por tema") | — |
 | 4. Componer y descomponer | `descompone-1` "¿Cuántos faltan?" ("5 = 3 + ?" con objetos) | 1-04 |
 | 5. Sumas y restas hasta 20 | `junta-1` "Junta y cuenta" (dos grupos de objetos) | 1-08 |
 | 6. Patrones simples | `figura-sigue-1` "¿Qué figura sigue?" (AB, ABC, AAB, ABB) | 1-14 |
@@ -1519,15 +1520,34 @@ La ficha del CU-A21 pide una tarjeta "Jugar" en la práctica que lleva a todos l
 juego) y un "Otro juego" dentro del juego. Ya no coincide: **sin "Jugar" ni "Más juegos", un juego
 se abre solo desde su tema** (2026-11-13).
 - Temas que se practican: "Aprender jugando" dentro del tema (un juego → su introducción; varios
-  → la lista de ese tema).
+  → la lista de ese tema; hoy cada tema tiene uno, ver "Un juego por tema").
 - Temas que no se practican (fase B: geometría, medición, reloj, gráficos; en 1°, los temas 6 a
   10): aparecen en la lista normal de temas, en su eje, con la marca "🧩 Solo juego"; al tocarlos
   abren directo su juego, sin elegir eje. Solo 1° y 2° y con conexión. No cuentan en "N de M
   dominadas". El servidor manda el nombre del tema de cada juego (`skill_name`).
 - Dentro de un juego no hay vuelta a la elección de eje: el resumen ofrece "Jugar de nuevo",
-  "Volver a practicar" y, si el tema tiene varios juegos, "Otro juego de este tema".
+  "Volver a practicar" y, si el tema tiene varios juegos, "Otro juego de este tema" (hoy no
+  aparece: un juego por tema).
 - La pantalla de elección de eje sigue existiendo (`/juegos/:id` sin atajos), pero ya no se llega
   a ella desde la app.
+
+### Un juego por tema (decisión del cliente)
+- **Cada tema (curso + habilidad) tiene UN solo juego listado.** Es el mínimo pedido por el
+  cliente; no se agregan juegos nuevos. Quedan: 1-03 → `ordena-1`; 2-03 → `ordena-2`; 2-15 →
+  `completa-patron-2`. En total, 11 juegos en 1° (11 temas) y 12 en 2° (12 temas).
+- Por eso, en la práctica, "Aprender jugando" abre siempre directo la introducción del juego, y
+  "Otro juego de este tema" no aparece. El código para varios juegos por tema (lista filtrada por
+  tema y ese botón) **se conserva** y sigue cubierto por pruebas con un catálogo de prueba, por si
+  un tema vuelve a tener más de uno.
+- `test_un_solo_juego_listado_por_tema` (API) falla si un curso lista dos juegos de un mismo tema.
+
+**Ids ocultos (`listed=False`) y por qué siguen existiendo.** `cuantos-1` (1-02, reemplazado por
+`pon-en-bolsa-1`), `mayor-1` y `donde-hay-mas-1` (1-03), `mayor-2` (2-03) y `que-sigue-2` (2-15).
+No aparecen en la lista, pero **no se borran ni se editan** (ADR 0004): los ids de juego son
+permanentes porque las filas de `student_attempts` guardan `game_kind`; un ejercicio ya emitido se
+corrige regenerándolo desde la semilla del token, así que su generador debe seguir igual (lo vigila
+`test_games_golden.py`); y una partida abierta antes del cambio debe poder terminarse. Sus
+instrucciones en la app (`GAME_INSTRUCTIONS`) también se conservan por lo mismo.
 
 ### Emoji para contar, ordenados (práctica y juegos)
 - Los emoji van en un bloque propio, **antes** de la pregunta, en filas parejas de 5 (la última

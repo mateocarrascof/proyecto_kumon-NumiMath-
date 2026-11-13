@@ -128,6 +128,7 @@ def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
         "measure",
         "blocks",
         "removed",
+        "boxes",
         "figure",
         "clock",
         "scale",
@@ -143,6 +144,7 @@ def test_el_ejercicio_no_revela_la_solucion(game_id: str) -> None:
             "measure",
             "blocks",
             "removed",
+            "boxes",
             "figure",
             "clock",
             "scale",
@@ -549,6 +551,7 @@ def test_juegos_de_la_parte_3_traen_lo_que_se_dibuja(game_id: str, field: str | 
         "measure",
         "blocks",
         "removed",
+        "boxes",
         "figure",
         "clock",
         "scale",
@@ -706,6 +709,35 @@ def test_resta_con_bloques_cubre_9_barras_y_9_cubitos() -> None:
     assert any(e.blocks == (9, 9) for e in _many("resta-bloques-2", 4000))
 
 
+@pytest.mark.parametrize(
+    ("game_id", "size"), [("cajas-de-2-2", 2), ("cajas-de-5-2", 5), ("cajas-de-10-2", 10)]
+)
+def test_cajas_de_huevos_son_la_tabla_con_factores_de_1_a_10(game_id: str, size: int) -> None:
+    counts = set()
+    for e in _many(game_id):
+        assert e.boxes is not None
+        count, box = e.boxes
+        assert box == size and 1 <= count <= 10
+        cajas = "1 caja" if count == 1 else f"{count} cajas"
+        assert e.text == f"Hay {cajas}. Cada caja tiene {size} huevos. ¿Cuántos huevos hay?"
+        assert "×" not in e.text  # solo palabras
+        assert e.solution == (f"n:{count * size}",)
+        values = [_num(o.id) for o in e.options]
+        assert len(set(values)) == 3 and all(0 < v <= 100 for v in values)
+        counts.add(count)
+    assert counts == set(range(1, 11))
+
+
+def test_tablas_tienen_un_juego_cada_una_con_la_misma_mecanica() -> None:
+    by_skill = {g.skill: g for g in GAMES.values() if g.listed and g.grade == 2}
+    assert {by_skill[s].id for s in ("2-08", "2-12", "2-13", "2-14")} == {
+        "resta-bloques-2",
+        "cajas-de-2-2",
+        "cajas-de-5-2",
+        "cajas-de-10-2",
+    }
+
+
 def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
     for e in _many("grupos-iguales-2"):
         groups = e.text.rsplit("? ", 1)[1].split(" ")
@@ -720,6 +752,9 @@ def test_grupos_iguales_es_valido_en_miles_de_ejercicios() -> None:
     [
         ("arma-numero-2", {"blocks"}),
         ("resta-bloques-2", {"blocks", "removed"}),
+        ("cajas-de-2-2", {"boxes"}),
+        ("cajas-de-5-2", {"boxes"}),
+        ("cajas-de-10-2", {"boxes"}),
         ("cuenta-lados-2", {"figure"}),
         ("lee-reloj-2", {"clock"}),
         ("pictograma-escala-2", {"picto", "scale"}),
@@ -735,6 +770,7 @@ def test_juegos_de_2_traen_lo_que_se_dibuja(game_id: str, fields: set[str]) -> N
         "measure",
         "blocks",
         "removed",
+        "boxes",
         "figure",
         "clock",
         "scale",
@@ -742,6 +778,9 @@ def test_juegos_de_2_traen_lo_que_se_dibuja(game_id: str, fields: set[str]) -> N
     assert {k for k in drawn if body[k] is not None} == fields
     if "blocks" in fields:
         assert set(body["blocks"]) == {"tens", "ones"}
+    if "boxes" in fields:
+        assert set(body["boxes"]) == {"count", "size"}
+        assert body["boxes"]["size"] == int(game_id.split("-")[2])
     if "removed" in fields:
         assert set(body["removed"]) == {"tens", "ones"}
         # Lo tachado sale de los bloques dibujados: nunca más de lo que hay.

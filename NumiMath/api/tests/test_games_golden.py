@@ -48,6 +48,84 @@ GOLDEN = {
             ("blocks", 8, 9),
         ),
     ],
+    "cajas-de-10-2": [
+        (
+            "choice",
+            "Hay 5 cajas. Cada caja tiene 10 huevos. ¿Cuántos huevos hay?",
+            ("n:60", "n:50", "n:15"),
+            ("n:50",),
+            None,
+            ("boxes", 5, 10),
+        ),
+        (
+            "choice",
+            "Hay 5 cajas. Cada caja tiene 10 huevos. ¿Cuántos huevos hay?",
+            ("n:50", "n:40", "n:5"),
+            ("n:50",),
+            None,
+            ("boxes", 5, 10),
+        ),
+        (
+            "choice",
+            "Hay 8 cajas. Cada caja tiene 10 huevos. ¿Cuántos huevos hay?",
+            ("n:70", "n:80", "n:90"),
+            ("n:80",),
+            None,
+            ("boxes", 8, 10),
+        ),
+    ],
+    "cajas-de-2-2": [
+        (
+            "choice",
+            "Hay 5 cajas. Cada caja tiene 2 huevos. ¿Cuántos huevos hay?",
+            ("n:12", "n:10", "n:7"),
+            ("n:10",),
+            None,
+            ("boxes", 5, 2),
+        ),
+        (
+            "choice",
+            "Hay 5 cajas. Cada caja tiene 2 huevos. ¿Cuántos huevos hay?",
+            ("n:10", "n:8", "n:5"),
+            ("n:10",),
+            None,
+            ("boxes", 5, 2),
+        ),
+        (
+            "choice",
+            "Hay 8 cajas. Cada caja tiene 2 huevos. ¿Cuántos huevos hay?",
+            ("n:14", "n:16", "n:18"),
+            ("n:16",),
+            None,
+            ("boxes", 8, 2),
+        ),
+    ],
+    "cajas-de-5-2": [
+        (
+            "choice",
+            "Hay 5 cajas. Cada caja tiene 5 huevos. ¿Cuántos huevos hay?",
+            ("n:30", "n:25", "n:10"),
+            ("n:25",),
+            None,
+            ("boxes", 5, 5),
+        ),
+        (
+            "choice",
+            "Hay 5 cajas. Cada caja tiene 5 huevos. ¿Cuántos huevos hay?",
+            ("n:25", "n:20", "n:5"),
+            ("n:25",),
+            None,
+            ("boxes", 5, 5),
+        ),
+        (
+            "choice",
+            "Hay 8 cajas. Cada caja tiene 5 huevos. ¿Cuántos huevos hay?",
+            ("n:35", "n:40", "n:45"),
+            ("n:40",),
+            None,
+            ("boxes", 8, 5),
+        ),
+    ],
     "compara-signo-2": [
         (
             "choice",
@@ -753,6 +831,8 @@ def _visual(e: GameExercise) -> object:
     if e.blocks is not None:
         removed = () if e.removed is None else ("removed", *e.removed)
         return ("blocks", *e.blocks, *removed)
+    if e.boxes is not None:
+        return ("boxes", *e.boxes)
     if e.figure is not None:
         return ("figure", e.figure.id)
     if e.clock is not None:

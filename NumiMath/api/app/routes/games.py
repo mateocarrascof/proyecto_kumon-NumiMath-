@@ -109,6 +109,11 @@ class GameBlocksOut(BaseModel):
     ones: int
 
 
+class GameBoxesOut(BaseModel):
+    count: int
+    size: int
+
+
 class GameExerciseOut(BaseModel):
     token: str
     game_id: str
@@ -126,6 +131,8 @@ class GameExerciseOut(BaseModel):
     blocks: GameBlocksOut | None = None
     # Restas con bloques: las (decenas, unidades) de `blocks` que se quitan (tachadas).
     removed: GameBlocksOut | None = None
+    # Tablas del 2, 5 y 10: cantidad de cajas y huevos por caja (se dibujan).
+    boxes: GameBoxesOut | None = None
     figure: GameOptionOut | None = None
     clock: GameClockOut | None = None
     scale: int | None = None
@@ -240,6 +247,7 @@ async def new_game_exercise(
             if ex.removed is not None
             else None
         ),
+        boxes=GameBoxesOut(count=ex.boxes[0], size=ex.boxes[1]) if ex.boxes is not None else None,
         figure=(
             GameOptionOut(id=ex.figure.id, kind=ex.figure.kind, label=ex.figure.label)
             if ex.figure is not None

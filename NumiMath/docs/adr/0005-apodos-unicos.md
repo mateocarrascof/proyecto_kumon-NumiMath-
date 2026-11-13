@@ -54,6 +54,14 @@ RLS); FastAPI no tiene rutas para crearlos ni editarlos.
 
    En la base local, al decidirlo, no había duplicados.
 
+6. **Permisos de la función** (migración `20261118110000_student_nickname_key_grants.sql`): sin
+   `execute` para `public` ni `anon` (no hay RPC sin sesión); sí para `authenticated` (Postgres lo
+   exige al evaluar el índice con el rol del tutor) y `service_role`.
+7. **Cambios futuros:** cualquier cambio del cuerpo de `student_nickname_key` o de la collation de la
+   base (`lower()` depende de ella) deja el índice inconsistente **sin aviso**. La migración que lo
+   haga debe revisar antes que no haya duplicados con la regla nueva y terminar con
+   `reindex index public.students_tutor_grade_nickname_uk;`.
+
 ## Consecuencias
 
 - No hay datos nuevos: el índice se calcula del apodo que ya se guarda. El inventario lo registra

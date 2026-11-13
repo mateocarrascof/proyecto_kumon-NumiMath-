@@ -138,6 +138,15 @@ import { GameOption, GameScene } from './games.port';
         cursor: default;
         opacity: 1;
       }
+      /* Pantallas bajas (360 × 640): todas iguales, un poco más bajas, para que "Siguiente" quepa. */
+      @media (max-height: 700px) {
+        .options {
+          gap: 8px;
+        }
+        .option {
+          height: 62px;
+        }
+      }
       @media (prefers-reduced-motion: reduce) {
         .option {
           transition: none;

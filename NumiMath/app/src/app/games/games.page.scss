@@ -5,12 +5,39 @@
   text-align: center;
 }
 
-// Durante las rondas Numi se achica (como en la práctica): el ejercicio y "Siguiente" caben en
-// 360 px sin desplazarse.
+// Durante las rondas: Numi con un tamaño que sigue al alto de la pantalla (pequeño en 360 × 640,
+// claramente más grande en teléfonos altos y tablet) y el bloque Numi + pregunta + contenido +
+// botones centrado en el alto disponible. Los espaciadores (::before/::after) se encogen a 0 si no
+// hay lugar: el contenido nunca se recorta, solo se desplaza como antes.
+.games.in-round {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.games.in-round::before,
+.games.in-round::after {
+  content: '';
+  flex: 1 1 0;
+}
+
 .games.in-round app-mascot {
   display: block;
-  max-width: 36px; /* a 360 × 640, pregunta, 4 opciones y "Siguiente" caben sin desplazarse */
+  flex: none;
+  max-width: var(--game-numi-size);
   margin: 0 auto;
+}
+
+.games {
+  /* Ancho de Numi: 360 × 640 → 36 px, 424 × 868 → 96 px, 768 × 1024 → 136 px. */
+  --game-numi-size: clamp(32px, calc(26vh - 130px), 140px);
+}
+
+// Una variable con dvh no "falla" al leerse: sin @supports, un navegador sin dvh perdería el tamaño.
+@supports (height: 1dvh) {
+  .games {
+    --game-numi-size: clamp(32px, calc(26dvh - 130px), 140px);
+  }
 }
 
 .games.in-round h1 {
@@ -113,4 +140,33 @@ h1 {
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// Pantallas bajas (360 × 640): márgenes más cortos para que pregunta, figura, opciones, resultado y
+// "Siguiente" quepan sin desplazarse. Solo espacios: los textos y los objetivos táctiles no bajan
+// de 56 px.
+@media (max-height: 700px) {
+  ion-content {
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+  }
+
+  .games.in-round h1 {
+    margin: 4px 0;
+  }
+
+  .games.in-round .prompt {
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+
+  .games.in-round .result,
+  .games.in-round .medal {
+    margin: 6px 0 0;
+  }
+
+  .games.in-round .big.primary {
+    margin-top: 8px;
+    min-height: 56px;
+  }
 }

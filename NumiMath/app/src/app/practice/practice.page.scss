@@ -288,8 +288,9 @@ form,
    quedan separados de "Responder" o "Siguiente" y de "Cambiar de tema" con el mismo espacio, con el
    papel abierto o cerrado. */
 .paper-toggle { margin: 14px auto; }
-/* "Cambiar de tema" no es de ancho completo y su margen no se junta: sin margen arriba queda a 14 px. */
-.paper-toggle + .change-topic { margin-top: 0; }
+/* "Cambiar de tema" como bloque centrado: su margen se junta con el de lo que haya arriba (papel
+   abierto o cerrado, nota del profe, "Aprender jugando" o "Ver mis tareas") y queda a 14 px. */
+.change-topic { display: block; margin-top: 14px; }
 
 /* Explicación de Numi (burbuja de diálogo, misma letra grande que el resultado) */
 .explain-btn,

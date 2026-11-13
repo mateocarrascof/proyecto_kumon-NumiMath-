@@ -8,14 +8,14 @@
 </ion-header>
 
 <ion-content class="ion-padding">
-  <main style="max-width: 32rem; margin: 0 auto">
+  <main class="new-teacher">
     @if (created; as teacher) {
       <section data-testid="admin-created">
         <h1>Cuenta creada</h1>
-        <p role="alert">
+        <p class="notice" role="alert">
           <strong>Entrega estos datos ahora.</strong> La contraseña no se podrá volver a ver.
         </p>
-        <ion-list>
+        <ion-list lines="full" class="credentials">
           <ion-item>
             <ion-label>
               <p>Correo</p>
@@ -38,19 +38,27 @@
             <ion-button slot="end" fill="outline" (click)="copy('código', teacher.linkCode)">Copiar</ion-button>
           </ion-item>
         </ion-list>
+        <p class="hint">El docente entra con el correo y la contraseña. Los tutores usan el código de vínculo
+          para conectarlo con sus niños.</p>
         @if (copied) {
-          <p role="status">Copiado: {{ copied }}.</p>
+          <p class="copied" role="status">Copiado: {{ copied }}.</p>
         }
-        <ion-button expand="block" (click)="done()" data-testid="admin-done">Listo, ya los entregué</ion-button>
+        <ion-button expand="block" size="large" (click)="done()" data-testid="admin-done">Listo, ya los entregué</ion-button>
       </section>
     } @else {
+      <h1>Nueva cuenta de docente</h1>
+      <p class="intro">
+        Completa los tres datos. Al terminar verás el correo, la contraseña y el código de vínculo para
+        entregárselos al docente.
+      </p>
       <form (ngSubmit)="submit()" novalidate>
         <ion-input
-          label="Nombre"
+          label="Nombre del docente"
           labelPlacement="stacked"
           fill="outline"
-          style="margin-bottom: 1rem"
           name="name"
+          placeholder="Ej.: Profe Ana Rojas"
+          helperText="Así lo verán los tutores al vincularlo."
           [maxlength]="nameMax"
           [(ngModel)]="name"
         ></ion-input>
@@ -60,7 +68,10 @@
           fill="outline"
           type="email"
           name="email"
+          inputmode="email"
           autocomplete="off"
+          placeholder="nombre@colegio.cl"
+          helperText="Con este correo entrará el docente."
           [(ngModel)]="email"
         ></ion-input>
         <ion-input
@@ -70,10 +81,11 @@
           [type]="showPassword ? 'text' : 'password'"
           name="password"
           autocomplete="new-password"
-          [helperText]="'Mínimo ' + passwordMin + ' caracteres'"
+          [helperText]="'Mínimo ' + passwordMin + ' caracteres. Se la entregarás al docente con su correo.'"
           [(ngModel)]="password"
         ></ion-input>
         <ion-checkbox
+          class="show-password"
           labelPlacement="end"
           justify="start"
           [checked]="showPassword"
@@ -83,8 +95,8 @@
         @if (error) {
           <p class="error" role="alert" data-testid="admin-new-error">{{ error }}</p>
         }
-        <ion-button type="submit" expand="block" [disabled]="busy" data-testid="admin-new-submit">
-          {{ busy ? 'Creando…' : 'Crear cuenta' }}
+        <ion-button type="submit" expand="block" size="large" [disabled]="busy" data-testid="admin-new-submit">
+          {{ busy ? 'Creando la cuenta…' : 'Crear cuenta de docente' }}
         </ion-button>
       </form>
     }

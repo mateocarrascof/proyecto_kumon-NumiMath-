@@ -1,0 +1,57 @@
+.new-teacher {
+  max-width: 32rem;
+  margin: 0 auto;
+
+  h1 {
+    margin: 0.25rem 0 0.5rem;
+    font-size: 1.4rem;
+  }
+
+  .intro,
+  .hint {
+    margin: 0 0 1.25rem;
+    color: var(--ion-color-medium-shade);
+    line-height: 1.4;
+  }
+
+  form ion-input {
+    margin-bottom: 1.25rem;
+  }
+
+  .show-password {
+    margin: 0 0 1.25rem;
+  }
+
+  .error {
+    margin: 0 0 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(var(--ion-color-danger-rgb), 0.1);
+    color: var(--ion-color-danger-shade);
+  }
+
+  .notice {
+    margin: 0 0 1rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(var(--ion-color-warning-rgb), 0.18);
+    line-height: 1.4;
+  }
+
+  .credentials {
+    margin-bottom: 1rem;
+
+    h2 {
+      word-break: break-all;
+    }
+  }
+
+  .copied {
+    margin: 0 0 1rem;
+    color: var(--ion-color-success-shade);
+  }
+
+  ion-button[size='large'] {
+    margin-top: 0.5rem;
+  }
+}

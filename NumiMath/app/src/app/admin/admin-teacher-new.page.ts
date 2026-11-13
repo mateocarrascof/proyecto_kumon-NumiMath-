@@ -8,18 +8,19 @@ export const INITIAL_PASSWORD_MIN = 8;
 export const INITIAL_PASSWORD_MAX = 72;
 
 const MESSAGES: Record<AdminFailure, string> = {
-  email_taken: 'Ese correo ya tiene una cuenta. No se creó nada.',
-  invalid: 'Revisa los datos: el servidor no los aceptó.',
-  forbidden: 'Tu sesión ya no es válida. Entra de nuevo.',
-  not_found: 'No pudimos crear la cuenta. No se creó nada: inténtalo de nuevo.',
-  network: 'No pude conectar con el servidor. Revisa tu conexión.',
-  error: 'No pudimos crear la cuenta. No se creó nada: inténtalo de nuevo.',
+  email_taken: 'Ese correo ya tiene una cuenta. Usa otro correo; no se creó nada.',
+  invalid: 'Algún dato no está bien escrito. Revísalos e inténtalo de nuevo.',
+  forbidden: 'Tu sesión se cerró. Vuelve a entrar para seguir.',
+  not_found: 'Algo falló y no se creó la cuenta. Inténtalo de nuevo en un momento.',
+  network: 'No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo.',
+  error: 'Algo falló y no se creó la cuenta. Inténtalo de nuevo en un momento.',
 };
 
 /** Crear cuenta de docente (AD2). La contraseña inicial la escribe el administrador. */
 @Component({
   selector: 'app-admin-teacher-new',
   templateUrl: 'admin-teacher-new.page.html',
+  styleUrls: ['admin-teacher-new.page.scss'],
   standalone: false,
 })
 export class AdminTeacherNewPage {
@@ -42,14 +43,14 @@ export class AdminTeacherNewPage {
   private problem(): string {
     const name = this.name.trim();
     if (name.length < 1 || name.length > NAME_MAX) {
-      return `El nombre debe tener entre 1 y ${NAME_MAX} caracteres.`;
+      return `Escribe el nombre del docente (máximo ${NAME_MAX} caracteres).`;
     }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email.trim())) return 'Escribe un correo válido.';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email.trim())) return 'Revisa el correo: debe ser como nombre@colegio.cl.';
     if (
       this.password.length < INITIAL_PASSWORD_MIN ||
       this.password.length > INITIAL_PASSWORD_MAX
     ) {
-      return `La contraseña inicial debe tener entre ${INITIAL_PASSWORD_MIN} y ${INITIAL_PASSWORD_MAX} caracteres.`;
+      return `La contraseña debe tener entre ${INITIAL_PASSWORD_MIN} y ${INITIAL_PASSWORD_MAX} caracteres.`;
     }
     return '';
   }

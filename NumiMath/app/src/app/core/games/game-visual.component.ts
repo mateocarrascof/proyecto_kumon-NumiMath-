@@ -75,8 +75,9 @@ export const MEASURE_UNIT_PX = 34;
                 <rect x="2" [attr.y]="2 + i * 10" width="10" height="10" fill="#90cdf4" stroke="#1a202c" stroke-width="1.5" />
               }
               @if (gone) {
-                <line x1="1" y1="1" x2="13" y2="103" class="cross" />
-                <line x1="13" y1="1" x2="1" y2="103" class="cross" />
+                <!-- Dentro del viewBox con el trazo de 2,5 y punta redonda (no se recorta). -->
+                <line x1="1.5" y1="1.5" x2="12.5" y2="102.5" class="cross" />
+                <line x1="12.5" y1="1.5" x2="1.5" y2="102.5" class="cross" />
               }
             </svg>
           }
@@ -217,7 +218,8 @@ export const MEASURE_UNIT_PX = 34;
         height: 128px;
         margin: 0 auto;
       }
-      /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 21 = 279 px. */
+      /* 9 barras y hasta 18 cubitos caben en 360 px (328 útiles): barras 9 × 14 + 8 × 4 = 158,
+         separación 12 y cubitos 5 × 18 + 4 × 3 = 102: 272 px. */
       .blocks {
         display: flex;
         justify-content: center;

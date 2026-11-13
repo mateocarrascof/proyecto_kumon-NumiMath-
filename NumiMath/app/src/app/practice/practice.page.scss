@@ -284,7 +284,12 @@ form,
   letter-spacing: 2px;
 }
 
-.paper-toggle { margin-bottom: 12px; }
+/* "Papel para calcular" y "Aprender jugando": 14 px arriba y abajo (los márgenes se juntan), así
+   quedan separados de "Responder" o "Siguiente" y de "Cambiar de tema" con el mismo espacio, con el
+   papel abierto o cerrado. */
+.paper-toggle { margin-top: 14px; margin-bottom: 14px; }
+/* "Cambiar de tema" no es de ancho completo y su margen no se junta: sin margen arriba queda a 14 px. */
+.paper-toggle + .change-topic { margin-top: 0; }
 
 /* Explicación de Numi (burbuja de diálogo, misma letra grande que el resultado) */
 .explain-btn,

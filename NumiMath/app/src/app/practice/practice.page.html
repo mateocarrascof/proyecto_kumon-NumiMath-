@@ -328,7 +328,7 @@
         <ion-button expand="block" color="secondary" (click)="openTasks()">Ver mis tareas</ion-button>
       }
 
-      <ion-button fill="clear" (click)="changeTopic()">{{ taskMode ? 'Volver a los temas' : 'Cambiar de tema' }}</ion-button>
+      <ion-button class="change-topic" fill="clear" (click)="changeTopic()">{{ taskMode ? 'Volver a los temas' : 'Cambiar de tema' }}</ion-button>
     }
 
     @if (error) {

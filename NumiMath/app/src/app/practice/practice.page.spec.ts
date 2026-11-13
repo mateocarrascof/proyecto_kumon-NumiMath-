@@ -1853,15 +1853,20 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
 
   describe('"Aprender jugando" dentro de cada tema', () => {
     const game = (id: string, skill: string) => ({ id, name: id, kind: 'choice' as const, skill });
+    // Como el catálogo real: un juego listado por tema.
     const CATALOG = [
       {
         module: 'Números y operaciones',
-        games: [game('mayor-1', '1-03'), game('ordena-1', '1-03'), game('cuantos-1', '1-02')],
+        games: [game('ordena-1', '1-03'), game('pon-en-bolsa-1', '1-02')],
       },
       { module: 'Patrones y álgebra', games: [game('que-sigue-1', '1-13')] },
     ];
-    async function inTopic(id: string, grade: number) {
-      gameGroups = CATALOG;
+    // Catálogo de prueba con dos juegos en un tema: el código para varios juegos se conserva.
+    const TWO_IN_TOPIC = [
+      { module: 'Números y operaciones', games: [game('ordena-1', '1-03'), game('otro-1', '1-03')] },
+    ];
+    async function inTopic(id: string, grade: number, catalog = CATALOG) {
+      gameGroups = catalog;
       const topic = { ...TOPIC, id, grade, review: false };
       const ctx = await withTopics([topic]);
       await ctx.page.choose(topic as never);
@@ -1879,8 +1884,16 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
       });
     });
 
-    it('varios juegos en el tema: abre la lista filtrada por el tema', async () => {
+    it('un tema del catálogo real con un solo juego (1-03) abre directo ordena-1', async () => {
       const { button, nav } = await inTopic('1-03', 1);
+      button!.click();
+      expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+        queryParams: { juego: 'ordena-1' },
+      });
+    });
+
+    it('varios juegos en el tema (catálogo de prueba): abre la lista filtrada por el tema', async () => {
+      const { button, nav } = await inTopic('1-03', 1, TWO_IN_TOPIC);
       button!.click();
       expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
         queryParams: { tema: '1-03' },

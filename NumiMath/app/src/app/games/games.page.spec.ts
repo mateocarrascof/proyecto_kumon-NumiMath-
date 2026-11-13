@@ -237,7 +237,7 @@ describe('GamesPage (CU-A21)', () => {
       },
     };
     const CATALOG = [
-      { module: 'Números y operaciones', ids: ['mayor-1', 'pon-en-bolsa-1', 'donde-hay-mas-1', 'ordena-1', 'completa-camino-1', 'descompone-1', 'junta-1'] },
+      { module: 'Números y operaciones', ids: ['pon-en-bolsa-1', 'ordena-1', 'completa-camino-1', 'descompone-1', 'junta-1'] },
       { module: 'Patrones y álgebra', ids: ['que-sigue-1', 'figura-sigue-1'] },
       { module: 'Geometría', ids: ['toca-figura-1', 'donde-esta-1'] },
       { module: 'Medición', ids: ['mide-clips-1'] },
@@ -300,7 +300,7 @@ describe('GamesPage (CU-A21)', () => {
         expect(q('game-result')?.textContent, game.id).toContain('¡Muy bien!');
       }
     }
-    expect(answer).toHaveBeenCalledTimes(13);
+    expect(answer).toHaveBeenCalledTimes(11); // un juego por tema (11 temas de 1°)
   });
 
   it('recorre el catálogo de 2°: cada juego abre, se juega y corrige', async () => {
@@ -317,8 +317,8 @@ describe('GamesPage (CU-A21)', () => {
       'pictograma-escala-2': { options: [n(6), n(3)], picto: [{ glyph: '⭐', name: 'estrellas', count: 3 }], scale: 2 },
     };
     const CATALOG = [
-      { module: 'Números y operaciones', ids: ['mayor-2', 'ordena-2', 'cuenta-mil-2', 'lee-numero-2', 'arma-numero-2', 'suma-bloques-2', 'grupos-iguales-2'] },
-      { module: 'Patrones y álgebra', ids: ['que-sigue-2', 'compara-signo-2', 'completa-patron-2'] },
+      { module: 'Números y operaciones', ids: ['ordena-2', 'cuenta-mil-2', 'lee-numero-2', 'arma-numero-2', 'suma-bloques-2', 'grupos-iguales-2'] },
+      { module: 'Patrones y álgebra', ids: ['compara-signo-2', 'completa-patron-2'] },
       { module: 'Geometría', ids: ['cuenta-lados-2'] },
       { module: 'Medición', ids: ['elige-unidad-2', 'lee-reloj-2'] },
       { module: 'Datos y probabilidades', ids: ['pictograma-escala-2'] },
@@ -358,7 +358,7 @@ describe('GamesPage (CU-A21)', () => {
         expect(q('game-result')?.textContent, game.id).toContain('¡Muy bien!');
       }
     }
-    expect(answer).toHaveBeenCalledTimes(14); // los 14 juegos de 2° (11 temas)
+    expect(answer).toHaveBeenCalledTimes(12); // un juego por tema (12 temas de 2°)
   });
 
   it('bolsa: las opciones esperan a que estén todos dentro; sacar uno las vuelve a deshabilitar', async () => {
@@ -419,6 +419,7 @@ describe('GamesPage (CU-A21)', () => {
   });
 
   it('un tema con varios juegos: el resumen ofrece "Otro juego de este tema" (solo los de su tema)', async () => {
+    // Catálogo de prueba: el real tiene un juego listado por tema, pero el botón se conserva.
     const same = [
       { id: 'mayor-1', name: '¿Cuál es mayor?', kind: 'choice' as const, skill: '1-03' },
       { id: 'ordena-1', name: 'Ordena los números', kind: 'order' as const, skill: '1-03' },

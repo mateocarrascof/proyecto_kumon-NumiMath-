@@ -892,3 +892,23 @@ def test_los_que_quedan_por_tema_son_los_elegidos() -> None:
 def test_los_ocultos_por_tema_siguen_existiendo(game_id: str) -> None:
     # ADR 0004: ids permanentes; sus tokens y los intentos guardados se siguen verificando.
     assert game_id in GAMES and not GAMES[game_id].listed
+
+
+@pytest.mark.parametrize(
+    ("model", "values"),
+    [
+        ("GameBlocksOut", {"tens": 10, "ones": 0}),
+        ("GameBlocksOut", {"tens": 0, "ones": 19}),
+        ("GameBlocksOut", {"tens": -1, "ones": 0}),
+        ("GameBoxesOut", {"count": 0, "size": 5}),
+        ("GameBoxesOut", {"count": 11, "size": 5}),
+        ("GameBoxesOut", {"count": 3, "size": 11}),
+    ],
+)
+def test_los_campos_de_dibujo_tienen_limites(model: str, values: dict[str, int]) -> None:
+    from pydantic import ValidationError
+
+    from app.routes import games as routes
+
+    with pytest.raises(ValidationError):
+        getattr(routes, model)(**values)

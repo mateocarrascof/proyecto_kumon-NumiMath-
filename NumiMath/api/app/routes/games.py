@@ -105,13 +105,16 @@ class GameClockOut(BaseModel):
 
 
 class GameBlocksOut(BaseModel):
-    tens: int
-    ones: int
+    # Límites del dibujo (defensa en profundidad): hasta 9 barras y 18 cubitos sueltos (sumas con
+    # reserva antes de agrupar). También se usa para `removed` (lo tachado).
+    tens: Annotated[int, Field(ge=0, le=9)]
+    ones: Annotated[int, Field(ge=0, le=18)]
 
 
 class GameBoxesOut(BaseModel):
-    count: int
-    size: int
+    # Tablas del 2, 5 y 10: de 1 a 10 bandejas de 2, 5 o 10 huevos.
+    count: Annotated[int, Field(ge=1, le=10)]
+    size: Annotated[int, Field(ge=2, le=10)]
 
 
 class GameExerciseOut(BaseModel):

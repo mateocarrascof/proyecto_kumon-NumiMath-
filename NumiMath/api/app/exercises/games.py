@@ -629,10 +629,13 @@ def _blocks_subtract(rng: random.Random) -> GameExercise:
         if b < a and b // 10 <= a // 10 and b % 10 <= a % 10:
             break
     rest = a - b
-    tens_slip = [v for v in (rest + 10, rest - 10) if 0 <= v <= 99]
-    pool = [a + b] if a + b <= 100 else []
-    pool += [rng.choice(tens_slip), rest + 1 if rest + 1 <= 99 else rest - 1]
-    wrong = [v for v in dict.fromkeys(pool) if v != rest][:2]
+    # Un candidato de cada error y se eligen 2 al azar: mezcla pareja de "sumar", "una decena" y
+    # "±1" (sin repetir). `rest` ≥ 1 y ≤ 98, así que siempre hay decena y ±1 válidos.
+    tens_slip = rng.choice([v for v in (rest + 10, rest - 10) if 0 <= v <= 99])
+    near = rng.choice([v for v in (rest + 1, rest - 1) if 0 <= v <= 99])
+    pool = ([a + b] if a + b <= 100 else []) + [tens_slip, near]
+    pool = [v for v in dict.fromkeys(pool) if v != rest]
+    wrong = rng.sample(pool, 2)
     return GameExercise(
         "choice",
         f"{a} − {b} = ? Quita los bloques tachados.",

@@ -747,7 +747,7 @@ GOLDEN = {
         (
             "choice",
             "43 − 41 = ? Quita los bloques tachados.",
-            ("n:12", "n:84", "n:2"),
+            ("n:12", "n:3", "n:2"),
             ("n:2",),
             None,
             ("blocks", 4, 3, "removed", 4, 1),
@@ -755,7 +755,7 @@ GOLDEN = {
         (
             "choice",
             "39 − 8 = ? Quita los bloques tachados.",
-            ("n:31", "n:41", "n:47"),
+            ("n:30", "n:41", "n:31"),
             ("n:31",),
             None,
             ("blocks", 3, 9, "removed", 0, 8),
@@ -763,7 +763,7 @@ GOLDEN = {
         (
             "choice",
             "86 − 4 = ? Quita los bloques tachados.",
-            ("n:92", "n:82", "n:90"),
+            ("n:82", "n:90", "n:81"),
             ("n:82",),
             None,
             ("blocks", 8, 6, "removed", 0, 4),

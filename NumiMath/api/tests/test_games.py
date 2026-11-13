@@ -690,7 +690,7 @@ def test_suma_con_bloques_mezcla_sin_y_con_reserva() -> None:
 
 
 def test_resta_con_bloques_sin_reserva_en_miles_de_ejercicios() -> None:
-    sizes = set()
+    sizes, errors = set(), set()
     for e in _many("resta-bloques-2"):
         a, b = (int(x) for x in e.text.split(" = ")[0].split(" − "))
         assert e.text == f"{a} − {b} = ? Quita los bloques tachados."
@@ -701,7 +701,16 @@ def test_resta_con_bloques_sin_reserva_en_miles_de_ejercicios() -> None:
         values = [_num(o.id) for o in e.options]
         assert len(set(values)) == 3 and all(0 <= v <= 100 for v in values)
         sizes.add(b >= 10)
+        rest = a - b
+        for v in values:
+            if v == a + b:
+                errors.add("sumar")
+            elif abs(v - rest) == 10:
+                errors.add("decena")
+            elif abs(v - rest) == 1:
+                errors.add("±1")
     assert sizes == {True, False}  # 2 cifras − 1 cifra y 2 cifras − 2 cifras
+    assert errors == {"sumar", "decena", "±1"}  # los tres errores aparecen de verdad
 
 
 def test_resta_con_bloques_cubre_9_barras_y_9_cubitos() -> None:

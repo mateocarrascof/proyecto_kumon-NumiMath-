@@ -79,7 +79,7 @@ set local role authenticated;
 do $do$ begin
   for i in 1..5 loop
     insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-    values ('aaaa1111-0000-0000-0000-000000000004', 'Ciclo', 1, true);
+    values ('aaaa1111-0000-0000-0000-000000000004', 'Ciclo ' || i, 1, true); -- apodos únicos por curso (ADR 0005)
   end loop;
 end $do$;
 reset role;
@@ -92,7 +92,7 @@ set local role authenticated;
 select lives_ok($t$do $do$ begin
     for i in 1..5 loop
       insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-      values ('aaaa1111-0000-0000-0000-000000000004', 'Ciclo', 1, true);
+      values ('aaaa1111-0000-0000-0000-000000000004', 'Ciclo ' || i, 1, true); -- apodos únicos por curso (ADR 0005)
     end loop;
   end $do$ $t$ , 'U4 crea y borra 10 perfiles en 24 horas');
 reset role;

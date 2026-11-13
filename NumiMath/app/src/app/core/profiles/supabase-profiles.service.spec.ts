@@ -10,7 +10,7 @@ import { AuthPort } from '../auth/auth.port';
 import { SUPABASE_CLIENT } from '../auth/supabase.client';
 import { SupabaseProfilesService } from './supabase-profiles.service';
 
-function setup(result: { data?: unknown; error?: { message: string } | null }) {
+function setup(result: { data?: unknown; error?: { message: string; code?: string } | null }) {
   const inserted: unknown[] = [];
   const deleted: string[] = [];
   const client = {
@@ -90,6 +90,20 @@ describe('SupabaseProfilesService', () => {
     TestBed.resetTestingModule();
     const consent = setup({ error: { message: 'consent_required' } });
     expect(await consent.service.create('Luz', 1)).toEqual({ ok: false, reason: 'consent' });
+  });
+
+  it('apodo repetido en el curso (409 de PostgREST, código 23505 del índice): motivo duplicate', async () => {
+    const dup = setup({
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "students_tutor_grade_nickname_uk"',
+      },
+    });
+    expect(await dup.service.create('juanito', 1)).toEqual({ ok: false, reason: 'duplicate' });
+    TestBed.resetTestingModule();
+    // Otro índice único (no el de apodos) no se confunde con un apodo repetido.
+    const other = setup({ error: { code: '23505', message: 'duplicate key value violates unique constraint "otro"' } });
+    expect(await other.service.create('Luz', 1)).toEqual({ ok: false, reason: 'unknown' });
   });
 
   it('borrar NO toca la base directo: va a la API con el token del PIN', async () => {

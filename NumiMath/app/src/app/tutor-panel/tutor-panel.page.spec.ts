@@ -558,6 +558,31 @@ describe('TutorPanelPage: cerrar sesión (pestaña Cuenta)', () => {
     expect(nav.navigateRoot).toHaveBeenCalledWith('/login');
   });
 
+  it('si cerrar sesión falla, igual sale a /login sin token (el panel no queda a la vista)', async () => {
+    const { page, nav, session, auth } = setup();
+    await page.ngOnInit();
+    auth.signOut.mockRejectedValueOnce(new Error('red'));
+    await expect(page.signOut()).resolves.toBeUndefined();
+    expect(session.isUnlocked()).toBe(false);
+    expect(nav.navigateRoot).toHaveBeenCalledWith('/login');
+  });
+
+  it('mientras cierra sesión el botón queda desactivado y un segundo toque no repite', async () => {
+    const { page, fixture, auth } = setup();
+    await page.ngOnInit();
+    let release!: () => void;
+    auth.signOut.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    const first = page.signOut();
+    fixture.detectChanges();
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLIonButtonElement>('[data-testid="panel-sign-out"]');
+    expect(button?.disabled).toBe(true);
+    expect(button?.textContent).toContain('Cerrando sesión…');
+    await page.signOut();
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    release();
+    await first;
+  });
+
   it('sin conexión no se ofrece ni hace nada (como en /home, CU-A12)', async () => {
     const { page, fixture, nav, session, auth } = setup();
     await page.ngOnInit();

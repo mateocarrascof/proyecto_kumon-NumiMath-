@@ -317,9 +317,14 @@
           <ion-button expand="block" fill="outline" (click)="changePin()">Cambiar PIN</ion-button>
           <!-- Como en /home: sin conexión no se ofrece (borraría los intentos sin enviar, CU-A12). -->
           @if (!offline()) {
-            <ion-button expand="block" fill="outline" color="medium" (click)="signOut()" data-testid="panel-sign-out">
-              Cerrar sesión
-            </ion-button>
+            <ion-button
+              expand="block"
+              fill="outline"
+              color="medium"
+              [disabled]="signingOut"
+              (click)="signOut()"
+              data-testid="panel-sign-out"
+            >{{ signingOut ? 'Cerrando sesión…' : 'Cerrar sesión' }}</ion-button>
           }
         </div>
       </section>

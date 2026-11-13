@@ -81,6 +81,8 @@ export class TutorPanelPage implements OnInit {
    * sigue vivo (ParentalZoneWatcher solo lo borra al salir de /panel o /pin).
    */
   tab: PanelTab = 'progreso';
+  /** "Cerrar sesión" en curso: el botón queda desactivado (evita el doble toque). */
+  signingOut = false;
   protected readonly tabs = PANEL_TABS;
 
   profiles: Profile[] = [];
@@ -281,11 +283,18 @@ export class TutorPanelPage implements OnInit {
    * ParentalZoneWatcher al navegar a /login y al cambiar el usuario conectado).
    */
   async signOut(): Promise<void> {
-    if (this.offline()) return;
+    if (this.offline() || this.signingOut) return;
+    this.signingOut = true;
     this.session.end();
-    await this.auth.signOut();
-    // navigateRoot vacía la pila: el panel (con los datos de los niños) no queda en memoria.
-    await this.nav.navigateRoot('/login');
+    this.cdr.markForCheck();
+    try {
+      await this.auth.signOut();
+    } catch {
+      // Aunque falle, se sale del panel: el token ya se borró y los datos no deben quedar a la vista.
+    } finally {
+      // navigateRoot vacía la pila: el panel (con los datos de los niños) no queda en memoria.
+      await this.nav.navigateRoot('/login');
+    }
   }
 
   /** Cierra la zona del tutor: borra el token del PIN. */

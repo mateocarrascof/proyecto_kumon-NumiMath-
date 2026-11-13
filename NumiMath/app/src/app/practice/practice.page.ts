@@ -11,6 +11,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
+import { splitLeadingEmoji } from '../core/games/games.messages';
 import { GameInfo, GamesPort } from '../core/games/games.port';
 
 import {
@@ -153,6 +154,7 @@ export function groupByGrade(topics: Topic[]): TopicGroup[] {
 
 /** Texto para el lector de pantalla de una baldosa: nombre, nivel y avance del bloque. */
 export function tileLabel(topic: Topic): string {
+  if (topic.gameIds?.length) return `${topic.label}, solo juego`;
   const parts = [topic.label];
   if (topic.review && topic.grade) parts.push(`repaso de ${topic.grade}° básico`);
   if (topic.exhausted) {
@@ -223,6 +225,13 @@ export class PracticePage implements OnInit {
   private readonly games = inject(GamesPort);
   /** Juegos por habilidad (null: aún no se piden o no se pudieron leer). */
   private gamesBySkill: Map<string, GameInfo[]> | null = null;
+  private allGames: { game: GameInfo; module: string }[] | null = null;
+  private tileCache: {
+    topics: Topic[];
+    games: { game: GameInfo; module: string }[] | null;
+    play: boolean;
+    groups: TopicGroup[];
+  } | null = null;
   private gamesLoading = false;
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -503,8 +512,49 @@ export class PracticePage implements OnInit {
     return grade === 1 || grade === 2;
   }
 
-  openGames(): Promise<boolean> {
-    return this.nav.navigateForward(['/juegos', this.studentId]);
+  /**
+   * Baldosas de temas: los que se practican y, en 1° y 2° con conexión, los temas "solo juego"
+   * (fase B: geometría, medición, reloj, gráficos; en 1°, los temas 6 a 10), en su eje. Se
+   * recalcula solo si cambian los temas, la lista de juegos o la conexión (misma referencia si no).
+   */
+  get tileGroups(): TopicGroup[] {
+    const play = this.canPlay;
+    if (this.tileCache?.topics !== this.topics || this.tileCache.games !== this.allGames || this.tileCache.play !== play) {
+      const own = this.topics.filter((t) => !t.review);
+      this.tileCache = {
+        topics: this.topics,
+        games: this.allGames,
+        play,
+        groups: groupByModule([...own, ...(play ? this.gameOnlyTopics(own) : [])]),
+      };
+    }
+    return this.tileCache.groups;
+  }
+
+  /** Temas con juego que el perfil no practica: uno por habilidad, con sus juegos. */
+  private gameOnlyTopics(own: Topic[]): Topic[] {
+    const practiced = new Set(this.topics.map((t) => t.id));
+    const grade = own[0]?.grade;
+    const bySkill = new Map<string, Topic>();
+    for (const { game, module } of this.allGames ?? []) {
+      if (!game.skill || practiced.has(game.skill)) continue;
+      const topic = bySkill.get(game.skill);
+      if (topic) topic.gameIds = [...(topic.gameIds ?? []), game.id];
+      else bySkill.set(game.skill, { id: game.skill, label: game.skillName ?? game.name, module, grade, gameIds: [game.id] });
+    }
+    return [...bySkill.values()];
+  }
+
+  /** Un tema "solo juego": directo a su juego (o a la lista de los de ese tema), sin ejes. */
+  private openTopicGame(topic: Topic): Promise<boolean> {
+    const ids = topic.gameIds ?? [];
+    const queryParams = ids.length === 1 ? { juego: ids[0] } : { tema: topic.id };
+    return this.nav.navigateForward(['/juegos', this.studentId], { queryParams });
+  }
+
+  /** Emoji al principio del enunciado (contar): van aparte, en filas, encima de la pregunta. */
+  get exerciseEmoji(): { glyphs: string; rest: string; spoken: string } | null {
+    return this.exercise ? splitLeadingEmoji(this.exercise.text) : null;
   }
 
   /**
@@ -529,12 +579,14 @@ export class PracticePage implements OnInit {
     this.gamesLoading = true;
     try {
       const bySkill = new Map<string, GameInfo[]>();
-      for (const game of (await this.games.list(this.studentId)).flatMap((g) => g.games)) {
+      const all = (await this.games.list(this.studentId)).flatMap((g) => g.games.map((game) => ({ game, module: g.module })));
+      for (const { game } of all) {
         if (game.skill) bySkill.set(game.skill, [...(bySkill.get(game.skill) ?? []), game]);
       }
       this.gamesBySkill = bySkill;
+      this.allGames = all;
     } catch {
-      // Mejor esfuerzo: sin la lista, el botón no aparece (la tarjeta "Jugar" sigue igual).
+      // Mejor esfuerzo: sin la lista no aparecen "Aprender jugando" ni los temas "solo juego".
     } finally {
       this.gamesLoading = false;
       this.cdr.markForCheck();
@@ -557,6 +609,10 @@ export class PracticePage implements OnInit {
   }
 
   async choose(topic: Topic): Promise<void> {
+    if (topic.gameIds?.length) {
+      await this.openTopicGame(topic);
+      return;
+    }
     this.topic = topic;
     void this.loadTopicGames();
     this.correctCount = 0;
@@ -1179,6 +1235,8 @@ export class PracticePage implements OnInit {
     this.ownGroups = groupByModule(topics.filter((t) => !t.review));
     this.reviewTopics = topics.filter((t) => t.review);
     this.reviewGroups = groupByGrade(this.reviewTopics);
+    // La lista de juegos se pide una vez (para "Más juegos" y "Aprender jugando").
+    void this.loadTopicGames();
   }
 
   /** Al volver a la lista, se releen estrellas y dominio. Mejor esfuerzo. */

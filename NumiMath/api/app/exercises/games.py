@@ -121,6 +121,9 @@ class Game:
     kind: GameKind
     skill: str
     make: Callable[[random.Random], GameExercise]
+    # False: no aparece en la lista, pero sigue existiendo (ADR 0004: los tokens emitidos se
+    # verifican y su salida guardada no cambia). Ej.: cuantos-1, reemplazado por pon-en-bolsa-1.
+    listed: bool = True
 
 
 # ---- Opciones ---------------------------------------------------------------------------------
@@ -300,6 +303,22 @@ def _the(obj: str) -> str:
 
 def _how_many_word(obj: str) -> str:
     return "Cuántos" if obj in _MASCULINE_OBJECTS else "Cuántas"
+
+
+def _bag_count(rng: random.Random) -> GameExercise:
+    """Contar metiendo en la bolsa (1°, tema 2; reemplaza a cuantos-1): de 1 a 10 objetos
+    sueltos. La app los dibuja como botones que el niño mete en la bolsa uno a uno (las opciones
+    se habilitan con todos dentro). El servidor solo genera y corrige, como en cuantos-1."""
+    obj = rng.choice(sorted(_OBJECTS))
+    glyph, plural = _OBJECTS[obj]
+    count = rng.randint(1, 10)
+    values = [count, *_distractors(rng, count, 1, 10, 2)]
+    return GameExercise(
+        "choice",
+        f"Mete {_the(obj)} {plural} en la bolsa. ¿{_how_many_word(obj)} hay? {glyph * count}",
+        _shuffled(rng, [_number(v) for v in values]),
+        (f"n:{count}",),
+    )
 
 
 def _decompose(rng: random.Random) -> GameExercise:
@@ -720,7 +739,7 @@ GAMES: dict[str, Game] = {
     g.id: g
     for g in (
         Game("mayor-1", "¿Cuál es mayor?", NUMBERS, 1, "choice", "1-03", _biggest(20)),
-        Game("cuantos-1", "¿Cuántos hay?", NUMBERS, 1, "choice", "1-02", _how_many),
+        Game("cuantos-1", "¿Cuántos hay?", NUMBERS, 1, "choice", "1-02", _how_many, listed=False),
         Game("donde-hay-mas-1", "¿Dónde hay más?", NUMBERS, 1, "choice", "1-03", _where_more),
         Game("ordena-1", "Ordena los números", NUMBERS, 1, "order", "1-03", _sort_ascending(20)),
         Game(
@@ -735,6 +754,7 @@ GAMES: dict[str, Game] = {
         # CU-A21, parte 3 (1° básico, un juego por tema). Ids nuevos; los anteriores no se editan.
         Game("completa-camino-1", "Completa el camino", NUMBERS, 1, "fill", "1-01", _fill_steps),
         Game("descompone-1", "¿Cuántos faltan?", NUMBERS, 1, "choice", "1-04", _decompose),
+        Game("pon-en-bolsa-1", "Cuenta con la bolsa", NUMBERS, 1, "choice", "1-02", _bag_count),
         Game("junta-1", "Junta y cuenta", NUMBERS, 1, "choice", "1-08", _join),
         Game("figura-sigue-1", "¿Qué figura sigue?", PATTERNS, 1, "choice", "1-14", _figure_next),
         Game("toca-figura-1", "Toca la figura", GEOMETRY, 1, "choice", "1-17", _touch_figure),
@@ -806,4 +826,4 @@ GAME_MESSAGES = {
 
 
 def games_for_grade(grade: int) -> list[Game]:
-    return [g for g in GAMES.values() if g.grade == grade]
+    return [g for g in GAMES.values() if g.grade == grade and g.listed]

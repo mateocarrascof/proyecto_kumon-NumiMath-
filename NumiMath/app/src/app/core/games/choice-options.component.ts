@@ -52,25 +52,29 @@ import { GameOption, GameScene } from './games.port';
   `,
   styles: [
     `
+      /* Una sola columna para 2, 3 o 4 opciones (y cualquier juego futuro): mismo ancho, misma
+         altura (68 px, entre 64 y 72), espacio parejo y contenido centrado. Se muestran en el
+         orden mezclado del servidor (la correcta no queda siempre en el mismo lugar). */
       .options {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+        width: 100%;
         max-width: 480px;
         margin: 0 auto;
       }
       .option {
-        min-height: 88px; /* objetivo táctil grande para dedos pequeños */
-        padding: 10px 8px;
+        height: 68px; /* objetivo táctil grande para dedos pequeños */
+        padding: 4px 12px;
         border-radius: 18px;
         border: 3px solid #4a5568;
         background: #ffffff;
         color: #1a202c;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
         justify-content: center;
-        gap: 4px;
+        gap: 10px;
         font: inherit;
         cursor: pointer;
         transition: transform 0.15s ease;
@@ -83,7 +87,7 @@ import { GameOption, GameScene } from './games.port';
         outline-offset: 3px;
       }
       .value {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: 700;
         line-height: 1.1;
         overflow-wrap: anywhere;
@@ -105,11 +109,11 @@ import { GameOption, GameScene } from './games.port';
         font-size: 3rem;
       }
       app-figure.value {
-        width: 64px;
-        height: 64px;
+        width: 52px;
+        height: 52px;
       }
       .option[data-kind='emoji'] .value {
-        font-size: 1.6rem;
+        font-size: 1.4rem;
         letter-spacing: 2px;
       }
       .chosen {

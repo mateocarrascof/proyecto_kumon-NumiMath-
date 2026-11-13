@@ -13,7 +13,7 @@ export const GAME_TEXT = {
   seeEnd: 'Ver cómo me fue',
   ready: 'Listo',
   playAgain: 'Jugar de nuevo',
-  otherGame: 'Otro juego',
+  otherOfTopic: 'Otro juego de este tema',
   backToPractice: 'Volver a practicar',
   retry: 'Intentar otra vez',
   offline: 'Para jugar hace falta internet. Pide ayuda a un adulto.',
@@ -83,6 +83,7 @@ export const GAME_INSTRUCTIONS: Record<string, string> = {
   'mide-clips-1': 'Cuenta los clips o los pasos y toca el número.',
   'pictograma-1': 'Mira el pictograma y cuenta.',
   // CU-A21, parte 4 (2° básico).
+  'pon-en-bolsa-1': 'Toca cada objeto para meterlo en la bolsa. Después elige cuántos hay.',
   'cuenta-mil-2': 'Pon los números que faltan en el camino.',
   'lee-numero-2': 'Lee el número y tócalo.',
   'arma-numero-2': 'Cada barra vale diez y cada cubito vale uno. Toca el número.',
@@ -105,6 +106,8 @@ const EMOJI_NAMES: Record<
   estrella: { glyph: '⭐', plural: 'estrellas', singular: 'estrella', feminine: true },
   pelota: { glyph: '⚽', plural: 'pelotas', singular: 'pelota', feminine: true },
   flor: { glyph: '🌸', plural: 'flores', singular: 'flor', feminine: true },
+  // Solo en la práctica (generadores de contar).
+  pez: { glyph: '🐟', plural: 'peces', singular: 'pez', feminine: false },
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
@@ -119,6 +122,15 @@ const SYMBOL_NAMES: Record<string, string> = {
 export function objectName(option: GameOption): string {
   const match = /^e:([a-z]+)-1$/.exec(option.id);
   return (match && EMOJI_NAMES[match[1]]?.singular) || optionLabel(option);
+}
+
+/** Juegos que se juegan con la bolsa (los emoji del enunciado se meten uno a uno). */
+export const BAG_GAMES: ReadonlySet<string> = new Set(['pon-en-bolsa-1']);
+
+/** Nombre de un emoji del servidor (singular y género), o null si no se conoce. */
+export function emojiName(glyph: string): { singular: string; feminine: boolean } | null {
+  const names = Object.values(EMOJI_NAMES).find((n) => n.glyph === glyph);
+  return names ? { singular: names.singular, feminine: names.feminine } : null;
 }
 
 /** Etiqueta accesible de una opción: "7", "3 manzanas", "mayor que", "cubo rojo". */
@@ -157,6 +169,32 @@ export function spokenEquation(before: string, glyphs: string): string | null {
     .replace(/\s\+\s/g, ' más ')
     .replace(/\s[−-]\s/g, ' menos ')
     .replace(/(^|\s)\?(?=\s|$)/g, `$1${blank}`);
+}
+
+/**
+ * Enunciado de la práctica con los emoji AL PRINCIPIO ("⚽⚽⚽⚽⚽ ⚽⚽⚽⚽ ¿Cuántas pelotas hay?"):
+ * separa los emoji (todos juntos) de la pregunta, para dibujarlos en filas parejas encima de ella.
+ * Sin emoji conocidos al principio, null.
+ */
+export function splitLeadingEmoji(text: string): { glyphs: string; rest: string; spoken: string } | null {
+  for (const names of Object.values(EMOJI_NAMES)) {
+    if (!text.startsWith(names.glyph)) continue;
+    let i = 0;
+    let count = 0;
+    while (i < text.length) {
+      if (text.startsWith(names.glyph, i)) {
+        count += 1;
+        i += names.glyph.length;
+      } else if (/\s/.test(text[i])) {
+        i += 1;
+      } else {
+        break;
+      }
+    }
+    const spoken = `${count} ${count === 1 ? names.singular : names.plural}`;
+    return { glyphs: names.glyph.repeat(count), rest: text.slice(i).trim(), spoken };
+  }
+  return null;
 }
 
 /**

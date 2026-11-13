@@ -55,7 +55,6 @@
             </li>
           }
         </ul>
-        <button type="button" class="link" (click)="otherGame()">‹ {{ text.chooseAxis }}</button>
       }
 
       @case ('intro') {
@@ -66,20 +65,20 @@
       @case ('round') {
         <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
         @if (exercise) {
+          @if (bag; as b) {
+            <!-- Una bolsa nueva por ejercicio (track por token). -->
+            @for (t of [exercise.token]; track t) {
+              <app-bag [glyph]="b.glyph" [name]="b.name" [feminine]="b.feminine" [count]="b.count" (allIn)="onBagAllIn($event)"></app-bag>
+            }
+          } @else if (prompt.glyphs) {
+            <app-emoji-rows [glyphs]="prompt.glyphs" [label]="prompt.spoken"></app-emoji-rows>
+          }
           <h1 class="prompt" data-testid="game-prompt">
             @if (spokenBefore) {
-              <span aria-hidden="true">{{ prompt.before }}</span>
+              <span aria-hidden="true">{{ prompt.before.trim() }}</span>
               <span class="sr-only" data-testid="prompt-spoken">{{ spokenBefore }}</span>
             } @else {
-              {{ prompt.before }}
-            }
-            @if (prompt.glyphs) {
-              <span class="glyphs" [class.dense]="denseGlyphs" aria-hidden="true">
-                @for (group of glyphGroups; track $index) {
-                  <span class="glyph-group" [class.boxed]="glyphGroups.length > 1" data-testid="glyph-group">{{ group }}</span>
-                }
-              </span>
-              <span class="sr-only">{{ prompt.spoken }}</span>
+              {{ prompt.before.trim() }}
             }
           </h1>
 
@@ -90,7 +89,7 @@
               [options]="exercise.options"
               [scene]="exercise.scene ?? null"
               [label]="(spokenBefore ? spokenBefore + ' ' : prompt.before) + prompt.spoken"
-              [disabled]="busy || !!result"
+              [disabled]="busy || !!result || !bagReady"
               [chosen]="chosen"
               [correct]="result?.correctAnswer ?? null"
               (pick)="pick($event)"
@@ -135,9 +134,12 @@
           <p class="medal"><span aria-hidden="true">🏅</span> {{ text.medals(medals) }}</p>
         }
         <div class="actions">
-          <!-- Los tres con el mismo peso (decisión del dueño): no se empuja a seguir jugando. -->
+          <!-- Mismo peso (decisión del dueño): no se empuja a seguir jugando. Un juego se abre solo
+               desde su tema: sin volver a la elección de eje; "otro juego" solo del mismo tema. -->
           <button type="button" class="big" (click)="start()" data-testid="game-again">{{ text.playAgain }}</button>
-          <button type="button" class="big" (click)="otherGame()" data-testid="game-other">{{ text.otherGame }}</button>
+          @if (sameTopicGames.length > 1) {
+            <button type="button" class="big" (click)="otherOfTopic()" data-testid="game-other">{{ text.otherOfTopic }}</button>
+          }
           <button type="button" class="big" (click)="backToPractice()" data-testid="game-back">{{ text.backToPractice }}</button>
         </div>
       }

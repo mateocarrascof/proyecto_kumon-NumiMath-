@@ -3,6 +3,8 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
 import { ChoiceOptionsComponent } from '../core/games/choice-options.component';
+import { BagComponent } from '../core/games/bag.component';
+import { EmojiRowsComponent } from '../core/games/emoji-rows.component';
 import { GameVisualComponent } from '../core/games/game-visual.component';
 import { DEFAULT_INSTRUCTION, GAME_INSTRUCTIONS, GAME_TEXT } from '../core/games/games.messages';
 import { GameError, GameExercise, GamesPort } from '../core/games/games.port';
@@ -57,7 +59,7 @@ function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}, query: Reco
   const nav = { navigateBack: vi.fn(async () => true) };
   TestBed.configureTestingModule({
     declarations: [GamesPage, MascotComponent],
-    imports: [IonicModule.forRoot(), ChoiceOptionsComponent, OrderCardsComponent, GameVisualComponent],
+    imports: [IonicModule.forRoot(), ChoiceOptionsComponent, OrderCardsComponent, GameVisualComponent, EmojiRowsComponent, BagComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: GamesPort, useValue: port },
@@ -203,6 +205,7 @@ describe('GamesPage (CU-A21)', () => {
     const emoji = (o: string, g: string) => ({ id: `e:${o}-1`, kind: 'emoji', label: g });
     // Un ejercicio de muestra por juego, con la forma que manda el servidor.
     const SAMPLE: Record<string, Partial<GameExercise>> = {
+      'pon-en-bolsa-1': { text: 'Pregunta de pon-en-bolsa-1 ⚽⚽⚽', options: [n(3), n(2)] },
       'completa-camino-1': { kind: 'fill', options: [n(2), n(4), n(9)], slots: ['n:2', null] },
       'ordena-1': { kind: 'order', options: [n(5), n(2)] },
       'figura-sigue-1': {
@@ -234,7 +237,7 @@ describe('GamesPage (CU-A21)', () => {
       },
     };
     const CATALOG = [
-      { module: 'Números y operaciones', ids: ['mayor-1', 'cuantos-1', 'donde-hay-mas-1', 'ordena-1', 'completa-camino-1', 'descompone-1', 'junta-1'] },
+      { module: 'Números y operaciones', ids: ['mayor-1', 'pon-en-bolsa-1', 'donde-hay-mas-1', 'ordena-1', 'completa-camino-1', 'descompone-1', 'junta-1'] },
       { module: 'Patrones y álgebra', ids: ['que-sigue-1', 'figura-sigue-1'] },
       { module: 'Geometría', ids: ['toca-figura-1', 'donde-esta-1'] },
       { module: 'Medición', ids: ['mide-clips-1'] },
@@ -257,13 +260,11 @@ describe('GamesPage (CU-A21)', () => {
     const { page, q, el, render } = setup({ list: vi.fn(async () => groups), exercise, answer });
     await render(); // la creación ya llamó a ngOnInit
 
-    for (const [axis, group] of groups.entries()) {
+    // Los ejes listan todos los grupos; cada juego se abre directo (como desde su tema).
+    expect(el().querySelectorAll('[data-testid^="axis-"]').length).toBe(groups.length);
+    for (const group of groups) {
       for (const game of group.games) {
-        page.otherGame();
-        await render();
-        q(`axis-${axis}`)!.click();
-        await render();
-        q(`game-${game.id}`)!.click();
+        page.chooseGame(game);
         await render();
         // Cada juego tiene su instrucción propia (no la genérica).
         expect(GAME_INSTRUCTIONS[game.id], game.id).toBeDefined();
@@ -278,6 +279,12 @@ describe('GamesPage (CU-A21)', () => {
         if (sample.measure) expect(q('visual-measure'), game.id).not.toBeNull();
         if (sample.scene) expect(el().querySelector('[data-testid="scene-center"]'), game.id).not.toBeNull();
         if (game.kind === 'choice') {
+          // La bolsa: las opciones se habilitan con todos los objetos dentro.
+          let item: HTMLElement | null;
+          while ((item = el().querySelector('[data-testid^="bag-put-"]'))) {
+            item.click();
+            await render();
+          }
           const first = (sample.options ?? [n(1)])[0].id;
           q(`option-${first}`)!.click();
         } else {
@@ -324,13 +331,11 @@ describe('GamesPage (CU-A21)', () => {
     const answer = vi.fn(async (_s: string, _t: string, a: string[]) => ({ correct: true, correctAnswer: a, message: '¡Muy bien!' }));
     const { page, q, el, render } = setup({ list: vi.fn(async () => groups), exercise, answer });
     await render(); // la creación ya llamó a ngOnInit
-    for (const [axis, group] of groups.entries()) {
+    // Los ejes listan todos los grupos; cada juego se abre directo (como desde su tema).
+    expect(el().querySelectorAll('[data-testid^="axis-"]').length).toBe(groups.length);
+    for (const group of groups) {
       for (const game of group.games) {
-        page.otherGame();
-        await render();
-        q(`axis-${axis}`)!.click();
-        await render();
-        q(`game-${game.id}`)!.click();
+        page.chooseGame(game);
         await render();
         expect(GAME_INSTRUCTIONS[game.id], game.id).toBeDefined();
         q('game-start')!.click();
@@ -356,7 +361,44 @@ describe('GamesPage (CU-A21)', () => {
     expect(answer).toHaveBeenCalledTimes(14); // los 14 juegos de 2° (11 temas)
   });
 
-  it('5 rondas y resumen con jugar de nuevo, otro juego o volver a practicar; medalla a los 5 seguidos', async () => {
+  it('bolsa: las opciones esperan a que estén todos dentro; sacar uno las vuelve a deshabilitar', async () => {
+    const BAG: GameExercise = {
+      token: 'tok-b',
+      gameId: 'pon-en-bolsa-1',
+      kind: 'choice',
+      text: 'Mete las pelotas en la bolsa. ¿Cuántas hay? ⚽⚽',
+      options: [
+        { id: 'n:2', kind: 'number', label: '2' },
+        { id: 'n:3', kind: 'number', label: '3' },
+      ],
+    };
+    const answer = vi.fn(async () => ({ correct: true, correctAnswer: ['n:2'], message: '¡Muy bien!' }));
+    const { page, q, el, render } = setup({ exercise: vi.fn(async () => BAG), answer });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame({ id: 'pon-en-bolsa-1', name: 'Cuenta con la bolsa', kind: 'choice' });
+    await page.start();
+    await render();
+    const disabled = () => (q('option-n:2') as HTMLButtonElement).disabled;
+    expect(el().querySelector('[data-testid="emoji-block"]')).toBeNull(); // objetos sueltos, no la fila
+    expect(q('game-prompt')!.textContent).not.toContain('⚽');
+    expect(disabled()).toBe(true);
+    q('bag-put-0')!.click();
+    await render();
+    expect(disabled()).toBe(true); // falta uno
+    q('bag-put-1')!.click();
+    await render();
+    expect(disabled()).toBe(false);
+    q('bag-take-0')!.click(); // sacar uno
+    await render();
+    expect(disabled()).toBe(true);
+    q('bag-put-0')!.click();
+    await render();
+    q('option-n:2')!.click();
+    await render();
+    expect(answer).toHaveBeenCalledWith('p1', 'tok-b', ['n:2']);
+  });
+
+  it('5 rondas y resumen con jugar de nuevo o volver a practicar; medalla a los 5 seguidos', async () => {
     const { page, nav, q, render } = setup();
     await render(); // la creación ya llamó a ngOnInit
     page.chooseGame(GROUPS[0].games[0]);
@@ -371,8 +413,33 @@ describe('GamesPage (CU-A21)', () => {
     expect(page.medals).toBe(1);
     q('game-back')!.click();
     expect(nav.navigateBack).toHaveBeenCalledWith(['/practica', 'p1']);
+    // Sin "Otro juego" ni vuelta a la elección de eje (este tema tiene un solo juego).
+    expect(q('game-other')).toBeNull();
+    expect(page.step).toBe('summary');
+  });
+
+  it('un tema con varios juegos: el resumen ofrece "Otro juego de este tema" (solo los de su tema)', async () => {
+    const same = [
+      { id: 'mayor-1', name: '¿Cuál es mayor?', kind: 'choice' as const, skill: '1-03' },
+      { id: 'ordena-1', name: 'Ordena los números', kind: 'order' as const, skill: '1-03' },
+    ];
+    const other = { id: 'cuantos-1', name: '¿Cuántos hay?', kind: 'choice' as const, skill: '1-02' };
+    const { page, q, render } = setup({ list: vi.fn(async () => [{ module: 'Números y operaciones', games: [...same, other] }]) });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame(same[0]);
+    await page.start();
+    for (let i = 0; i < ROUNDS; i++) {
+      await page.pick('n:9');
+      await page.nextRound();
+    }
+    await render();
+    expect(q('game-other')?.textContent).toContain('Otro juego de este tema');
     q('game-other')!.click();
-    expect(page.step).toBe('axes');
+    await render();
+    expect(page.step).toBe('games');
+    expect(q('game-ordena-1')).not.toBeNull();
+    expect(q('game-cuantos-1')).toBeNull(); // nada de otro tema
+    expect(q('axis-0')).toBeNull(); // sin elección de eje
   });
 
   it('no muestra nivel ni progreso', async () => {
@@ -508,11 +575,12 @@ describe('GamesPage (CU-A21)', () => {
     page.chooseGame(GROUPS[0].games[0]);
     await page.start();
     await render();
-    const prompt = q('game-prompt')!;
-    expect(prompt.querySelector('.glyphs')?.getAttribute('aria-hidden')).toBe('true');
-    expect(prompt.querySelector('.sr-only')?.textContent).toContain('3 manzanas');
-    // Un solo grupo: sin recuadro.
-    expect(prompt.querySelector('[data-testid="glyph-group"]')!.classList).not.toContain('boxed');
+    // Los emoji van en su bloque (una imagen con la cantidad) y la pregunta, debajo y sin emoji.
+    const block = q('emoji-block')!;
+    expect(block.getAttribute('role')).toBe('img');
+    expect(block.getAttribute('aria-label')).toBe('3 manzanas');
+    expect(block.querySelector('[data-testid="glyph-group"]')!.classList).not.toContain('boxed');
+    expect(q('game-prompt')!.textContent).not.toContain('🍎');
   });
 
   it('"5 = 3 + ?": el lector de pantalla oye la pregunta completa (el "?" se dice)', async () => {
@@ -537,11 +605,11 @@ describe('GamesPage (CU-A21)', () => {
     page.chooseGame(GROUPS[0].games[0]);
     await page.start();
     await render();
-    const groups = [...q('game-prompt')!.querySelectorAll('[data-testid="glyph-group"]')];
+    const groups = [...q('emoji-block')!.querySelectorAll('[data-testid="glyph-group"]')];
     expect(groups.map((g) => g.textContent)).toEqual(['🌸'.repeat(9), '🌸'.repeat(9)]);
     expect(groups.every((g) => g.classList.contains('boxed'))).toBe(true);
-    // Grupos de 8 o más: emoji más chicos para que cada grupo quepa en una línea a 360 px.
-    expect(q('game-prompt')!.querySelector('.glyphs')!.classList).toContain('dense');
-    expect(q('game-prompt')!.querySelector('.sr-only')?.textContent).toContain('9 flores y 9 flores');
+    // En filas de 5: un grupo de 9 son 5 + 4 (la última fila a la izquierda).
+    expect((groups[0] as HTMLElement).style.gridTemplateColumns).toContain('repeat(5');
+    expect(q('emoji-block')!.getAttribute('aria-label')).toBe('9 flores y 9 flores');
   });
 });

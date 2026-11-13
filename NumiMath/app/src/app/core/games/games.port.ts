@@ -22,6 +22,8 @@ export interface GameInfo {
   kind: GameKind;
   /** Habilidad del catálogo (p. ej. "1-03"): "Aprender jugando" en la práctica de ese tema. */
   skill?: string;
+  /** Nombre del tema ("Figuras 3D y 2D del entorno"): los temas "solo juego" de la lista. */
+  skillName?: string;
 }
 
 export interface GameGroup {

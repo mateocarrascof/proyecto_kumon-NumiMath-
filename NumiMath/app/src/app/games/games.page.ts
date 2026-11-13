@@ -3,9 +3,11 @@ import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
 import {
+  BAG_GAMES,
   DEFAULT_INSTRUCTION,
   GAME_INSTRUCTIONS,
   GAME_TEXT,
+  emojiName,
   splitEmojiRun,
   spokenEquation,
 } from '../core/games/games.messages';
@@ -51,6 +53,8 @@ export class GamesPage implements OnInit {
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly injector = inject(Injector);
+  /** Token del ejercicio cuya bolsa está llena (las opciones se habilitan). */
+  private bagFullToken: string | null = null;
   protected readonly mascot = inject(MascotPort);
   protected readonly text = GAME_TEXT;
   protected readonly rounds = ROUNDS;
@@ -82,17 +86,6 @@ export class GamesPage implements OnInit {
   /** Lo que Numi dice ahora (instrucción del juego). */
   get instruction(): string {
     return (this.game && GAME_INSTRUCTIONS[this.game.id]) ?? DEFAULT_INSTRUCTION;
-  }
-
-  /** Grupos de emoji del enunciado ("Junta y cuenta" trae dos): cada uno se dibuja en su recuadro. */
-  get glyphGroups(): string[] {
-    return this.prompt.glyphs.trim().split(/\s+/).filter(Boolean);
-  }
-
-  /** Algún grupo de 8 o más emoji (grupos de 10, 2°): emoji más chicos para que cada grupo quepa
-   * en una línea a 360 px y se vean grupos iguales. */
-  get denseGlyphs(): boolean {
-    return this.glyphGroups.some((g) => [...g].length >= 8);
   }
 
   /** "5 = 3 + ?" dicho en voz alta: "5 es igual a 3 más ¿cuántas manzanas?" (o null). */
@@ -164,14 +157,21 @@ export class GamesPage implements OnInit {
     this.mascot.set('talking');
   }
 
-  /** Volver a la lista de ejes (botón "Otro juego"). */
-  otherGame(): void {
+  /** Juegos del mismo tema (habilidad) que el juego actual. */
+  get sameTopicGames(): GameInfo[] {
+    const skill = this.game?.skill;
+    return skill ? this.groups.flatMap((g) => g.games).filter((g) => g.skill === skill) : [];
+  }
+
+  /** "Otro juego de este tema": la lista con solo los juegos de esa habilidad (nunca los ejes). */
+  otherOfTopic(): void {
+    const games = this.sameTopicGames;
+    const group = this.groups.find((g) => g.games.some((x) => x.id === this.game?.id));
     this.game = null;
-    this.axis = null;
     this.exercise = null;
     this.result = null;
-    this.step = this.groups.length ? 'axes' : 'loading';
     this.mascot.set('idle');
+    this.chooseAxis({ module: group?.module ?? '', games });
   }
 
   backToPractice(): Promise<boolean> {
@@ -274,6 +274,32 @@ export class GamesPage implements OnInit {
     } finally {
       this.busy = false;
       this.cdr.markForCheck();
+    }
+  }
+
+  /** "Mete en la bolsa" (pon-en-bolsa-1): los emoji del enunciado se dibujan como objetos sueltos. */
+  get bag(): { glyph: string; name: string; feminine: boolean; count: number } | null {
+    if (!this.exercise || !BAG_GAMES.has(this.exercise.gameId)) return null;
+    const glyphs = this.prompt.glyphs.replace(/\s+/g, '');
+    const first = glyphs ? Array.from(glyphs)[0] : '';
+    const names = first ? emojiName(first) : null;
+    if (!names) return null;
+    return { glyph: first, name: names.singular, feminine: names.feminine, count: glyphs.split(first).length - 1 };
+  }
+
+  /** Con la bolsa, las opciones se habilitan solo con todos los objetos dentro (contar uno a uno). */
+  get bagReady(): boolean {
+    return !this.bag || this.bagFullToken === this.exercise?.token;
+  }
+
+  onBagAllIn(full: boolean): void {
+    this.bagFullToken = full ? (this.exercise?.token ?? null) : null;
+    this.cdr.markForCheck();
+    // Con todos dentro, el foco pasa a la primera opción (ya habilitada).
+    if (full) {
+      afterNextRender(() => document.querySelector<HTMLElement>('[data-testid^="option-"]')?.focus(), {
+        injector: this.injector,
+      });
     }
   }
 

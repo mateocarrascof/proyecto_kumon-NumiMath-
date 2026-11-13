@@ -17,6 +17,7 @@ import { SheetsPort, SheetStroke } from '../core/sheets/sheets.port';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { Exercise, PracticeError, PracticePort, Topic } from '../core/practice/practice.port';
+import { EmojiRowsComponent } from '../core/games/emoji-rows.component';
 import { GameGroup, GamesPort } from '../core/games/games.port';
 import { Progress, ProgressPort } from '../core/progress/progress.port';
 import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
@@ -37,8 +38,11 @@ import { SkillTilesComponent } from './skill-tiles.component';
 const TOPIC = { id: 'sumas_hasta_20', label: 'Sumas hasta 20' };
 /** Juegos que devuelve el GamesPort falso ("Aprender jugando"); vacío salvo que la prueba diga. */
 let gameGroups: GameGroup[] = [];
+/** La lista de juegos falla (sin red o error del servidor). */
+let gamesFail = false;
 beforeEach(() => {
   gameGroups = [];
+  gamesFail = false;
 });
 const EXERCISE: Exercise = {
   token: 'tok',
@@ -61,7 +65,12 @@ function setup(
   explain: ExplanationPort['explain'] = async () => undefined,
 ) {
   const nav = { navigateForward: vi.fn(async () => true) };
-  const games = { list: vi.fn(async () => gameGroups) };
+  const games = {
+    list: vi.fn(async () => {
+      if (gamesFail) throw new Error('red');
+      return gameGroups;
+    }),
+  };
   const explainer = { explain: vi.fn(explain) };
   const queryParams = new BehaviorSubject(convertToParamMap(query));
   const progress = { get: vi.fn(progressGet) };
@@ -96,7 +105,7 @@ function setup(
       MathTextComponent,
       FractionInputComponent,
     ],
-    imports: [IonicModule.forRoot(), FormsModule, OfflineNoticeComponent],
+    imports: [IonicModule.forRoot(), FormsModule, OfflineNoticeComponent, EmojiRowsComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: PracticePort, useValue: port },
@@ -148,6 +157,29 @@ describe('PracticePage', () => {
     await page.choose(TOPIC);
     expect(port.newExercise).toHaveBeenCalledWith('perfil-1', TOPIC.id);
     expect(page.exercise?.text).toBe('7 + 5 = ?');
+  });
+
+  it('contar: los emoji van juntos en filas de 5, arriba, y la pregunta sola debajo', async () => {
+    const text = '⚽⚽⚽⚽⚽ ⚽⚽⚽⚽ ¿Cuántas pelotas hay?';
+    const { page, fixture } = setup({ newExercise: vi.fn(async () => ({ ...EXERCISE, text })) });
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const block = el.querySelector('[data-testid="emoji-block"]')!;
+    expect(block.getAttribute('aria-label')).toBe('9 pelotas'); // sin leer cada emoji
+    expect(block.querySelectorAll('.cell').length).toBe(9);
+    const question = el.querySelector('[data-testid="exercise-text"]')!;
+    expect(question.textContent?.trim()).toBe('¿Cuántas pelotas hay?'); // ningún emoji suelto
+    expect(question.classList).toContain('ion-text-center');
+  });
+
+  it('un ejercicio sin emoji no muestra el bloque', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="emoji-block"]')).toBeNull();
   });
 
   it('la respuesta solo admite dígitos', async () => {
@@ -1767,16 +1799,38 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
   async function withTopics(topics: unknown[]) {
     const ctx = setup({ topics: vi.fn(async () => topics) } as never);
     await ctx.page.ngOnInit();
+    await new Promise((r) => setTimeout(r, 0)); // la lista de juegos llega aparte
     ctx.fixture.detectChanges();
     return ctx;
   }
 
-  it('aparece en 1° básico y abre los juegos del perfil', async () => {
+  // Un juego de un tema que no se practica (fase B) y uno del tema que sí.
+  const FIGURES = { id: 'toca-figura-1', name: 'Toca la figura', kind: 'choice' as const, skill: '1-17', skillName: 'Figuras 3D y 2D del entorno' };
+  const SAME = { id: 'cuantos-1', name: '¿Cuántos hay?', kind: 'choice' as const, skill: TOPIC.id };
+  beforeEach(() => {
+    gameGroups = [{ module: 'Geometría', games: [FIGURES] }, { module: 'Números', games: [SAME] }];
+  });
+
+  it('sin tarjeta "Más juegos": el tema que no se practica va en la lista, en su eje, con 🧩 y abre su juego', async () => {
     const { fixture, nav } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
-    const card = query(fixture, '[data-testid="games-card"]') as HTMLElement;
-    expect(card?.textContent).toContain('Jugar');
-    card.click();
-    expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1']);
+    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    const badge = query(fixture, '[data-testid="tile-game"]') as HTMLElement;
+    expect(badge?.textContent).toContain('Solo juego');
+    const tile = badge.closest('button') as HTMLElement;
+    expect(tile.textContent).toContain('Figuras 3D y 2D del entorno');
+    expect(tile.getAttribute('aria-label')).toBe('Figuras 3D y 2D del entorno, solo juego');
+    expect(tile.closest('[data-testid="skill-group"]')!.textContent).toContain('Geometría');
+    tile.click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
+      queryParams: { juego: 'toca-figura-1' },
+    });
+  });
+
+  it('sin temas "solo juego" si todos los juegos son de temas que se practican', async () => {
+    gameGroups = [{ module: 'Números', games: [SAME] }];
+    const { fixture } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
+    expect(query(fixture, '[data-testid="tile-game"]')).toBeNull();
   });
 
   it('aparece en 2° (el repaso de 1° no cambia el curso)', async () => {
@@ -1784,17 +1838,17 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
       { ...TOPIC, grade: 2, review: false },
       { ...TOPIC, id: 'r', grade: 1, review: true },
     ]);
-    expect(query(fixture, '[data-testid="games-card"]')).not.toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).not.toBeNull();
   });
 
   it('no aparece en 3° ni 4°', async () => {
     const { fixture } = await withTopics([{ ...TOPIC, grade: 3, review: false }]);
-    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).toBeNull();
   });
 
   it('si no se puede deducir el curso, no aparece', async () => {
     const { fixture } = await withTopics([{ ...TOPIC }]);
-    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).toBeNull();
   });
 
   describe('"Aprender jugando" dentro de cada tema', () => {
@@ -1853,9 +1907,10 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
 
     it('si la lista de juegos falla, no se muestra (la práctica sigue)', async () => {
       gameGroups = CATALOG;
+      gamesFail = true;
       const topic = { ...TOPIC, id: '1-13', grade: 1, review: false };
       const ctx = await withTopics([topic]);
-      ctx.games.list.mockRejectedValueOnce(new Error('red'));
+      expect(query(ctx.fixture, '[data-testid="tile-game"]')).toBeNull(); // ni temas "solo juego"
       await ctx.page.choose(topic as never);
       await new Promise((r) => setTimeout(r, 0));
       ctx.fixture.detectChanges();
@@ -1866,8 +1921,10 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
 
   it('sin conexión no aparece (los juegos necesitan internet)', async () => {
     const { fixture, page } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
-    expect(query(fixture, '[data-testid="games-card"]')).not.toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).not.toBeNull();
     page.offlineMode = true;
     expect(page.canPlay).toBe(false);
+    // Sin conexión, los temas "solo juego" salen de la lista.
+    expect(page.tileGroups.flatMap((g) => g.topics).some((t) => t.gameIds?.length)).toBe(false);
   });
 });

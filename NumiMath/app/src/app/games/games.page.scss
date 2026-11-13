@@ -9,8 +9,20 @@
 // 360 px sin desplazarse.
 .games.in-round app-mascot {
   display: block;
-  max-width: 96px;
+  max-width: 36px; /* a 360 × 640, pregunta, 4 opciones y "Siguiente" caben sin desplazarse */
   margin: 0 auto;
+}
+
+.games.in-round h1 {
+  margin: 6px 0;
+}
+
+.games.in-round .round {
+  margin: 0;
+}
+
+.games.in-round .big {
+  margin-top: 8px;
 }
 
 h1 {
@@ -22,30 +34,6 @@ h1 {
   font-size: 1.35rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
-}
-
-.glyphs {
-  display: block;
-  font-size: 1.8rem;
-  letter-spacing: 2px;
-  margin-top: 6px;
-}
-
-/* Con dos grupos (juntar), cada uno en su recuadro: a 360 px los emoji de un grupo pueden pasar a
-   otra línea, pero nunca se mezclan con los del otro. */
-/* 10 emoji de 1.2rem ≈ 250 px: un grupo de 10 cabe en su recuadro a 360 px. */
-.glyphs.dense {
-  font-size: 1.2rem;
-  letter-spacing: 0;
-}
-
-.glyph-group.boxed {
-  display: inline-block;
-  margin: 4px;
-  border: 3px dashed #4a5568;
-  border-radius: 14px;
-  padding: 2px 6px;
-  max-width: 100%;
 }
 
 .round,

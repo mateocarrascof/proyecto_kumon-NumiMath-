@@ -182,8 +182,8 @@ export const MEASURE_UNIT_PX = 34;
       }
       .clock {
         display: block;
-        width: 150px;
-        height: 150px;
+        width: 128px;
+        height: 128px;
         margin: 0 auto;
       }
       /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 17 = 259 px. */

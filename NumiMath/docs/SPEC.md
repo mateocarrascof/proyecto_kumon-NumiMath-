@@ -1512,3 +1512,51 @@ semillas). Corregidos en `fix(cu-a21)`:
 - En las sumas sin reserva, el distractor "una decena de más" ya no pasa de 100.
 - Pruebas de rango de los distractores y de la salida de `figure`, `clock` y `scale` (API y app).
 
+## Juegos: ajustes visuales tras probar en el celular (2026-11-13)
+
+### Juegos solo desde su tema (cambio de flujo respecto de la ficha del CU-A21)
+La ficha del CU-A21 pide una tarjeta "Jugar" en la práctica que lleva a todos los juegos (eje →
+juego) y un "Otro juego" dentro del juego. Ya no coincide: **sin "Jugar" ni "Más juegos", un juego
+se abre solo desde su tema** (2026-11-13).
+- Temas que se practican: "Aprender jugando" dentro del tema (un juego → su introducción; varios
+  → la lista de ese tema).
+- Temas que no se practican (fase B: geometría, medición, reloj, gráficos; en 1°, los temas 6 a
+  10): aparecen en la lista normal de temas, en su eje, con la marca "🧩 Solo juego"; al tocarlos
+  abren directo su juego, sin elegir eje. Solo 1° y 2° y con conexión. No cuentan en "N de M
+  dominadas". El servidor manda el nombre del tema de cada juego (`skill_name`).
+- Dentro de un juego no hay vuelta a la elección de eje: el resumen ofrece "Jugar de nuevo",
+  "Volver a practicar" y, si el tema tiene varios juegos, "Otro juego de este tema".
+- La pantalla de elección de eje sigue existiendo (`/juegos/:id` sin atajos), pero ya no se llega
+  a ella desde la app.
+
+### Emoji para contar, ordenados (práctica y juegos)
+- Los emoji van en un bloque propio, **antes** de la pregunta, en filas parejas de 5 (la última
+  fila a la izquierda), y la pregunta va debajo, sola y centrada: nunca un emoji suelto en la
+  línea del texto. Varios grupos ("Junta y cuenta", "Grupos iguales"): cada uno en su recuadro.
+- Componente compartido `core/games/emoji-rows.component.ts`. Sin cambios en el servidor: en la
+  práctica, `splitLeadingEmoji` separa los emoji del principio del enunciado (el generador ya los
+  manda así); en los juegos, `splitEmojiRun` separa los del final.
+- El bloque es una imagen con la cantidad ("9 pelotas"): el lector no lee cada emoji. Cabe a
+  360 px con 0 a 20 emoji (4 filas de 5). Se agregó 🐟 ("pez", masculino) a los nombres.
+
+### Opciones de los juegos en una sola columna
+- En todos los juegos (y los que vengan, porque es el componente `app-choice-options`), las
+  opciones van una debajo de otra: mismo ancho (casi toda la pantalla, centradas), 68 px de alto,
+  10 px entre ellas y el contenido centrado. Vale para 2 a 4 opciones de número, emoji, figura,
+  hora o texto. Se muestran en el orden mezclado del servidor.
+- **Excepción:** la escena en cruz (`donde-esta-1`) mantiene la cruz, porque la posición de cada
+  botón es la respuesta.
+- Durante las rondas, Numi se achica a 36 px y bajan algunos márgenes: a 360 × 640, con 4
+  opciones, la pregunta y "Siguiente" se ven sin desplazarse. Con un dibujo grande y 3 opciones
+  (reloj, figura), la página baja sola hasta "Siguiente" y la pregunta sigue a la vista.
+- No cambia el componente de ordenar y completar con tarjetas. La animación del toque sigue
+  respetando "reducir movimiento".
+
+### Contar con la bolsa (reemplaza a `cuantos-1`; la ficha del CU-A21 ya no coincide)
+- `pon-en-bolsa-1` "Cuenta con la bolsa" (1-02, de 1 a 10): los objetos aparecen sueltos, el niño
+  toca cada uno para meterlo en la bolsa (tocar uno dentro lo saca) y las opciones se habilitan
+  solo con todos dentro; luego elige cuántos hay. Mismo tipo de juego (opción), sin migración.
+  Teclado, región viva "3 en la bolsa", foco al siguiente objeto y a la primera opción; sin
+  animación de movimiento (el leve "aparecer" se quita con "reducir movimiento").
+- `cuantos-1` deja de listarse (`listed=False`) pero sigue en el servidor sin cambios (ADR 0004).
+

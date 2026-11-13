@@ -8,6 +8,9 @@ import {
   AssignmentsPort,
   TutorError,
 } from '../core/assignments/assignments.port';
+import { AuthPort } from '../core/auth/auth.port';
+import { ConnectivityService } from '../core/offline/connectivity.service';
+import { isOffline } from '../core/offline/offline-access';
 import { requestPersistentStorage } from '../core/offline/persistent-storage';
 import { ParentalSession } from '../core/parental/parental-session';
 import { ParentalPort, PinError } from '../core/parental/parental.port';
@@ -64,6 +67,8 @@ export class TutorPanelPage implements OnInit {
   private readonly parental = inject(ParentalPort);
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly auth = inject(AuthPort);
+  private readonly connectivity = inject(ConnectivityService);
   @ViewChild(IonContent) private readonly content?: IonContent;
 
   constructor() {
@@ -170,6 +175,11 @@ export class TutorPanelPage implements OnInit {
     bar?.querySelector<HTMLElement>(`#tab-${id}`)?.focus();
   }
 
+  /** Igual que en /home: sin conexión no se ofrece (borraría los intentos sin enviar, CU-A12). */
+  protected offline(): boolean {
+    return isOffline(this.connectivity);
+  }
+
   /** Lee los perfiles y mantiene el elegido si sigue existiendo. */
   private async loadProfiles(): Promise<void> {
     try {
@@ -264,6 +274,18 @@ export class TutorPanelPage implements OnInit {
 
   changePin(): Promise<boolean> {
     return this.nav.navigateForward('/pin', { queryParams: { cambiar: '1' } });
+  }
+
+  /**
+   * Cerrar sesión, el mismo mecanismo que /home. Borra el token del PIN antes (además lo borran
+   * ParentalZoneWatcher al navegar a /login y al cambiar el usuario conectado).
+   */
+  async signOut(): Promise<void> {
+    if (this.offline()) return;
+    this.session.end();
+    await this.auth.signOut();
+    // navigateRoot vacía la pila: el panel (con los datos de los niños) no queda en memoria.
+    await this.nav.navigateRoot('/login');
   }
 
   /** Cierra la zona del tutor: borra el token del PIN. */

@@ -11,6 +11,7 @@ import { Profile, ProfilesPort } from '../core/profiles/profiles.port';
 import { Report, ReportPort } from '../core/report/report.port';
 import { AccountPort } from '../core/account/account.port';
 import { AuthPort } from '../core/auth/auth.port';
+import { ConnectivityService } from '../core/offline/connectivity.service';
 import { RevokeConsentComponent } from './revoke-consent.component';
 import { DeleteAccountComponent } from '../core/account/delete-account.component';
 import { StreakReminderToggleComponent } from '../core/reminders/streak-reminder-toggle.component';
@@ -114,7 +115,8 @@ function setup(
   const session = TestBed.inject(ParentalSession);
   session.start('token-del-pin', 600);
   const fixture = TestBed.createComponent(TutorPanelPage);
-  return { page: fixture.componentInstance, fixture, assignments, reports, nav, session, profiles, parental };
+  const auth = TestBed.inject(AuthPort) as unknown as { signOut: ReturnType<typeof vi.fn> };
+  return { page: fixture.componentInstance, fixture, assignments, reports, nav, session, profiles, parental, auth };
 }
 
 describe('TutorPanelPage', () => {
@@ -510,5 +512,33 @@ describe('TutorPanelPage: pestañas', () => {
       fixture.detectChanges();
       expect(!!el.querySelector('[data-testid="kid-Ana"]'), id).toBe(visible);
     }
+  });
+});
+
+describe('TutorPanelPage: cerrar sesión (pestaña Cuenta)', () => {
+  it('cierra la sesión, borra el token del PIN y va a /login', async () => {
+    const { page, fixture, nav, session, auth } = setup();
+    await page.ngOnInit();
+    page.selectTab('cuenta');
+    fixture.detectChanges();
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="panel-sign-out"]');
+    expect(button?.closest('#panel-cuenta')).not.toBeNull();
+    button!.click();
+    await fixture.whenStable();
+    expect(session.isUnlocked()).toBe(false);
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+    expect(nav.navigateRoot).toHaveBeenCalledWith('/login');
+  });
+
+  it('sin conexión no se ofrece ni hace nada (como en /home, CU-A12)', async () => {
+    const { page, fixture, nav, session, auth } = setup();
+    await page.ngOnInit();
+    TestBed.inject(ConnectivityService).reportNetworkFailure();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="panel-sign-out"]')).toBeNull();
+    await page.signOut();
+    expect(auth.signOut).not.toHaveBeenCalled();
+    expect(session.isUnlocked()).toBe(true);
+    expect(nav.navigateRoot).not.toHaveBeenCalled();
   });
 });

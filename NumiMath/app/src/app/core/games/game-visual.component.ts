@@ -247,7 +247,7 @@ export const MEASURE_UNIT_PX = 34;
         stroke-dasharray: 2 1.5;
       }
       .cross {
-        stroke: #9b2c2c;
+        stroke: #2d3748; /* tinta oscura neutra: no rojo, que se lee como "error" */
         stroke-width: 2.5;
         stroke-linecap: round;
       }

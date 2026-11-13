@@ -1499,7 +1499,7 @@ guardadas por semilla. Distintos de la práctica (que es solo texto), de "Contar
   niño cuenta lo que queda. Hasta 99, sin reserva; mitad 2 cifras − 1 cifra y mitad 2 − 2.
   Distractores: dos al azar entre sumar en vez de restar (si no pasa de 100), una decena de más
   o de menos y ±1 (sin repetir; una prueba exige que los tres aparezcan).
-  Lo tachado se sigue viendo (mismo color, más tenue, borde punteado) con una ✕ roja oscura: "se
+  Lo tachado se sigue viendo (mismo color, más tenue, borde punteado) con una ✕ de tinta oscura neutra (no roja): "se
   quita", no "no hay". Cubitos de 18 px con la ✕ dentro del borde. 9 barras y 9 cubitos caben a
   360 px. El lector oye "5 barras de diez y 6 cubitos. Tachados, para quitar: 2 barras y 3
   cubitos." (nunca cuánto queda).

@@ -594,6 +594,32 @@ GOLDEN = {
             ((("🌸", "flores", 6), ("⚽", "pelotas", 1)), ("scale", 5)),
         ),
     ],
+    "pon-en-bolsa-1": [
+        (
+            "choice",
+            "Mete las manzanas en la bolsa. ¿Cuántas hay? 🍎🍎🍎🍎🍎🍎",
+            ("n:5", "n:7", "n:6"),
+            ("n:6",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "Mete las manzanas en la bolsa. ¿Cuántas hay? 🍎🍎",
+            ("n:3", "n:1", "n:2"),
+            ("n:2",),
+            None,
+            None,
+        ),
+        (
+            "choice",
+            "Mete las pelotas en la bolsa. ¿Cuántas hay? ⚽⚽⚽⚽⚽⚽⚽⚽⚽⚽",
+            ("n:9", "n:10", "n:8"),
+            ("n:10",),
+            None,
+            None,
+        ),
+    ],
     "que-sigue-1": [
         (
             "choice",

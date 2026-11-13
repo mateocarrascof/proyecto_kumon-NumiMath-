@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
 import { ChoiceOptionsComponent } from '../core/games/choice-options.component';
+import { BagComponent } from '../core/games/bag.component';
 import { EmojiRowsComponent } from '../core/games/emoji-rows.component';
 import { GameVisualComponent } from '../core/games/game-visual.component';
 import { DEFAULT_INSTRUCTION, GAME_INSTRUCTIONS, GAME_TEXT } from '../core/games/games.messages';
@@ -58,7 +59,7 @@ function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}, query: Reco
   const nav = { navigateBack: vi.fn(async () => true) };
   TestBed.configureTestingModule({
     declarations: [GamesPage, MascotComponent],
-    imports: [IonicModule.forRoot(), ChoiceOptionsComponent, OrderCardsComponent, GameVisualComponent, EmojiRowsComponent],
+    imports: [IonicModule.forRoot(), ChoiceOptionsComponent, OrderCardsComponent, GameVisualComponent, EmojiRowsComponent, BagComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: GamesPort, useValue: port },
@@ -211,6 +212,7 @@ describe('GamesPage (CU-A21)', () => {
     const emoji = (o: string, g: string) => ({ id: `e:${o}-1`, kind: 'emoji', label: g });
     // Un ejercicio de muestra por juego, con la forma que manda el servidor.
     const SAMPLE: Record<string, Partial<GameExercise>> = {
+      'pon-en-bolsa-1': { text: 'Pregunta de pon-en-bolsa-1 ⚽⚽⚽', options: [n(3), n(2)] },
       'completa-camino-1': { kind: 'fill', options: [n(2), n(4), n(9)], slots: ['n:2', null] },
       'ordena-1': { kind: 'order', options: [n(5), n(2)] },
       'figura-sigue-1': {
@@ -242,7 +244,7 @@ describe('GamesPage (CU-A21)', () => {
       },
     };
     const CATALOG = [
-      { module: 'Números y operaciones', ids: ['mayor-1', 'cuantos-1', 'donde-hay-mas-1', 'ordena-1', 'completa-camino-1', 'descompone-1', 'junta-1'] },
+      { module: 'Números y operaciones', ids: ['mayor-1', 'pon-en-bolsa-1', 'donde-hay-mas-1', 'ordena-1', 'completa-camino-1', 'descompone-1', 'junta-1'] },
       { module: 'Patrones y álgebra', ids: ['que-sigue-1', 'figura-sigue-1'] },
       { module: 'Geometría', ids: ['toca-figura-1', 'donde-esta-1'] },
       { module: 'Medición', ids: ['mide-clips-1'] },
@@ -286,6 +288,12 @@ describe('GamesPage (CU-A21)', () => {
         if (sample.measure) expect(q('visual-measure'), game.id).not.toBeNull();
         if (sample.scene) expect(el().querySelector('[data-testid="scene-center"]'), game.id).not.toBeNull();
         if (game.kind === 'choice') {
+          // La bolsa: las opciones se habilitan con todos los objetos dentro.
+          let item: HTMLElement | null;
+          while ((item = el().querySelector('[data-testid^="bag-put-"]'))) {
+            item.click();
+            await render();
+          }
           const first = (sample.options ?? [n(1)])[0].id;
           q(`option-${first}`)!.click();
         } else {
@@ -362,6 +370,43 @@ describe('GamesPage (CU-A21)', () => {
       }
     }
     expect(answer).toHaveBeenCalledTimes(14); // los 14 juegos de 2° (11 temas)
+  });
+
+  it('bolsa: las opciones esperan a que estén todos dentro; sacar uno las vuelve a deshabilitar', async () => {
+    const BAG: GameExercise = {
+      token: 'tok-b',
+      gameId: 'pon-en-bolsa-1',
+      kind: 'choice',
+      text: 'Mete las pelotas en la bolsa. ¿Cuántas hay? ⚽⚽',
+      options: [
+        { id: 'n:2', kind: 'number', label: '2' },
+        { id: 'n:3', kind: 'number', label: '3' },
+      ],
+    };
+    const answer = vi.fn(async () => ({ correct: true, correctAnswer: ['n:2'], message: '¡Muy bien!' }));
+    const { page, q, el, render } = setup({ exercise: vi.fn(async () => BAG), answer });
+    await render(); // la creación ya llamó a ngOnInit
+    page.chooseGame({ id: 'pon-en-bolsa-1', name: 'Cuenta con la bolsa', kind: 'choice' });
+    await page.start();
+    await render();
+    const disabled = () => (q('option-n:2') as HTMLButtonElement).disabled;
+    expect(el().querySelector('[data-testid="emoji-block"]')).toBeNull(); // objetos sueltos, no la fila
+    expect(q('game-prompt')!.textContent).not.toContain('⚽');
+    expect(disabled()).toBe(true);
+    q('bag-put-0')!.click();
+    await render();
+    expect(disabled()).toBe(true); // falta uno
+    q('bag-put-1')!.click();
+    await render();
+    expect(disabled()).toBe(false);
+    q('bag-take-0')!.click(); // sacar uno
+    await render();
+    expect(disabled()).toBe(true);
+    q('bag-put-0')!.click();
+    await render();
+    q('option-n:2')!.click();
+    await render();
+    expect(answer).toHaveBeenCalledWith('p1', 'tok-b', ['n:2']);
   });
 
   it('5 rondas y resumen con jugar de nuevo, otro juego o volver a practicar; medalla a los 5 seguidos', async () => {

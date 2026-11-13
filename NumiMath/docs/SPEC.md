@@ -1547,3 +1547,11 @@ dentro de cada tema, así que la tarjeta era redundante para ellos. Ahora:
 - No cambia el componente de ordenar y completar con tarjetas. La animación del toque sigue
   respetando "reducir movimiento".
 
+### Contar con la bolsa (reemplaza a `cuantos-1`; la ficha del CU-A21 ya no coincide)
+- `pon-en-bolsa-1` "Cuenta con la bolsa" (1-02, de 1 a 10): los objetos aparecen sueltos, el niño
+  toca cada uno para meterlo en la bolsa (tocar uno dentro lo saca) y las opciones se habilitan
+  solo con todos dentro; luego elige cuántos hay. Mismo tipo de juego (opción), sin migración.
+  Teclado, región viva "3 en la bolsa", foco al siguiente objeto y a la primera opción; sin
+  animación de movimiento (el leve "aparecer" se quita con "reducir movimiento").
+- `cuantos-1` deja de listarse (`listed=False`) pero sigue en el servidor sin cambios (ADR 0004).
+

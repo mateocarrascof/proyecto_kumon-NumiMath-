@@ -66,7 +66,12 @@
       @case ('round') {
         <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
         @if (exercise) {
-          @if (prompt.glyphs) {
+          @if (bag; as b) {
+            <!-- Una bolsa nueva por ejercicio (track por token). -->
+            @for (t of [exercise.token]; track t) {
+              <app-bag [glyph]="b.glyph" [name]="b.name" [feminine]="b.feminine" [count]="b.count" (allIn)="onBagAllIn($event)"></app-bag>
+            }
+          } @else if (prompt.glyphs) {
             <app-emoji-rows [glyphs]="prompt.glyphs" [label]="prompt.spoken"></app-emoji-rows>
           }
           <h1 class="prompt" data-testid="game-prompt">
@@ -85,7 +90,7 @@
               [options]="exercise.options"
               [scene]="exercise.scene ?? null"
               [label]="(spokenBefore ? spokenBefore + ' ' : prompt.before) + prompt.spoken"
-              [disabled]="busy || !!result"
+              [disabled]="busy || !!result || !bagReady"
               [chosen]="chosen"
               [correct]="result?.correctAnswer ?? null"
               (pick)="pick($event)"

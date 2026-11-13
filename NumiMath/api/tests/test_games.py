@@ -748,3 +748,20 @@ def test_pictograma_con_escala_es_valido_en_miles_de_ejercicios() -> None:
         assert f"Cada ícono vale {e.scale}." in e.text
         ids = {o.id for o in e.options}
         assert len(ids) == 3 and f"n:{asked.count}" in ids  # contar sin la escala
+
+
+def test_pon_en_bolsa_es_valido_en_miles_de_ejercicios() -> None:
+    for e in _many("pon-en-bolsa-1"):
+        glyphs = e.text.rsplit("? ", 1)[1]
+        count = len(glyphs) // len(glyphs[0])
+        assert 1 <= count <= 10 and glyphs == glyphs[0] * count
+        assert e.solution == (f"n:{count}",)
+        assert len({o.id for o in e.options}) == 3 and all(1 <= _num(o.id) <= 10 for o in e.options)
+        assert e.text.startswith("Mete las ") and "¿Cuántas hay?" in e.text
+
+
+def test_cuantos_1_ya_no_se_lista_pero_sigue_existiendo() -> None:
+    body = _client(_gateway(grade=1)).get(f"/v1/students/{PERFIL}/games", headers=_headers()).json()
+    ids = {x["id"] for g in body["groups"] for x in g["games"]}
+    assert "pon-en-bolsa-1" in ids and "cuantos-1" not in ids
+    assert "cuantos-1" in GAMES  # ADR 0004: sus tokens se siguen verificando

@@ -3,9 +3,11 @@ import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
 import {
+  BAG_GAMES,
   DEFAULT_INSTRUCTION,
   GAME_INSTRUCTIONS,
   GAME_TEXT,
+  emojiName,
   splitEmojiRun,
   spokenEquation,
 } from '../core/games/games.messages';
@@ -51,6 +53,8 @@ export class GamesPage implements OnInit {
   private readonly nav = inject(NavController);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly injector = inject(Injector);
+  /** Token del ejercicio cuya bolsa está llena (las opciones se habilitan). */
+  private bagFullToken: string | null = null;
   protected readonly mascot = inject(MascotPort);
   protected readonly text = GAME_TEXT;
   protected readonly rounds = ROUNDS;
@@ -273,6 +277,32 @@ export class GamesPage implements OnInit {
     } finally {
       this.busy = false;
       this.cdr.markForCheck();
+    }
+  }
+
+  /** "Mete en la bolsa" (pon-en-bolsa-1): los emoji del enunciado se dibujan como objetos sueltos. */
+  get bag(): { glyph: string; name: string; feminine: boolean; count: number } | null {
+    if (!this.exercise || !BAG_GAMES.has(this.exercise.gameId)) return null;
+    const glyphs = this.prompt.glyphs.replace(/\s+/g, '');
+    const first = glyphs ? Array.from(glyphs)[0] : '';
+    const names = first ? emojiName(first) : null;
+    if (!names) return null;
+    return { glyph: first, name: names.singular, feminine: names.feminine, count: glyphs.split(first).length - 1 };
+  }
+
+  /** Con la bolsa, las opciones se habilitan solo con todos los objetos dentro (contar uno a uno). */
+  get bagReady(): boolean {
+    return !this.bag || this.bagFullToken === this.exercise?.token;
+  }
+
+  onBagAllIn(full: boolean): void {
+    this.bagFullToken = full ? (this.exercise?.token ?? null) : null;
+    this.cdr.markForCheck();
+    // Con todos dentro, el foco pasa a la primera opción (ya habilitada).
+    if (full) {
+      afterNextRender(() => document.querySelector<HTMLElement>('[data-testid^="option-"]')?.focus(), {
+        injector: this.injector,
+      });
     }
   }
 

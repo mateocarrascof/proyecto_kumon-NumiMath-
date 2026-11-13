@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
+import { BagComponent } from './bag.component';
 import { ChoiceOptionsComponent } from './choice-options.component';
 import { EMOJI_PER_ROW, EmojiRowsComponent } from './emoji-rows.component';
 import { FigureComponent } from './figure.component';
@@ -248,3 +249,53 @@ describe('splitLeadingEmoji (práctica)', () => {
   });
 });
 
+describe('BagComponent: meter en la bolsa uno a uno', () => {
+  function render(count: number, name = 'pelota', feminine = true) {
+    TestBed.configureTestingModule({ imports: [BagComponent] });
+    const fixture = TestBed.createComponent(BagComponent);
+    fixture.componentRef.setInput('glyph', '⚽');
+    fixture.componentRef.setInput('name', name);
+    fixture.componentRef.setInput('feminine', feminine);
+    fixture.componentRef.setInput('count', count);
+    const events: boolean[] = [];
+    fixture.componentInstance.allIn.subscribe((v) => events.push(v));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const q = (id: string) => el.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
+    const click = (id: string) => {
+      q(id)!.click();
+      fixture.detectChanges();
+    };
+    return { el, q, click, events };
+  }
+
+  it('cada objeto suelto es un botón con nombre; al meterlo pasa a la bolsa y se anuncia', () => {
+    const { el, q, click } = render(3);
+    expect(el.querySelectorAll('[data-testid^="bag-put-"]').length).toBe(3);
+    expect(q('bag-put-0')!.getAttribute('aria-label')).toBe('pelota, toca para meterla en la bolsa');
+    expect(q('bag-status')!.getAttribute('aria-live')).toBe('polite');
+    click('bag-put-0');
+    expect(q('bag-put-0')).toBeNull();
+    expect(q('bag-take-0')!.getAttribute('aria-label')).toBe('pelota en la bolsa, toca para sacarla');
+    expect(q('bag-status')!.textContent).toBe('1 en la bolsa');
+    expect(q('bag-hint')!.textContent).toContain('Cuando estén todas en la bolsa, elige cuántas hay.');
+  });
+
+  it('avisa cuando están todos dentro, y otra vez si se saca uno', () => {
+    const { click, q, events } = render(2);
+    click('bag-put-0');
+    expect(events).toEqual([]);
+    click('bag-put-1');
+    expect(events).toEqual([true]);
+    expect(q('bag-loose')).toBeNull();
+    expect(q('bag-hint')).toBeNull();
+    click('bag-take-1');
+    expect(events).toEqual([true, false]);
+  });
+
+  it('concuerda con un objeto masculino', () => {
+    const { q } = render(1, 'pez', false);
+    expect(q('bag-put-0')!.getAttribute('aria-label')).toBe('pez, toca para meterlo en la bolsa');
+    expect(q('bag-hint')!.textContent).toContain('Cuando estén todos en la bolsa, elige cuántos hay.');
+  });
+});

@@ -746,7 +746,7 @@ GOLDEN = {
     "resta-bloques-2": [
         (
             "choice",
-            "43 − 41 = ? Quita los bloques tachados.",
+            "43 − 41 = ? Quita los bloques tachados. ¿Cuántos quedan?",
             ("n:12", "n:3", "n:2"),
             ("n:2",),
             None,
@@ -754,7 +754,7 @@ GOLDEN = {
         ),
         (
             "choice",
-            "39 − 8 = ? Quita los bloques tachados.",
+            "39 − 8 = ? Quita los bloques tachados. ¿Cuántos quedan?",
             ("n:30", "n:41", "n:31"),
             ("n:31",),
             None,
@@ -762,7 +762,7 @@ GOLDEN = {
         ),
         (
             "choice",
-            "86 − 4 = ? Quita los bloques tachados.",
+            "86 − 4 = ? Quita los bloques tachados. ¿Cuántos quedan?",
             ("n:82", "n:90", "n:81"),
             ("n:82",),
             None,

@@ -158,26 +158,40 @@ describe('ProgressPage: evolución (CU-A23)', () => {
     expect(el.querySelector('[data-testid="evolution-few"]')).toBeNull();
   });
 
-  it('con 2 ejercicios muestra "aún hay pocos ejercicios" y no el gráfico', async () => {
+  it('con 2 ejercicios invita a hacer 3 más (acción primero) y no muestra el gráfico', async () => {
     const weeks = WEEKS.map((w, i) => (i === 7 ? { ...w, total: 2, correct: 1 } : { ...w, total: 0, correct: 0 }));
     const el = await load({ ...PROGRESS, total: 2, correct: 1, weeks });
     expect(el.querySelector('app-weekly-chart')).toBeNull();
     const text = el.querySelector('[data-testid="evolution-few"]')?.textContent ?? '';
-    expect(text).toContain('Aún hay pocos ejercicios. Faltan 3 para ver tu avance.');
+    expect(text).toContain(
+      '¡Haz 3 ejercicios más y verás tu avance! Aquí cuentan los ejercicios de las últimas 8 semanas.',
+    );
     // Texto para el niño: sin palabras de adulto.
     expect(text).not.toMatch(/mínimo|evolución/);
   });
 
-  it('con 4 ejercicios dice "Falta 1" en singular', async () => {
+  it('con 4 ejercicios dice "¡Haz 1 ejercicio más…!" en singular', async () => {
     const weeks = WEEKS.map((w, i) => (i === 7 ? { ...w, total: 4, correct: 2 } : { ...w, total: 0, correct: 0 }));
     const el = await load({ ...PROGRESS, total: 4, correct: 2, weeks });
     expect(el.querySelector('[data-testid="evolution-few"]')?.textContent).toContain(
-      'Aún hay pocos ejercicios. Falta 1 para ver tu avance.',
+      '¡Haz 1 ejercicio más y verás tu avance!',
     );
   });
 
-  it('sin ejercicios en las 8 semanas dice que faltan 5', () => {
-    expect(EVOLUTION_MESSAGES.few(5)).toBe('Aún hay pocos ejercicios. Faltan 5 para ver tu avance.');
+  it('con muchos ejercicios antiguos cuenta solo la ventana de la regla y lo dice', async () => {
+    // 40 en total, pero solo 1 en las 8 semanas: faltan 4 según la misma suma que decide el gráfico.
+    const weeks = WEEKS.map((w, i) => (i === 7 ? { ...w, total: 1, correct: 1 } : { ...w, total: 0, correct: 0 }));
+    const el = await load({ ...PROGRESS, total: 40, correct: 30, weeks });
+    expect(el.querySelector('app-weekly-chart')).toBeNull();
+    expect(el.querySelector('[data-testid="evolution-few"]')?.textContent).toContain(
+      '¡Haz 4 ejercicios más y verás tu avance! Aquí cuentan los ejercicios de las últimas 8 semanas.',
+    );
+  });
+
+  it('sin semanas desde la API no inventa la ventana', () => {
+    expect(EVOLUTION_MESSAGES.few(5, 0)).toBe(
+      '¡Haz 5 ejercicios más y verás tu avance! Aquí cuentan los ejercicios de las últimas semanas.',
+    );
   });
 
   it('desde 5 ejercicios en 8 semanas ya muestra el gráfico', async () => {

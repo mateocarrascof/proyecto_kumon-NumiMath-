@@ -34,9 +34,17 @@ export const STREAK_BADGE = 5;
 export const MIN_EVOLUTION_EXERCISES = 5;
 
 export const EVOLUTION_MESSAGES = {
-  /** Cuántos faltan, en singular o plural (texto para el niño: sin "mínimo" ni "evolución"). */
-  few: (missing: number): string =>
-    `Aún hay pocos ejercicios. ${missing === 1 ? 'Falta 1' : `Faltan ${missing}`} para ver tu avance.`,
+  /**
+   * Para el niño (6–7 años): la acción primero, sin "mínimo" ni "evolución". `missing` y `weeks`
+   * salen de la misma regla que decide si se muestra el gráfico (suma de `progress.weeks`), y el
+   * texto dice esa ventana para que no choque con el total de siempre.
+   */
+  few: (missing: number, weeks: number): string => {
+    const action = missing === 1 ? '¡Haz 1 ejercicio más' : `¡Haz ${missing} ejercicios más`;
+    const window =
+      weeks === 1 ? 'de esta semana' : weeks > 1 ? `de las últimas ${weeks} semanas` : 'de las últimas semanas';
+    return `${action} y verás tu avance! Aquí cuentan los ejercicios ${window}.`;
+  },
   cheer: '¡Cada semana que practicas, aprendes más!',
 } as const;
 

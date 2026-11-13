@@ -787,7 +787,7 @@ En "Mi progreso", el niño ve un gráfico de barras de las **últimas 8 semanas*
 | Situación | Resultado |
 |---|---|
 | Sin intentos | Se muestra lo de siempre ("Todavía no hay intentos…"); no aparece la sección |
-| Menos de 5 ejercicios en las 8 semanas | "Aún hay pocos ejercicios. Faltan N para ver tu avance." ("Falta 1" en singular; sin "mínimo" ni "evolución": lo lee el niño), sin gráfico. Es la misma regla de "pocos datos" del informe del tutor |
+| Menos de 5 ejercicios en las 8 semanas | "¡Haz N ejercicios más y verás tu avance! Aquí cuentan los ejercicios de las últimas 8 semanas." ("¡Haz 1 ejercicio más…!" en singular; acción primero y sin "mínimo" ni "evolución": lo lee el niño; N y la ventana salen de la misma suma de las 8 semanas que decide el gráfico), sin gráfico. Es la misma regla de "pocos datos" del informe del tutor |
 | 5 o más | Gráfico con la frase "¡Cada semana que practicas, aprendes más!" |
 
 - **Semanas:** 8 periodos de 7 días que terminan "hoy", la fecha local del dispositivo validada a ±1 día como en la racha. Las semanas sin práctica aparecen con 0, como un hueco.

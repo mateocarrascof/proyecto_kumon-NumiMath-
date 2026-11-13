@@ -1479,6 +1479,8 @@ generador de completar de 1° pasó a tener parámetros (`_fill_path`) sin cambi
 | 9. Centímetros y metros | `elige-unidad-2` un objeto en emoji → cm o m | 2-22 |
 | 10. Reloj | `lee-reloj-2` reloj dibujado, horas y medias horas | 2-21 |
 | 11. Pictograma con escala | `pictograma-escala-2` cada ícono vale 2 o 5 | 2-24 |
+| Restas hasta 100 sin reserva | `resta-bloques-2` bloques con lo que se quita tachado (2026-11-13) | 2-08 |
+| Tablas del 2, 5 y 10 | `cajas-de-2-2`, `cajas-de-5-2`, `cajas-de-10-2`: cajas de huevos (2026-11-13) | 2-12, 2-13, 2-14 |
 
 Los temas 8 a 11 usan habilidades de fase B (no se practican): sus juegos se abren desde "Jugar",
 no con "Aprender jugando".
@@ -1487,6 +1489,27 @@ no con "Aprender jugando".
 Barras de diez (con sus 10 cuadritos) y cubitos sueltos, en SVG propio; la forma los distingue,
 no solo el color. Para el lector de pantalla: "4 barras de diez y 7 cubitos" (sin decir el
 número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
+
+### Restas y tablas (2026-11-13)
+Cuatro temas de 2° que no tenían juego. Ids nuevos, tipo `choice`, sin migración; salidas
+guardadas por semilla. Distintos de la práctica (que es solo texto), de "Contar de 2, 5, 10"
+(un camino de números) y de "Grupos iguales" (emoji en el enunciado, hasta 5 grupos).
+- **`resta-bloques-2` "Quita bloques" (2-08):** "56 − 23 = ? Quita los bloques tachados." El
+  primer número en bloques y lo que se resta tachado (campo `removed`: decenas y unidades); el
+  niño cuenta lo que queda. Hasta 99, sin reserva; mitad 2 cifras − 1 cifra y mitad 2 − 2.
+  Distractores: sumar en vez de restar (si no pasa de 100), una decena de más o de menos, ±1.
+  Lo tachado se sigue viendo (mismo color, más tenue, borde punteado) con una ✕ roja oscura: "se
+  quita", no "no hay". Cubitos de 18 px con la ✕ dentro del borde. 9 barras y 9 cubitos caben a
+  360 px. El lector oye "5 barras de diez y 6 cubitos. Tachados, para quitar: 2 barras y 3
+  cubitos." (nunca cuánto queda).
+- **Tablas del 2, 5 y 10, "Cajas de N huevos" (2-12, 2-13, 2-14):** una sola mecánica con tres
+  ids (`cajas-de-2-2`, `cajas-de-5-2`, `cajas-de-10-2`). "Hay 4 cajas. Cada caja tiene 5 huevos.
+  ¿Cuántos huevos hay?" (con una caja: "Hay 1 caja. Tiene 5 huevos."). Solo palabras, sin "×" (la
+  práctica ya pregunta "5 × 4 = ?"). De 1 a 10 cajas (factores 1 a 10), dibujadas (campo
+  `boxes`: cantidad y huevos por caja): caja de 2 (1 × 2), de 5 (1 × 5) y de 10 (2 × 5), en SVG
+  propio. Distractores: una caja de más o de menos, sumar cajas y huevos, contar las cajas. El
+  lector oye "4 cajas de 5 huevos" (sin el total). 10 cajas de 10 y "Siguiente" caben sin
+  desplazar a 360 × 640. Solo el producto: el factor desconocido (nivel 3) queda para después.
 
 ### Campos de la tanda 2
 - **`figure`**: una figura grande (SVG propio, ahora también pentágono y hexágono), con etiqueta
@@ -1499,7 +1522,8 @@ número, que es la respuesta). Hasta 9 barras y 18 cubitos caben en 360 px.
 - Unidades `s:cm` y `s:m` ("centímetros" y "metros" para el lector).
 
 ### Pendientes (variedad)
-1. Regla en cm, calendario, gráfico de barras, restas con bloques y caras de los cuerpos 3D (2-19).
+1. Regla en cm, calendario, gráfico de barras y caras de los cuerpos 3D (2-19). (Las restas con
+   bloques ya están: `resta-bloques-2`.)
 2. Mecánicas distintas a tocar una opción (armar el número tocando bloques, contar grupos
    tocándolos): no eran baratas con los componentes actuales.
 3. **Confirmar con el dueño:** el catálogo describe 2-18 con triángulo, cuadrado, rectángulo y
@@ -1540,7 +1564,8 @@ se abre solo desde su tema** (2026-11-13).
 ### Un juego por tema (decisión del cliente)
 - **Cada tema (curso + habilidad) tiene UN solo juego listado.** Es el mínimo pedido por el
   cliente; no se agregan juegos nuevos. Quedan: 1-03 → `ordena-1`; 2-03 → `ordena-2`; 2-15 →
-  `completa-patron-2`. En total, 11 juegos en 1° (11 temas) y 12 en 2° (12 temas).
+  `completa-patron-2`. En total, 11 juegos en 1° (11 temas) y 16 en 2° (16 temas, desde que se
+  sumaron restas y tablas el 2026-11-13).
 - Por eso, en la práctica, "Aprender jugando" abre siempre directo la introducción del juego, y
   "Otro juego de este tema" no aparece. El código para varios juegos por tema (lista filtrada por
   tema y ese botón) **se conserva** y sigue cubierto por pruebas con un catálogo de prueba, por si

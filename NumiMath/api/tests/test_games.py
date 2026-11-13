@@ -72,6 +72,10 @@ def test_lista_los_juegos_de_1_por_eje() -> None:
     assert all(GAMES[i].grade == 1 for ids in modules.values() for i in ids)
     # Cada juego dice su habilidad: 1-03 tiene tres juegos ("Aprender jugando" abre la lista).
     skills = {x["id"]: x["skill"] for g in body["groups"] for x in g["games"]}
+    from app.curriculum.catalog import get_skill
+
+    names = {x["id"]: x["skill_name"] for g in body["groups"] for x in g["games"]}
+    assert all(names[i] == get_skill(s).name for i, s in skills.items())  # type: ignore[union-attr]
     assert all(skills[i] == GAMES[i].skill for i in skills)
     assert sorted(i for i, s in skills.items() if s == "1-03") == [
         "donde-hay-mas-1",

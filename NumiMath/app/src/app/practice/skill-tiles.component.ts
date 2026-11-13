@@ -21,7 +21,7 @@ import { TopicGroup, moduleStyle, tileLabel, topicIcon } from './practice.page';
           <span class="group-icon" aria-hidden="true">{{ g.style.icon }}</span>
           <span class="group-name">{{ titlePrefix }}{{ g.title }}</span>
           @if (showMastered && g.mastered) {
-            <span class="group-count">{{ g.mastered }} de {{ g.topics.length }} dominadas</span>
+            <span class="group-count">{{ g.mastered }} de {{ practiced(g) }} dominadas</span>
           }
         </h2>
         <ul class="tiles">
@@ -36,7 +36,10 @@ import { TopicGroup, moduleStyle, tileLabel, topicIcon } from './practice.page';
                 <span class="tile-icon" aria-hidden="true">{{ icon(t.label) }}</span>
                 <span class="tile-name">{{ t.label }}</span>
                 <span class="tile-foot" aria-hidden="true">
-                  @if (t.exhausted) {
+                  @if (t.gameIds?.length) {
+                    <!-- Tema que no se practica: abre directo su juego. -->
+                    <span class="tile-game" data-testid="tile-game">🧩 Solo juego</span>
+                  } @else if (t.exhausted) {
                     <!-- CU-A12: sin conexión, ya no quedan ejercicios guardados de este tema. -->
                     <span class="tile-exhausted" data-testid="tile-exhausted">📴 {{ exhaustedText }}</span>
                   } @else if (t.mastered) {
@@ -68,6 +71,11 @@ export class SkillTilesComponent {
   protected readonly icon = topicIcon;
   protected readonly label = tileLabel;
   protected readonly exhaustedText = OFFLINE_MESSAGES.exhaustedTile;
+
+  /** Temas que se practican (los "solo juego" no cuentan para "N de M dominadas"). */
+  protected practiced(g: TopicGroup): number {
+    return g.topics.filter((t) => !t.gameIds?.length).length;
+  }
 
   protected tone(topic: Topic): string {
     return moduleStyle(topic.module).tone;

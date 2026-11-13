@@ -19,7 +19,10 @@ import {
 } from './games.port';
 
 interface ListDto {
-  groups: { module: string; games: { id: string; name: string; kind: GameKind }[] }[];
+  groups: {
+    module: string;
+    games: { id: string; name: string; kind: GameKind; skill?: string; skill_name?: string }[];
+  }[];
 }
 
 interface ExerciseDto {
@@ -92,7 +95,10 @@ export class HttpGamesService extends GamesPort {
       if (!dto || !Array.isArray(dto.groups) || !dto.groups.every((g) => Array.isArray(g?.games))) {
         throw new GameError('unavailable');
       }
-      return dto.groups.map((g) => ({ module: g.module, games: g.games.map((x) => ({ ...x })) }));
+      return dto.groups.map((g) => ({
+        module: g.module,
+        games: g.games.map((x) => ({ id: x.id, name: x.name, kind: x.kind, skill: x.skill, skillName: x.skill_name })),
+      }));
     });
   }
 

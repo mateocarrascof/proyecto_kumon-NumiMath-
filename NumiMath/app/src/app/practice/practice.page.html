@@ -52,17 +52,9 @@
         }
         <span class="topic-go" aria-hidden="true">›</span>
       </button>
-      <!-- CU-A21: "Más juegos" (1° y 2°, con conexión): solo los juegos de temas que no se
-           practican. Los demás se abren con "Aprender jugando" dentro de cada tema. -->
-      @if (extraGames.length) {
-        <button type="button" class="topic-card tasks-card" data-tone="lilac" (click)="openGames()" data-testid="games-card">
-          <span class="topic-icon" aria-hidden="true">🧩</span>
-          <span class="topic-label">Más juegos</span>
-          <span class="topic-go" aria-hidden="true">›</span>
-        </button>
-      }
       <!-- Baldosas por eje: cada eje con su color e ícono fijos. Ninguna habilidad tiene candado. -->
-      <app-skill-tiles [groups]="ownGroups" (pick)="choose($event)"></app-skill-tiles>
+      <!-- Incluye los temas "solo juego" (🧩) en su eje: 1° y 2°, con conexión. -->
+      <app-skill-tiles [groups]="tileGroups" (pick)="choose($event)"></app-skill-tiles>
       @if (reviewTopics.length) {
         <ion-button class="review-toggle" fill="outline" expand="block" [attr.aria-expanded]="showReview"
           (click)="toggleReview()" data-testid="review-toggle">

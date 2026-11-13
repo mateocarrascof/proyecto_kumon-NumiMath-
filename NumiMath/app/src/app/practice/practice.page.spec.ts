@@ -1805,26 +1805,32 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
   }
 
   // Un juego de un tema que no se practica (fase B) y uno del tema que sí.
-  const FIGURES = { id: 'toca-figura-1', name: 'Toca la figura', kind: 'choice' as const, skill: '1-17' };
+  const FIGURES = { id: 'toca-figura-1', name: 'Toca la figura', kind: 'choice' as const, skill: '1-17', skillName: 'Figuras 3D y 2D del entorno' };
   const SAME = { id: 'cuantos-1', name: '¿Cuántos hay?', kind: 'choice' as const, skill: TOPIC.id };
   beforeEach(() => {
     gameGroups = [{ module: 'Geometría', games: [FIGURES] }, { module: 'Números', games: [SAME] }];
   });
 
-  it('"Más juegos" en 1°: abre la selección con solo los juegos de temas que no se practican', async () => {
+  it('sin tarjeta "Más juegos": el tema que no se practica va en la lista, en su eje, con 🧩 y abre su juego', async () => {
     const { fixture, nav } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
-    const card = query(fixture, '[data-testid="games-card"]') as HTMLElement;
-    expect(card?.textContent).toContain('Más juegos');
-    card.click();
+    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    const badge = query(fixture, '[data-testid="tile-game"]') as HTMLElement;
+    expect(badge?.textContent).toContain('Solo juego');
+    const tile = badge.closest('button') as HTMLElement;
+    expect(tile.textContent).toContain('Figuras 3D y 2D del entorno');
+    expect(tile.getAttribute('aria-label')).toBe('Figuras 3D y 2D del entorno, solo juego');
+    expect(tile.closest('[data-testid="skill-group"]')!.textContent).toContain('Geometría');
+    tile.click();
+    await new Promise((r) => setTimeout(r, 0));
     expect(nav.navigateForward).toHaveBeenCalledWith(['/juegos', 'perfil-1'], {
-      queryParams: { juegos: 'toca-figura-1' },
+      queryParams: { juego: 'toca-figura-1' },
     });
   });
 
-  it('no aparece si todos los juegos son de temas que se practican', async () => {
+  it('sin temas "solo juego" si todos los juegos son de temas que se practican', async () => {
     gameGroups = [{ module: 'Números', games: [SAME] }];
     const { fixture } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
-    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).toBeNull();
   });
 
   it('aparece en 2° (el repaso de 1° no cambia el curso)', async () => {
@@ -1832,17 +1838,17 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
       { ...TOPIC, grade: 2, review: false },
       { ...TOPIC, id: 'r', grade: 1, review: true },
     ]);
-    expect(query(fixture, '[data-testid="games-card"]')).not.toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).not.toBeNull();
   });
 
   it('no aparece en 3° ni 4°', async () => {
     const { fixture } = await withTopics([{ ...TOPIC, grade: 3, review: false }]);
-    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).toBeNull();
   });
 
   it('si no se puede deducir el curso, no aparece', async () => {
     const { fixture } = await withTopics([{ ...TOPIC }]);
-    expect(query(fixture, '[data-testid="games-card"]')).toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).toBeNull();
   });
 
   describe('"Aprender jugando" dentro de cada tema', () => {
@@ -1904,7 +1910,7 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
       gamesFail = true;
       const topic = { ...TOPIC, id: '1-13', grade: 1, review: false };
       const ctx = await withTopics([topic]);
-      expect(query(ctx.fixture, '[data-testid="games-card"]')).toBeNull(); // ni "Más juegos"
+      expect(query(ctx.fixture, '[data-testid="tile-game"]')).toBeNull(); // ni temas "solo juego"
       await ctx.page.choose(topic as never);
       await new Promise((r) => setTimeout(r, 0));
       ctx.fixture.detectChanges();
@@ -1915,8 +1921,10 @@ describe('PracticePage: botón "Jugar" (CU-A21)', () => {
 
   it('sin conexión no aparece (los juegos necesitan internet)', async () => {
     const { fixture, page } = await withTopics([{ ...TOPIC, grade: 1, review: false }]);
-    expect(query(fixture, '[data-testid="games-card"]')).not.toBeNull();
+    expect(query(fixture, '[data-testid="tile-game"]')).not.toBeNull();
     page.offlineMode = true;
     expect(page.canPlay).toBe(false);
+    // Sin conexión, los temas "solo juego" salen de la lista.
+    expect(page.tileGroups.flatMap((g) => g.topics).some((t) => t.gameIds?.length)).toBe(false);
   });
 });

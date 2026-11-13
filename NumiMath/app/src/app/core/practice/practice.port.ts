@@ -16,6 +16,8 @@ export interface Topic {
   blockDone?: number;
   blockSize?: number;
   mastered?: boolean;
+  /** Tema "solo juego" (no se practica, fase B): ids de sus juegos. Se abre directo el juego. */
+  gameIds?: string[];
   /** CU-A2: la habilidad aún no tiene intentos y se puede ofrecer la prueba corta inicial. */
   diagnosticAvailable?: boolean;
   /** CU-A12: sin conexión, ya no quedan ejercicios guardados de esta habilidad. */

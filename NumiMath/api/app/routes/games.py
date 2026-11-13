@@ -21,6 +21,7 @@ from typing import Annotated
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.curriculum.catalog import get_skill
 from app.db.gateway import Gateway, GatewayError
 from app.deps import AuthorizedStudentDep
 from app.errors import ApiError
@@ -53,6 +54,8 @@ class GameOut(BaseModel):
     kind: GameKind
     # Habilidad del catálogo: la práctica de ese tema muestra "Aprender jugando".
     skill: str
+    # Nombre del tema (catálogo): la lista de temas muestra los "solo juego" con este nombre.
+    skill_name: str
 
 
 class GameGroupOut(BaseModel):
@@ -158,12 +161,23 @@ async def list_games(student: AuthorizedStudentDep, request: Request) -> GameLis
     groups: dict[str, list[GameOut]] = {}
     for g in games_for_grade(grade):
         groups.setdefault(g.module, []).append(
-            GameOut(id=g.id, name=g.name, kind=g.kind, skill=g.skill)
+            GameOut(
+                id=g.id,
+                name=g.name,
+                kind=g.kind,
+                skill=g.skill,
+                skill_name=_skill_name(g.skill),
+            )
         )
     return GameListOut(
         grade=grade,
         groups=[GameGroupOut(module=m, games=games) for m, games in groups.items()],
     )
+
+
+def _skill_name(code: str) -> str:
+    skill = get_skill(code)
+    return skill.name if skill is not None else code
 
 
 @router.post("/{student_id}/games/{game_id}/exercise")

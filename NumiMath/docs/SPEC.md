@@ -1514,15 +1514,20 @@ semillas). Corregidos en `fix(cu-a21)`:
 
 ## Juegos: ajustes visuales tras probar en el celular (2026-11-13)
 
-### "Más juegos" en vez de "Jugar" (cambio de flujo respecto de la ficha del CU-A21)
+### Juegos solo desde su tema (cambio de flujo respecto de la ficha del CU-A21)
 La ficha del CU-A21 pide una tarjeta "Jugar" en la práctica que lleva a todos los juegos (eje →
-juego). Desde "Aprender jugando" (2026-11-12), los juegos de temas que se practican se abren
-dentro de cada tema, así que la tarjeta era redundante para ellos. Ahora:
-- La tarjeta se llama **"Más juegos"** y muestra solo los juegos de temas que el perfil **no**
-  practica (fase B: geometría, medición, reloj, gráficos; en 1°, los temas 6 a 10). Si el perfil
-  no tiene ninguno, no aparece. Sigue siendo solo para 1° y 2° y con conexión.
-- Abre la misma selección de eje → juego, con solo esos juegos (`/juegos/:id?juegos=a,b`). La
-  pantalla de selección de eje no cambia.
+juego) y un "Otro juego" dentro del juego. Ya no coincide: **sin "Jugar" ni "Más juegos", un juego
+se abre solo desde su tema** (2026-11-13).
+- Temas que se practican: "Aprender jugando" dentro del tema (un juego → su introducción; varios
+  → la lista de ese tema).
+- Temas que no se practican (fase B: geometría, medición, reloj, gráficos; en 1°, los temas 6 a
+  10): aparecen en la lista normal de temas, en su eje, con la marca "🧩 Solo juego"; al tocarlos
+  abren directo su juego, sin elegir eje. Solo 1° y 2° y con conexión. No cuentan en "N de M
+  dominadas". El servidor manda el nombre del tema de cada juego (`skill_name`).
+- Dentro de un juego no hay vuelta a la elección de eje: el resumen ofrece "Jugar de nuevo",
+  "Volver a practicar" y, si el tema tiene varios juegos, "Otro juego de este tema".
+- La pantalla de elección de eje sigue existiendo (`/juegos/:id` sin atajos), pero ya no se llega
+  a ella desde la app.
 
 ### Emoji para contar, ordenados (práctica y juegos)
 - Los emoji van en un bloque propio, **antes** de la pregunta, en filas parejas de 5 (la última

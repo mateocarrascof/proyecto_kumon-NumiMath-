@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 
 import { ChoiceOptionsComponent } from './choice-options.component';
+import { EMOJI_PER_ROW, EmojiRowsComponent } from './emoji-rows.component';
 import { FigureComponent } from './figure.component';
 import { GameVisualComponent, MEASURE_UNIT_PX } from './game-visual.component';
+import { splitLeadingEmoji } from './games.messages';
 import { GameExercise, GameOption } from './games.port';
 
 /** Figuras, escena, pictograma y medición (CU-A21, parte 3). */
@@ -200,3 +202,49 @@ describe('GameVisualComponent (CU-A21)', () => {
     expect(fig.querySelector('figcaption')!.textContent).toBe('El lápiz y, debajo, clips en fila.');
   });
 });
+
+describe('EmojiRowsComponent: emoji para contar en filas parejas', () => {
+  function render(glyphs: string, label: string) {
+    TestBed.configureTestingModule({ imports: [EmojiRowsComponent] });
+    const fixture = TestBed.createComponent(EmojiRowsComponent);
+    fixture.componentRef.setInput('glyphs', glyphs);
+    fixture.componentRef.setInput('label', label);
+    fixture.detectChanges();
+    return fixture.nativeElement as HTMLElement;
+  }
+
+  it.each([1, 4, 5, 9, 10, 15, 20])('%i emoji: filas de 5 (como mucho) y una sola etiqueta', (n) => {
+    const el = render('⚽'.repeat(n), `${n} pelotas`);
+    const group = el.querySelector('[data-testid="glyph-group"]') as HTMLElement;
+    expect(group.querySelectorAll('.cell').length).toBe(n);
+    expect(group.style.gridTemplateColumns).toContain(`repeat(${Math.min(EMOJI_PER_ROW, n)},`);
+    const block = el.querySelector('[data-testid="emoji-block"]')!;
+    expect(block.getAttribute('role')).toBe('img');
+    expect(block.getAttribute('aria-label')).toBe(`${n} pelotas`);
+  });
+
+  it('varios grupos: cada uno en su recuadro', () => {
+    const el = render('🌸🌸🌸 🌸🌸', '3 flores y 2 flores');
+    const groups = el.querySelectorAll('[data-testid="glyph-group"]');
+    expect(groups.length).toBe(2);
+    expect([...groups].every((g) => g.classList.contains('boxed'))).toBe(true);
+  });
+});
+
+describe('splitLeadingEmoji (práctica)', () => {
+  it('separa los emoji del principio, los cuenta y concuerda en número', () => {
+    expect(splitLeadingEmoji('⚽⚽⚽⚽⚽ ⚽⚽⚽⚽ ¿Cuántas pelotas hay?')).toEqual({
+      glyphs: '⚽'.repeat(9),
+      rest: '¿Cuántas pelotas hay?',
+      spoken: '9 pelotas',
+    });
+    expect(splitLeadingEmoji('🐟 ¿Cuántos peces hay?')?.spoken).toBe('1 pez');
+    expect(splitLeadingEmoji('🐟🐟 ¿Cuántos peces hay?')?.spoken).toBe('2 peces');
+  });
+
+  it('sin emoji al principio, null (el enunciado se muestra igual)', () => {
+    expect(splitLeadingEmoji('7 + 5 = ?')).toBeNull();
+    expect(splitLeadingEmoji('Hay 2 grupos de 10 pelotas. ¿Cuántas pelotas hay en total?')).toBeNull();
+  });
+});
+

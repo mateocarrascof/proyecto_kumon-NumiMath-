@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { IonicModule, NavController } from '@ionic/angular/lazy';
 
 import { ChoiceOptionsComponent } from '../core/games/choice-options.component';
+import { EmojiRowsComponent } from '../core/games/emoji-rows.component';
 import { GameVisualComponent } from '../core/games/game-visual.component';
 import { DEFAULT_INSTRUCTION, GAME_INSTRUCTIONS, GAME_TEXT } from '../core/games/games.messages';
 import { GameError, GameExercise, GamesPort } from '../core/games/games.port';
@@ -57,7 +58,7 @@ function setup(over: Partial<Record<keyof GamesPort, unknown>> = {}, query: Reco
   const nav = { navigateBack: vi.fn(async () => true) };
   TestBed.configureTestingModule({
     declarations: [GamesPage, MascotComponent],
-    imports: [IonicModule.forRoot(), ChoiceOptionsComponent, OrderCardsComponent, GameVisualComponent],
+    imports: [IonicModule.forRoot(), ChoiceOptionsComponent, OrderCardsComponent, GameVisualComponent, EmojiRowsComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: GamesPort, useValue: port },
@@ -515,11 +516,12 @@ describe('GamesPage (CU-A21)', () => {
     page.chooseGame(GROUPS[0].games[0]);
     await page.start();
     await render();
-    const prompt = q('game-prompt')!;
-    expect(prompt.querySelector('.glyphs')?.getAttribute('aria-hidden')).toBe('true');
-    expect(prompt.querySelector('.sr-only')?.textContent).toContain('3 manzanas');
-    // Un solo grupo: sin recuadro.
-    expect(prompt.querySelector('[data-testid="glyph-group"]')!.classList).not.toContain('boxed');
+    // Los emoji van en su bloque (una imagen con la cantidad) y la pregunta, debajo y sin emoji.
+    const block = q('emoji-block')!;
+    expect(block.getAttribute('role')).toBe('img');
+    expect(block.getAttribute('aria-label')).toBe('3 manzanas');
+    expect(block.querySelector('[data-testid="glyph-group"]')!.classList).not.toContain('boxed');
+    expect(q('game-prompt')!.textContent).not.toContain('🍎');
   });
 
   it('"5 = 3 + ?": el lector de pantalla oye la pregunta completa (el "?" se dice)', async () => {
@@ -544,11 +546,11 @@ describe('GamesPage (CU-A21)', () => {
     page.chooseGame(GROUPS[0].games[0]);
     await page.start();
     await render();
-    const groups = [...q('game-prompt')!.querySelectorAll('[data-testid="glyph-group"]')];
+    const groups = [...q('emoji-block')!.querySelectorAll('[data-testid="glyph-group"]')];
     expect(groups.map((g) => g.textContent)).toEqual(['🌸'.repeat(9), '🌸'.repeat(9)]);
     expect(groups.every((g) => g.classList.contains('boxed'))).toBe(true);
-    // Grupos de 8 o más: emoji más chicos para que cada grupo quepa en una línea a 360 px.
-    expect(q('game-prompt')!.querySelector('.glyphs')!.classList).toContain('dense');
-    expect(q('game-prompt')!.querySelector('.sr-only')?.textContent).toContain('9 flores y 9 flores');
+    // En filas de 5: un grupo de 9 son 5 + 4 (la última fila a la izquierda).
+    expect((groups[0] as HTMLElement).style.gridTemplateColumns).toContain('repeat(5');
+    expect(q('emoji-block')!.getAttribute('aria-label')).toBe('9 flores y 9 flores');
   });
 });

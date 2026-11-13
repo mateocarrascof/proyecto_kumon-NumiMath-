@@ -11,6 +11,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { NavController } from '@ionic/angular/lazy';
 
+import { splitLeadingEmoji } from '../core/games/games.messages';
 import { GameInfo, GamesPort } from '../core/games/games.port';
 
 import {
@@ -519,6 +520,11 @@ export class PracticePage implements OnInit {
   openGames(): Promise<boolean> {
     const juegos = this.extraGames.map((g) => g.id).join(',');
     return this.nav.navigateForward(['/juegos', this.studentId], { queryParams: { juegos } });
+  }
+
+  /** Emoji al principio del enunciado (contar): van aparte, en filas, encima de la pregunta. */
+  get exerciseEmoji(): { glyphs: string; rest: string; spoken: string } | null {
+    return this.exercise ? splitLeadingEmoji(this.exercise.text) : null;
   }
 
   /**

@@ -66,20 +66,15 @@
       @case ('round') {
         <p class="round" data-testid="game-round">{{ text.round(round, rounds) }}</p>
         @if (exercise) {
+          @if (prompt.glyphs) {
+            <app-emoji-rows [glyphs]="prompt.glyphs" [label]="prompt.spoken"></app-emoji-rows>
+          }
           <h1 class="prompt" data-testid="game-prompt">
             @if (spokenBefore) {
-              <span aria-hidden="true">{{ prompt.before }}</span>
+              <span aria-hidden="true">{{ prompt.before.trim() }}</span>
               <span class="sr-only" data-testid="prompt-spoken">{{ spokenBefore }}</span>
             } @else {
-              {{ prompt.before }}
-            }
-            @if (prompt.glyphs) {
-              <span class="glyphs" [class.dense]="denseGlyphs" aria-hidden="true">
-                @for (group of glyphGroups; track $index) {
-                  <span class="glyph-group" [class.boxed]="glyphGroups.length > 1" data-testid="glyph-group">{{ group }}</span>
-                }
-              </span>
-              <span class="sr-only">{{ prompt.spoken }}</span>
+              {{ prompt.before.trim() }}
             }
           </h1>
 

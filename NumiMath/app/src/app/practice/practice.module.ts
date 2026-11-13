@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import { EmojiRowsComponent } from '../core/games/emoji-rows.component';
 import { RouterModule } from '@angular/router';
 import { IonicModule } from '@ionic/angular/lazy';
 
@@ -16,6 +18,7 @@ import { SkillTilesComponent } from './skill-tiles.component';
     IonicModule,
     CoreModule,
     OfflineNoticeComponent,
+    EmojiRowsComponent,
     RouterModule.forChild([{ path: '', component: PracticePage }]),
   ],
   declarations: [PracticePage, SkillTilesComponent],

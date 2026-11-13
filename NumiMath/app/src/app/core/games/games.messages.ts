@@ -105,6 +105,8 @@ const EMOJI_NAMES: Record<
   estrella: { glyph: '⭐', plural: 'estrellas', singular: 'estrella', feminine: true },
   pelota: { glyph: '⚽', plural: 'pelotas', singular: 'pelota', feminine: true },
   flor: { glyph: '🌸', plural: 'flores', singular: 'flor', feminine: true },
+  // Solo en la práctica (generadores de contar).
+  pez: { glyph: '🐟', plural: 'peces', singular: 'pez', feminine: false },
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
@@ -157,6 +159,32 @@ export function spokenEquation(before: string, glyphs: string): string | null {
     .replace(/\s\+\s/g, ' más ')
     .replace(/\s[−-]\s/g, ' menos ')
     .replace(/(^|\s)\?(?=\s|$)/g, `$1${blank}`);
+}
+
+/**
+ * Enunciado de la práctica con los emoji AL PRINCIPIO ("⚽⚽⚽⚽⚽ ⚽⚽⚽⚽ ¿Cuántas pelotas hay?"):
+ * separa los emoji (todos juntos) de la pregunta, para dibujarlos en filas parejas encima de ella.
+ * Sin emoji conocidos al principio, null.
+ */
+export function splitLeadingEmoji(text: string): { glyphs: string; rest: string; spoken: string } | null {
+  for (const names of Object.values(EMOJI_NAMES)) {
+    if (!text.startsWith(names.glyph)) continue;
+    let i = 0;
+    let count = 0;
+    while (i < text.length) {
+      if (text.startsWith(names.glyph, i)) {
+        count += 1;
+        i += names.glyph.length;
+      } else if (/\s/.test(text[i])) {
+        i += 1;
+      } else {
+        break;
+      }
+    }
+    const spoken = `${count} ${count === 1 ? names.singular : names.plural}`;
+    return { glyphs: names.glyph.repeat(count), rest: text.slice(i).trim(), spoken };
+  }
+  return null;
 }
 
 /**

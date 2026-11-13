@@ -199,7 +199,11 @@
               }
             }
           </p>
-          <p class="exercise" [class.long]="exercise.text.length > 24" data-testid="exercise-text"><app-math-text [text]="exercise.text"></app-math-text></p>
+          <!-- Emoji para contar: todos juntos en filas de 5, arriba; la pregunta, sola y centrada. -->
+          @if (exerciseEmoji; as em) {
+            <app-emoji-rows [glyphs]="em.glyphs" [label]="em.spoken"></app-emoji-rows>
+          }
+          <p class="exercise ion-text-center" [class.long]="(exerciseEmoji?.rest ?? exercise.text).length > 24" data-testid="exercise-text"><app-math-text [text]="exerciseEmoji?.rest ?? exercise.text"></app-math-text></p>
         </div>
 
         @if (!result) {

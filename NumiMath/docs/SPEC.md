@@ -1524,3 +1524,13 @@ dentro de cada tema, así que la tarjeta era redundante para ellos. Ahora:
 - Abre la misma selección de eje → juego, con solo esos juegos (`/juegos/:id?juegos=a,b`). La
   pantalla de selección de eje no cambia.
 
+### Emoji para contar, ordenados (práctica y juegos)
+- Los emoji van en un bloque propio, **antes** de la pregunta, en filas parejas de 5 (la última
+  fila a la izquierda), y la pregunta va debajo, sola y centrada: nunca un emoji suelto en la
+  línea del texto. Varios grupos ("Junta y cuenta", "Grupos iguales"): cada uno en su recuadro.
+- Componente compartido `core/games/emoji-rows.component.ts`. Sin cambios en el servidor: en la
+  práctica, `splitLeadingEmoji` separa los emoji del principio del enunciado (el generador ya los
+  manda así); en los juegos, `splitEmojiRun` separa los del final.
+- El bloque es una imagen con la cantidad ("9 pelotas"): el lector no lee cada emoji. Cabe a
+  360 px con 0 a 20 emoji (4 filas de 5). Se agregó 🐟 ("pez", masculino) a los nombres.
+

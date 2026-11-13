@@ -17,6 +17,7 @@ import { SheetsPort, SheetStroke } from '../core/sheets/sheets.port';
 import { MascotPort } from '../core/mascot/mascot.port';
 import { MascotService } from '../core/mascot/mascot.service';
 import { Exercise, PracticeError, PracticePort, Topic } from '../core/practice/practice.port';
+import { EmojiRowsComponent } from '../core/games/emoji-rows.component';
 import { GameGroup, GamesPort } from '../core/games/games.port';
 import { Progress, ProgressPort } from '../core/progress/progress.port';
 import { ScratchpadComponent } from '../core/scratchpad/scratchpad.component';
@@ -104,7 +105,7 @@ function setup(
       MathTextComponent,
       FractionInputComponent,
     ],
-    imports: [IonicModule.forRoot(), FormsModule, OfflineNoticeComponent],
+    imports: [IonicModule.forRoot(), FormsModule, OfflineNoticeComponent, EmojiRowsComponent],
     providers: [
       { provide: MascotPort, useExisting: MascotService },
       { provide: PracticePort, useValue: port },
@@ -156,6 +157,29 @@ describe('PracticePage', () => {
     await page.choose(TOPIC);
     expect(port.newExercise).toHaveBeenCalledWith('perfil-1', TOPIC.id);
     expect(page.exercise?.text).toBe('7 + 5 = ?');
+  });
+
+  it('contar: los emoji van juntos en filas de 5, arriba, y la pregunta sola debajo', async () => {
+    const text = '⚽⚽⚽⚽⚽ ⚽⚽⚽⚽ ¿Cuántas pelotas hay?';
+    const { page, fixture } = setup({ newExercise: vi.fn(async () => ({ ...EXERCISE, text })) });
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const block = el.querySelector('[data-testid="emoji-block"]')!;
+    expect(block.getAttribute('aria-label')).toBe('9 pelotas'); // sin leer cada emoji
+    expect(block.querySelectorAll('.cell').length).toBe(9);
+    const question = el.querySelector('[data-testid="exercise-text"]')!;
+    expect(question.textContent?.trim()).toBe('¿Cuántas pelotas hay?'); // ningún emoji suelto
+    expect(question.classList).toContain('ion-text-center');
+  });
+
+  it('un ejercicio sin emoji no muestra el bloque', async () => {
+    const { page, fixture } = setup();
+    await page.ngOnInit();
+    await page.choose(TOPIC);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="emoji-block"]')).toBeNull();
   });
 
   it('la respuesta solo admite dígitos', async () => {

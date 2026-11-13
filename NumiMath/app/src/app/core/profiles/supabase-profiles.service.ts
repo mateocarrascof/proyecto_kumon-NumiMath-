@@ -36,7 +36,12 @@ function toProfile(row: Row): Profile {
   };
 }
 
-function failureOf(message: string): CreateFailure {
+/** Índice único de la base (ADR 0005); PostgREST responde 409 con el código 23505. */
+export const DUPLICATE_NICKNAME_INDEX = 'students_tutor_grade_nickname_uk';
+
+function failureOf(error: { message?: string; code?: string } | null): CreateFailure {
+  const message = error?.message ?? '';
+  if (error?.code === '23505' && message.includes(DUPLICATE_NICKNAME_INDEX)) return 'duplicate';
   if (message.includes('student_limit_reached')) return 'limit';
   if (message.includes('consent_required')) return 'consent';
   if (message.includes('students_nickname_len')) return 'nickname';
@@ -76,7 +81,7 @@ export class SupabaseProfilesService extends ProfilesPort {
         })
         .select('id, nickname, grade, blocked_at, streak_reminder')
         .single();
-      if (error || !data) return { ok: false, reason: failureOf(error?.message ?? '') };
+      if (error || !data) return { ok: false, reason: failureOf(error) };
       return { ok: true, profile: toProfile(data as Row) };
     } catch {
       return { ok: false, reason: 'network' };

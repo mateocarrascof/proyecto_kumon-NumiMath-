@@ -10,7 +10,8 @@ export interface Profile {
   streakReminder?: boolean;
 }
 
-export type CreateFailure = 'limit' | 'consent' | 'nickname' | 'network' | 'unknown';
+/** `duplicate`: el tutor ya tiene un perfil con ese apodo en ese curso (ADR 0005). */
+export type CreateFailure = 'limit' | 'consent' | 'nickname' | 'duplicate' | 'network' | 'unknown';
 
 export type CreateResult = { ok: true; profile: Profile } | { ok: false; reason: CreateFailure };
 

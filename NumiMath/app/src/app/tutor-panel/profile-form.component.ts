@@ -17,7 +17,12 @@ import {
   ProfilesPort,
 } from '../core/profiles/profiles.port';
 
-const MESSAGES: Record<CreateFailure, string> = {
+/** Apodo repetido en el mismo curso (ADR 0005): amable y con una salida concreta. */
+export function duplicateNicknameMessage(grade: Grade): string {
+  return `Ya tienes un perfil con ese apodo en ${grade}° básico. Elige otro, por ejemplo agrégale un número.`;
+}
+
+const MESSAGES: Record<Exclude<CreateFailure, 'duplicate'>, string> = {
   limit: `Ya tienes el máximo de ${MAX_PROFILES} perfiles.`,
   consent: 'Hay que aceptar de nuevo los términos antes de crear perfiles.',
   nickname: `El apodo debe tener entre 1 y ${NICKNAME_MAX} letras.`,
@@ -123,14 +128,16 @@ export class ProfileFormComponent implements OnInit {
     }
     this.busy = true;
     this.error = '';
-    const result = await this.profiles.create(this.nickname, this.grade);
+    const grade = this.grade;
+    const result = await this.profiles.create(this.nickname, grade);
     this.busy = false;
     if (result.ok) {
       this.nickname = '';
       this.declared = false;
       this.created.emit(result.profile);
     } else {
-      this.error = MESSAGES[result.reason];
+      this.error =
+        result.reason === 'duplicate' ? duplicateNicknameMessage(grade) : MESSAGES[result.reason];
     }
     this.cdr.markForCheck();
   }

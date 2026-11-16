@@ -25,7 +25,7 @@ from unnest(array[
 
 -- A parte con 4 alumnos; B con 1.
 insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-select 'aaaaaaaa-0000-0000-0000-000000000001', 'Alumno' || g, 1, true from generate_series(1, 4) g;
+select 'aaaaaaaa-0000-0000-0000-000000000001', 'Alumno' || chr(96 + g), 1, true from generate_series(1, 4) g;
 insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values
   ('bbbbbbbb-0000-0000-0000-000000000002', 'Beto', 2, true);
 
@@ -57,7 +57,7 @@ select throws_ok(
 reset role;
 set local role service_role;
 select is(public.delete_student('aaaaaaaa-0000-0000-0000-000000000001',
-  (select id from public.students where tutor_id = 'aaaaaaaa-0000-0000-0000-000000000001' and nickname = 'Alumno1')),
+  (select id from public.students where tutor_id = 'aaaaaaaa-0000-0000-0000-000000000001' and nickname = 'Alumnoa')),
   'ok', 'A borra un perfil (aunque esté bloqueado), vía servidor');
 set local role authenticated;
 select lives_ok(
@@ -84,13 +84,13 @@ update public.tutors set max_students = 2 where id = 'dddddddd-0000-0000-0000-00
 select set_config('request.jwt.claims', '{"sub":"dddddddd-0000-0000-0000-000000000004","role":"authenticated"}', true);
 set local role authenticated;
 select lives_ok(
-  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('dddddddd-0000-0000-0000-000000000004', 'D1', 1, true)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('dddddddd-0000-0000-0000-000000000004', 'Da', 1, true)$$,
   'tutor con tope 2: primer alumno');
 select lives_ok(
-  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('dddddddd-0000-0000-0000-000000000004', 'D2', 1, true)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('dddddddd-0000-0000-0000-000000000004', 'Db', 1, true)$$,
   'tutor con tope 2: segundo alumno');
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('dddddddd-0000-0000-0000-000000000004', 'D3', 1, true)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('dddddddd-0000-0000-0000-000000000004', 'Dc', 1, true)$$,
   'P0001', 'student_limit_reached', 'tutor con tope 2: el tercero es rechazado');
 reset role;
 
@@ -117,7 +117,7 @@ create table public.zz_child_probe (
 select throws_ok(
   $$insert into public.zz_child_probe (student_id, tutor_id)
     select id, 'bbbbbbbb-0000-0000-0000-000000000002'
-    from public.students where nickname = 'Alumno2'$$,
+    from public.students where nickname = 'Alumnob'$$,
   '23503', 'insert or update on table "zz_child_probe" violates foreign key constraint "zz_child_probe_student_id_tutor_id_fkey"', 'la FK compuesta impide ligar un alumno de A con el tutor B');
 
 select * from finish();

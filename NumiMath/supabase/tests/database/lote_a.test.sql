@@ -31,7 +31,7 @@ insert into public.students (id, tutor_id, nickname, grade, adult_declaration_ac
   ('c2000000-0000-0000-0000-000000000012', 'eeeeeeee-0000-0000-0000-000000000012', 'XS',   1, true),
   ('c2000000-0000-0000-0000-000000000013', 'eeeeeeee-0000-0000-0000-000000000013', 'YS',   1, true);
 insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-select 'eeeeeeee-0000-0000-0000-000000000014', 'M' || g, 1, true from generate_series(1, 4) g;
+select 'eeeeeeee-0000-0000-0000-000000000014', 'M' || chr(96 + g), 1, true from generate_series(1, 4) g;
 
 -- ===== 1. Frenar el flujo de eventos =====
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-000000000001","role":"authenticated"}', true);
@@ -159,7 +159,7 @@ update public.legal_document_versions set is_current = true where id = '11111111
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-000000000010","role":"authenticated"}', true);
 set local role authenticated;
 insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-values ('eeeeeeee-0000-0000-0000-000000000010', 'J1', 1, true);
+values ('eeeeeeee-0000-0000-0000-000000000010', 'Ja', 1, true);
 reset role;
 update public.legal_document_versions set is_current = false where id = '11111111-0000-0000-0000-000000000003';
 insert into public.legal_document_versions (id, kind, version, content_sha256, is_current) values
@@ -167,10 +167,10 @@ insert into public.legal_document_versions (id, kind, version, content_sha256, i
 select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-000000000010","role":"authenticated"}', true);
 set local role authenticated;
 insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-values ('eeeeeeee-0000-0000-0000-000000000010', 'J2', 1, true);
-select is((select adult_declaration_version_id from public.students where nickname = 'J1'),
+values ('eeeeeeee-0000-0000-0000-000000000010', 'Jb', 1, true);
+select is((select adult_declaration_version_id from public.students where nickname = 'Ja'),
   '11111111-0000-0000-0000-000000000003'::uuid, 'el alumno antiguo conserva la versión de la declaración con que se creó');
-select is((select adult_declaration_version_id from public.students where nickname = 'J2'),
+select is((select adult_declaration_version_id from public.students where nickname = 'Jb'),
   '11111111-0000-0000-0000-000000000007'::uuid, 'el alumno nuevo toma la versión vigente de la declaración');
 reset role;
 
@@ -201,8 +201,8 @@ select set_config('request.jwt.claims', '{"sub":"eeeeeeee-0000-0000-0000-0000000
 set local role authenticated;
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values
-      ('eeeeeeee-0000-0000-0000-000000000014', 'M5', 1, true),
-      ('eeeeeeee-0000-0000-0000-000000000014', 'M6', 1, true)$$,
+      ('eeeeeeee-0000-0000-0000-000000000014', 'Me', 1, true),
+      ('eeeeeeee-0000-0000-0000-000000000014', 'Mf', 1, true)$$,
   'P0001', 'student_limit_reached', 'insertar varias filas en una sentencia no permite superar el tope');
 select is((select count(*) from public.students where tutor_id = 'eeeeeeee-0000-0000-0000-000000000014'),
   4::bigint, 'la sentencia rechazada no insertó ninguna fila');
@@ -216,11 +216,11 @@ select is((select count(*) from public.students), 4::bigint,
 reset role;
 set local role service_role;
 select is(public.delete_student('eeeeeeee-0000-0000-0000-000000000014',
-  (select id from public.students where tutor_id = 'eeeeeeee-0000-0000-0000-000000000014' and nickname = 'M1')),
+  (select id from public.students where tutor_id = 'eeeeeeee-0000-0000-0000-000000000014' and nickname = 'Ma')),
   'ok', 'sí se pueden borrar alumnos (vía servidor)');
 set local role authenticated;
 select throws_ok(
-  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('eeeeeeee-0000-0000-0000-000000000014', 'M7', 1, true)$$,
+  $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('eeeeeeee-0000-0000-0000-000000000014', 'Mg', 1, true)$$,
   'P0001', 'student_limit_reached', 'con el conteo sobre el tope solo se bloquean las altas');
 reset role;
 

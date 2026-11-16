@@ -58,3 +58,18 @@ describe('ProfileFormComponent: apodo repetido (ADR 0005)', () => {
     );
   });
 });
+
+describe('ProfileFormComponent: formato del apodo', () => {
+  it('un apodo con apellidos, números o espacios muestra un mensaje claro, sin sugerir números', async () => {
+    const { fixture, form } = setup({ ok: false, reason: 'nickname' });
+    await form.ngOnInit();
+    form.nickname = 'Pedro González';
+    form.declared = true;
+    await form.create();
+    fixture.detectChanges();
+    const error = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="profile-form-error"]');
+    expect(error?.textContent).toContain('Usa una sola palabra, sin apellidos ni números.');
+    expect(error?.textContent).not.toMatch(/\d/);
+    expect(form.nickname).toBe('Pedro González'); // se conserva para corregirlo
+  });
+});

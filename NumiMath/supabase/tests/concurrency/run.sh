@@ -102,7 +102,7 @@ insert into public.legal_document_versions (id, kind, version, content_sha256, i
 insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel)
 select t, 'grant', '$V_TERMS', '$V_PRIV', 'web' from unnest(array['$T1','$T2','$T3','$T4']::uuid[]) t;
 insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
-select t, 'Base' || g, 1, true
+select t, 'Base' || chr(96 + g), 1, true
 from unnest(array['$T1','$T4']::uuid[]) t, generate_series(1, 4) g;
 commit;
 SQL
@@ -110,9 +110,9 @@ echo "  datos de prueba creados"
 
 # ---------------------------------------------------------------------------
 echo "== A. Dos altas simultáneas con 4 alumnos (tope 5) =="
-tutor_session "$T1" 3 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T1','S5a',1,true);" > "$OUT/a1" &
+tutor_session "$T1" 3 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T1','Sea',1,true);" > "$OUT/a1" &
 wait_ready "$OUT/a1" 10
-tutor_session "$T1" 0 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T1','S5b',1,true);" > "$OUT/a2" &
+tutor_session "$T1" 0 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T1','Seb',1,true);" > "$OUT/a2" &
 wait
 ERRS="$(cat "$OUT/a1" "$OUT/a2" | grep -c 'student_limit_reached')"
 TOTAL="$(sql -c "select count(*) from public.students where tutor_id = '$T1'")"
@@ -121,7 +121,7 @@ check "el tutor termina con 5 alumnos (no 6)" "5" "$TOTAL"
 
 # ---------------------------------------------------------------------------
 echo "== B1. Alta y revocación simultáneas (la alta toma el bloqueo primero) =="
-tutor_session "$T2" 3 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T2','B1',1,true);" > "$OUT/b11" &
+tutor_session "$T2" 3 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T2','Ba',1,true);" > "$OUT/b11" &
 wait_ready "$OUT/b11" 10
 tutor_session "$T2" 0 "insert into public.consents (tutor_id,event_type,terms_version_id,privacy_version_id,channel) values ('$T2','revoke','$V_TERMS','$V_PRIV','web');" > "$OUT/b12" &
 wait
@@ -134,7 +134,7 @@ check "y quedó bloqueado por la revocación (no escapa al bloqueo)" "1" "$BLOCK
 echo "== B2. Revocación y alta simultáneas (la revocación toma el bloqueo primero) =="
 tutor_session "$T3" 3 "insert into public.consents (tutor_id,event_type,terms_version_id,privacy_version_id,channel) values ('$T3','revoke','$V_TERMS','$V_PRIV','web');" > "$OUT/b21" &
 wait_ready "$OUT/b21" 10
-tutor_session "$T3" 0 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T3','B2',1,true);" > "$OUT/b22" &
+tutor_session "$T3" 0 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T3','Bb',1,true);" > "$OUT/b22" &
 wait
 ERRS="$(cat "$OUT/b22" | grep -c 'consent_required')"
 N="$(sql -c "select count(*) from public.students where tutor_id = '$T3'")"
@@ -143,7 +143,7 @@ check "no se creó ningún alumno" "0" "$N"
 
 # ---------------------------------------------------------------------------
 echo "== C. REPEATABLE READ: la base rechaza la alta =="
-tutor_session "$T4" 2 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T4','C5a',1,true);" > "$OUT/c1" &
+tutor_session "$T4" 2 "insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T4','Cea',1,true);" > "$OUT/c1" &
 wait_ready "$OUT/c1" 10
 cat <<SQL | session > "$OUT/c2" &
 begin isolation level repeatable read;
@@ -151,7 +151,7 @@ select count(*) from public.students where tutor_id = '$T4';
 select pg_sleep(3);
 select set_config('request.jwt.claims','{"sub":"$T4","role":"authenticated"}',true) as c \gset
 set local role authenticated;
-insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T4','C5b',1,true);
+insert into public.students (tutor_id,nickname,grade,adult_declaration_accepted) values ('$T4','Ceb',1,true);
 commit;
 SQL
 wait

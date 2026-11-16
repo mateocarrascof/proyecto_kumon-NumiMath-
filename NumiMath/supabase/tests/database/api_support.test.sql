@@ -21,10 +21,10 @@ select ('cccc3333-0000-0000-0000-00000000000' || n)::uuid, 'grant',
 from generate_series(1, 4) n;
 
 insert into public.students (id, tutor_id, nickname, grade, adult_declaration_accepted) values
-  ('d1000000-0000-0000-0000-000000000001', 'cccc3333-0000-0000-0000-000000000001', 'S1',  1, true),
-  ('d1000000-0000-0000-0000-000000000002', 'cccc3333-0000-0000-0000-000000000001', 'S1b', 2, true),
-  ('d2000000-0000-0000-0000-000000000001', 'cccc3333-0000-0000-0000-000000000002', 'S2',  3, true),
-  ('d3000000-0000-0000-0000-000000000001', 'cccc3333-0000-0000-0000-000000000003', 'S3',  1, true);
+  ('d1000000-0000-0000-0000-000000000001', 'cccc3333-0000-0000-0000-000000000001', 'Sa',  1, true),
+  ('d1000000-0000-0000-0000-000000000002', 'cccc3333-0000-0000-0000-000000000001', 'Sab', 2, true),
+  ('d2000000-0000-0000-0000-000000000001', 'cccc3333-0000-0000-0000-000000000002', 'Sb',  3, true),
+  ('d3000000-0000-0000-0000-000000000001', 'cccc3333-0000-0000-0000-000000000003', 'Sc',  1, true);
 
 -- T3: revoca (su perfil queda bloqueado y sin consentimiento activo).
 insert into public.consents (tutor_id, event_type, terms_version_id, privacy_version_id, channel) values

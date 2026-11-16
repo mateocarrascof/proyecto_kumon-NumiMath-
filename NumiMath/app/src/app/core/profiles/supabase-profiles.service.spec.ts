@@ -84,6 +84,34 @@ describe('SupabaseProfilesService', () => {
     expect(inserted).toHaveLength(0);
   });
 
+  it('rechaza apellidos, números y símbolos sin tocar la base (una sola palabra, solo letras)', async () => {
+    const { service, inserted } = setup({});
+    for (const bad of ['Pedro González Pérez', 'Juan Pablo', 'Ana2', '+56912345678', 'ana@correo.cl', 'Juan-Pablo']) {
+      expect(await service.create(bad, 1)).toEqual({ ok: false, reason: 'nickname' });
+    }
+    expect(inserted).toHaveLength(0);
+  });
+
+  it('acepta tildes, ü y ñ, también escritas con tilde separada (NFD)', async () => {
+    const { service, inserted } = setup({
+      data: { id: 'n', nickname: 'Toño', grade: 1, blocked_at: null },
+    });
+    for (const good of ['Toño', 'ÁNGELA', 'Pingüino', 'Toño']) {
+      expect((await service.create(good, 1)).ok).toBe(true);
+    }
+    expect(inserted.map((r) => (r as { nickname: string }).nickname)).toEqual([
+      'Toño',
+      'ÁNGELA',
+      'Pingüino',
+      'Toño',
+    ]);
+  });
+
+  it('el trigger de formato de la base (p. ej. al renombrar un perfil antiguo) da el mensaje claro', async () => {
+    const fmt = setup({ error: { code: '23514', message: 'students_nickname_format' } });
+    expect(await fmt.service.create('Luz', 1)).toEqual({ ok: false, reason: 'nickname' });
+  });
+
   it('traduce los errores de la base a motivos cerrados', async () => {
     const limit = setup({ error: { message: 'student_limit_reached' } });
     expect(await limit.service.create('Luz', 1)).toEqual({ ok: false, reason: 'limit' });

@@ -62,6 +62,11 @@ RLS); FastAPI no tiene rutas para crearlos ni editarlos.
    haga debe revisar antes que no haya duplicados con la regla nueva y terminar con
    `reindex index public.students_tutor_grade_nickname_uk;`.
 
+8. **Formato (2026-11-18, migración `20261118120000_student_nickname_format`):** además de ser
+   único, el apodo debe ser una sola palabra, solo letras (tildes, ü y ñ), de 1 a 30. Lo valida un
+   trigger solo al crear o al cambiar el apodo (no un CHECK, que fallaría al actualizar otras
+   columnas de perfiles antiguos). La app muestra "Usa una sola palabra, sin apellidos ni números."
+
 ## Consecuencias
 
 - No hay datos nuevos: el índice se calcula del apodo que ya se guarda. El inventario lo registra

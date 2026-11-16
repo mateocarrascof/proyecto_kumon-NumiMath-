@@ -90,7 +90,7 @@ select throws_ok($$update public.students set nickname = 'tono'
 select throws_ok($$update public.students set grade = 1
   where nickname = 'Juanito' and grade = 2$$,
   '23505', null, 'cambiar de curso a uno donde ya está ese apodo: no');
-select lives_ok($$update public.students set nickname = 'Juanito 2', grade = 1
+select lives_ok($$update public.students set nickname = 'Juanin', grade = 1
   where nickname = 'Juanito' and grade = 2$$,
   'cambiar curso y apodo a la vez sin chocar: sí');
 select is((select count(*)::int from public.students

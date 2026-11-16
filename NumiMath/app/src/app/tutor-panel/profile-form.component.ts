@@ -25,7 +25,7 @@ export function duplicateNicknameMessage(grade: Grade): string {
 const MESSAGES: Record<Exclude<CreateFailure, 'duplicate'>, string> = {
   limit: `Ya tienes el máximo de ${MAX_PROFILES} perfiles.`,
   consent: 'Hay que aceptar de nuevo los términos antes de crear perfiles.',
-  nickname: `El apodo debe tener entre 1 y ${NICKNAME_MAX} letras.`,
+  nickname: 'Usa una sola palabra, sin apellidos ni números.',
   network: 'No pude conectar con el servidor. Inténtalo de nuevo.',
   unknown: 'No pude crear el perfil. Inténtalo de nuevo.',
 };

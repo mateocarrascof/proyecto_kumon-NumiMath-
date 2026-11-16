@@ -230,6 +230,19 @@ describe('PracticePage', () => {
     expect(page.answer).toHaveLength(7);
   });
 
+  it('el cuadro muestra solo lo que se va a corregir (sin letras)', () => {
+    const { page } = setup();
+    const field = { value: '0x' as string | number | null };
+    page.onAnswerInput('0', { value: '0' });
+    page.onAnswerInput('0x', field);
+    expect(page.answer).toBe('0');
+    expect(field.value).toBe('0');
+    const onlyLetters = { value: 'abc' as string | number | null };
+    page.onAnswerInput('abc', onlyLetters);
+    expect(page.answer).toBe('');
+    expect(onlyLetters.value).toBe('');
+  });
+
   it('una respuesta correcta suma, alegra a la mascota y no se puede enviar dos veces', async () => {
     const { page, port } = setup();
     await page.ngOnInit();

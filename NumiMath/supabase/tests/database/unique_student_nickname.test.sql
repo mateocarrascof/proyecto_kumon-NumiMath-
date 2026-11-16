@@ -53,7 +53,7 @@ select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult
   '23505', null, 'mismo tutor y curso: "JUANÍTO" choca (tilde y mayúsculas)');
 select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', 'Juanito  ', 1, true)$$,
-  '23514', null, 'espacios al final: ya los rechaza students_nickname_len (la app recorta)');
+  '23514', null, 'espacios al final: los rechaza el trigger students_nickname_format (la app recorta)');
 select lives_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', 'Juanito', 2, true)$$,
   'mismo tutor, otro curso: se permite');
@@ -76,7 +76,7 @@ select set_config('request.jwt.claims',
 
 select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', ' Juan  Ito ', 1, true)$$,
-  '23514', null, 'como tutor: espacios al borde los rechaza el check (la app los recorta antes)');
+  '23514', null, 'como tutor: espacios al borde los rechaza el trigger students_nickname_format (la app los recorta antes)');
 select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', 'JUANITO', 1, true)$$,
   '23505', 'duplicate key value violates unique constraint "students_tutor_grade_nickname_uk"',
@@ -90,7 +90,7 @@ select throws_ok($$update public.students set nickname = 'tono'
 select throws_ok($$update public.students set grade = 1
   where nickname = 'Juanito' and grade = 2$$,
   '23505', null, 'cambiar de curso a uno donde ya está ese apodo: no');
-select lives_ok($$update public.students set nickname = 'Juanito 2', grade = 1
+select lives_ok($$update public.students set nickname = 'Juanin', grade = 1
   where nickname = 'Juanito' and grade = 2$$,
   'cambiar curso y apodo a la vez sin chocar: sí');
 select is((select count(*)::int from public.students

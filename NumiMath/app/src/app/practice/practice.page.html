@@ -222,7 +222,7 @@
               aria-label="Tu respuesta"
               placeholder="Tu respuesta"
               [value]="answer"
-              (ionInput)="onAnswerInput($any($event.target).value)"
+              (ionInput)="onAnswerInput($any($event.target).value, $any($event.target))"
               (keyup.enter)="submit()"
             ></ion-input>
             }

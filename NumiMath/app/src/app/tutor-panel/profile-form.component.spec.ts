@@ -40,7 +40,7 @@ describe('ProfileFormComponent: apodo repetido (ADR 0005)', () => {
     expect(create).toHaveBeenCalledWith('Juanito', 1);
     const error = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="profile-form-error"]');
     expect(error?.textContent).toContain(
-      'Ya tienes un perfil con ese apodo en 1° básico. Elige otro, por ejemplo agrégale una letra o una palabra.',
+      'Ya tienes un perfil con ese apodo en 1° básico. Elige otro, por ejemplo agrégale una letra.',
     );
     expect(form.nickname).toBe('Juanito'); // no se borra lo escrito: solo hay que cambiarlo
   });
@@ -54,7 +54,22 @@ describe('ProfileFormComponent: apodo repetido (ADR 0005)', () => {
 
   it('el mensaje usa el curso elegido', () => {
     expect(duplicateNicknameMessage(3)).toBe(
-      'Ya tienes un perfil con ese apodo en 3° básico. Elige otro, por ejemplo agrégale una letra o una palabra.',
+      'Ya tienes un perfil con ese apodo en 3° básico. Elige otro, por ejemplo agrégale una letra.',
     );
+  });
+});
+
+describe('ProfileFormComponent: formato del apodo', () => {
+  it('un apodo con apellidos, números o espacios muestra un mensaje claro, sin sugerir números', async () => {
+    const { fixture, form } = setup({ ok: false, reason: 'nickname' });
+    await form.ngOnInit();
+    form.nickname = 'Pedro González';
+    form.declared = true;
+    await form.create();
+    fixture.detectChanges();
+    const error = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="profile-form-error"]');
+    expect(error?.textContent).toContain('Usa una sola palabra, solo letras: sin apellidos, números ni símbolos.');
+    expect(error?.textContent).not.toMatch(/\d/);
+    expect(form.nickname).toBe('Pedro González'); // se conserva para corregirlo
   });
 });

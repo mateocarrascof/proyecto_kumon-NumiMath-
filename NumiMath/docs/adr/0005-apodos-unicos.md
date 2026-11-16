@@ -23,7 +23,7 @@ RLS); FastAPI no tiene rutas para crearlos ni editarlos.
    `tutor_id`, el error nunca revela apodos de otro tutor.
 4. **Error:** PostgREST responde **409** con el código `23505` y el nombre del índice; la app lo
    traduce a: "Ya tienes un perfil con ese apodo en N° básico. Elige otro, por ejemplo agrégale una
-   letra o una palabra." **El mensaje no sugiere números**, para no invitar a escribir la edad ni el
+   letra." **El mensaje no sugiere números**, para no invitar a escribir la edad ni el
    año de nacimiento (no se guardan: CLAUDE.md). No se movió el alta a FastAPI.
 5. **Duplicados ya existentes:** la migración (`20261118100000_unique_student_nickname.sql`) revisa
    antes de crear el índice. Si los hay, **se detiene** con la cantidad de grupos (sin apodos ni
@@ -61,6 +61,11 @@ RLS); FastAPI no tiene rutas para crearlos ni editarlos.
    base (`lower()` depende de ella) deja el índice inconsistente **sin aviso**. La migración que lo
    haga debe revisar antes que no haya duplicados con la regla nueva y terminar con
    `reindex index public.students_tutor_grade_nickname_uk;`.
+
+8. **Formato (2026-11-18, migración `20261118120000_student_nickname_format`):** además de ser
+   único, el apodo debe ser una sola palabra, solo letras (tildes, ü y ñ), de 1 a 30. Lo valida un
+   trigger solo al crear o al cambiar el apodo (no un CHECK, que fallaría al actualizar otras
+   columnas de perfiles antiguos). La app muestra "Usa una sola palabra, solo letras: sin apellidos, números ni símbolos." y la ayuda del campo dice "Una sola palabra, solo letras".
 
 ## Consecuencias
 

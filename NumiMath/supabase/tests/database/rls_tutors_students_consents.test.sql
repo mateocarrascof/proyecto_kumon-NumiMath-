@@ -103,13 +103,13 @@ select throws_ok(
   '23502', 'null value in column "grade" of relation "students" violates not-null constraint', 'curso nulo es rechazado');
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', '   ', 1, true)$$,
-  '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo en blanco es rechazado');
+  '23514', 'students_nickname_format', 'apodo en blanco es rechazado');
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', repeat('a', 31), 1, true)$$,
-  '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo de 31 caracteres es rechazado');
+  '23514', 'students_nickname_format', 'apodo de 31 caracteres es rechazado');
 select throws_ok(
   $$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted) values ('aaaaaaaa-0000-0000-0000-000000000001', ' Ana', 1, true)$$,
-  '23514', 'new row for relation "students" violates check constraint "students_nickname_len"', 'apodo con espacios al borde es rechazado');
+  '23514', 'students_nickname_format', 'apodo con espacios al borde es rechazado');
 
 -- consents (registro de eventos)
 select throws_ok(

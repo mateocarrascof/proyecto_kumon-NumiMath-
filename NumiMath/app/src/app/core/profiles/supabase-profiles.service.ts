@@ -12,10 +12,11 @@ import {
   CreateFailure,
   CreateResult,
   Grade,
-  NICKNAME_MAX,
   Profile,
   ProfilesPort,
   RemoveResult,
+  cleanNickname,
+  isValidNickname,
 } from './profiles.port';
 
 interface Row {
@@ -45,6 +46,8 @@ function failureOf(error: { message?: string; code?: string } | null): CreateFai
   if (message.includes('student_limit_reached')) return 'limit';
   if (message.includes('consent_required')) return 'consent';
   if (message.includes('students_nickname_len')) return 'nickname';
+  // Trigger de formato (una palabra, solo letras): también al renombrar un perfil antiguo.
+  if (message.includes('students_nickname_format')) return 'nickname';
   return 'unknown';
 }
 
@@ -67,9 +70,9 @@ export class SupabaseProfilesService extends ProfilesPort {
 
   async create(nickname: string, grade: Grade): Promise<CreateResult> {
     const user = this.auth.user();
-    const clean = nickname.trim();
+    const clean = cleanNickname(nickname);
     if (!user) return { ok: false, reason: 'unknown' };
-    if (clean.length < 1 || clean.length > NICKNAME_MAX) return { ok: false, reason: 'nickname' };
+    if (!isValidNickname(clean)) return { ok: false, reason: 'nickname' };
     try {
       const { data, error } = await this.client
         .from('students')

@@ -967,9 +967,12 @@ export class PracticePage implements OnInit {
     }
   }
 
-  onAnswerInput(value: string | null | undefined): void {
+  onAnswerInput(value: string | null | undefined, field?: { value?: string | number | null }): void {
     // Solo dígitos: la respuesta es un número, nunca texto libre.
     this.answer = (value ?? '').replace(/\D/g, '').slice(0, 7);
+    // Si el valor limpio no cambia ("0" → "0x" → "0"), Angular no repinta el cuadro: se escribe a
+    // mano para que el niño vea exactamente lo que se va a corregir.
+    if (field && field.value !== this.answer) field.value = this.answer;
   }
 
   get canSubmit(): boolean {

@@ -19,13 +19,13 @@ import {
 
 /** Apodo repetido en el mismo curso (ADR 0005): amable y con una salida concreta. */
 export function duplicateNicknameMessage(grade: Grade): string {
-  return `Ya tienes un perfil con ese apodo en ${grade}° básico. Elige otro, por ejemplo agrégale una letra o una palabra.`;
+  return `Ya tienes un perfil con ese apodo en ${grade}° básico. Elige otro, por ejemplo agrégale una letra.`;
 }
 
 const MESSAGES: Record<Exclude<CreateFailure, 'duplicate'>, string> = {
   limit: `Ya tienes el máximo de ${MAX_PROFILES} perfiles.`,
   consent: 'Hay que aceptar de nuevo los términos antes de crear perfiles.',
-  nickname: 'Usa una sola palabra, sin apellidos ni números.',
+  nickname: 'Usa una sola palabra, solo letras: sin apellidos, números ni símbolos.',
   network: 'No pude conectar con el servidor. Inténtalo de nuevo.',
   unknown: 'No pude crear el perfil. Inténtalo de nuevo.',
 };
@@ -40,6 +40,7 @@ const MESSAGES: Record<Exclude<CreateFailure, 'duplicate'>, string> = {
         label="Apodo (no uses el nombre real completo)"
         labelPlacement="stacked"
         name="nickname"
+        helperText="Una sola palabra, solo letras"
         [maxlength]="nicknameMax"
         [(ngModel)]="nickname"
       ></ion-input>

@@ -53,7 +53,7 @@ select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult
   '23505', null, 'mismo tutor y curso: "JUANÍTO" choca (tilde y mayúsculas)');
 select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', 'Juanito  ', 1, true)$$,
-  '23514', null, 'espacios al final: ya los rechaza students_nickname_len (la app recorta)');
+  '23514', null, 'espacios al final: los rechaza el trigger students_nickname_format (la app recorta)');
 select lives_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', 'Juanito', 2, true)$$,
   'mismo tutor, otro curso: se permite');
@@ -76,7 +76,7 @@ select set_config('request.jwt.claims',
 
 select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', ' Juan  Ito ', 1, true)$$,
-  '23514', null, 'como tutor: espacios al borde los rechaza el check (la app los recorta antes)');
+  '23514', null, 'como tutor: espacios al borde los rechaza el trigger students_nickname_format (la app los recorta antes)');
 select throws_ok($$insert into public.students (tutor_id, nickname, grade, adult_declaration_accepted)
   values ('fa000000-0000-0000-0000-000000000001', 'JUANITO', 1, true)$$,
   '23505', 'duplicate key value violates unique constraint "students_tutor_grade_nickname_uk"',

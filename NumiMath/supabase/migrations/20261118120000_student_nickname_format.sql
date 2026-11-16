@@ -16,6 +16,10 @@
 -- students_tutor_grade_nickname_uk (ADR 0005), que no cambian.
 --
 -- Idempotente: create or replace + drop trigger if exists.
+--
+-- Reversión (manual, si hiciera falta):
+--   drop trigger if exists students_nickname_format on public.students;
+--   drop function if exists public.students_nickname_format();
 
 create or replace function public.students_nickname_format()
 returns trigger

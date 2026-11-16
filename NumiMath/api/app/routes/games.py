@@ -105,8 +105,16 @@ class GameClockOut(BaseModel):
 
 
 class GameBlocksOut(BaseModel):
-    tens: int
-    ones: int
+    # Límites del dibujo (defensa en profundidad): hasta 9 barras y 18 cubitos sueltos (sumas con
+    # reserva antes de agrupar). También se usa para `removed` (lo tachado).
+    tens: Annotated[int, Field(ge=0, le=9)]
+    ones: Annotated[int, Field(ge=0, le=18)]
+
+
+class GameBoxesOut(BaseModel):
+    # Tablas del 2, 5 y 10: de 1 a 10 bandejas de 2, 5 o 10 huevos.
+    count: Annotated[int, Field(ge=1, le=10)]
+    size: Annotated[int, Field(ge=2, le=10)]
 
 
 class GameExerciseOut(BaseModel):
@@ -124,6 +132,10 @@ class GameExerciseOut(BaseModel):
     picto: list[GamePictoRowOut] | None = None
     measure: GameMeasureOut | None = None
     blocks: GameBlocksOut | None = None
+    # Restas con bloques: las (decenas, unidades) de `blocks` que se quitan (tachadas).
+    removed: GameBlocksOut | None = None
+    # Tablas del 2, 5 y 10: cantidad de cajas y huevos por caja (se dibujan).
+    boxes: GameBoxesOut | None = None
     figure: GameOptionOut | None = None
     clock: GameClockOut | None = None
     scale: int | None = None
@@ -233,6 +245,12 @@ async def new_game_exercise(
         blocks=(
             GameBlocksOut(tens=ex.blocks[0], ones=ex.blocks[1]) if ex.blocks is not None else None
         ),
+        removed=(
+            GameBlocksOut(tens=ex.removed[0], ones=ex.removed[1])
+            if ex.removed is not None
+            else None
+        ),
+        boxes=GameBoxesOut(count=ex.boxes[0], size=ex.boxes[1]) if ex.boxes is not None else None,
         figure=(
             GameOptionOut(id=ex.figure.id, kind=ex.figure.kind, label=ex.figure.label)
             if ex.figure is not None

@@ -5,7 +5,7 @@ import { ChoiceOptionsComponent } from './choice-options.component';
 import { EMOJI_PER_ROW, EmojiRowsComponent } from './emoji-rows.component';
 import { FigureComponent } from './figure.component';
 import { GameVisualComponent, MEASURE_UNIT_PX } from './game-visual.component';
-import { splitLeadingEmoji } from './games.messages';
+import { GAME_TEXT, splitLeadingEmoji } from './games.messages';
 import { GameExercise, GameOption } from './games.port';
 
 /** Figuras, escena, pictograma y medición (CU-A21, parte 3). */
@@ -188,6 +188,70 @@ describe('GameVisualComponent (CU-A21)', () => {
     expect(blocks.getAttribute('role')).toBe('img');
     expect(blocks.getAttribute('aria-label')).toBe('4 barras de diez y 1 cubito');
     expect(blocks.getAttribute('aria-label')).not.toContain('41');
+  });
+
+  it('resta: los últimos bloques van tachados (siguen viéndose) y la etiqueta no dice cuánto queda', () => {
+    // 56 − 23: 5 barras y 6 cubitos; se tachan 2 barras y 3 cubitos.
+    const { q } = render(base({ blocks: { tens: 5, ones: 6 }, removed: { tens: 2, ones: 3 } }));
+    const blocks = q('visual-blocks')!;
+    const rods = [...blocks.querySelectorAll('.rod')];
+    const cubes = [...blocks.querySelectorAll('.cube')];
+    expect(rods.length).toBe(5); // lo tachado se sigue dibujando: no desaparece
+    expect(cubes.length).toBe(6);
+    expect(rods.map((r) => r.hasAttribute('data-gone'))).toEqual([false, false, false, true, true]);
+    expect(cubes.map((c) => c.hasAttribute('data-gone'))).toEqual([false, false, false, true, true, true]);
+    for (const gone of blocks.querySelectorAll('[data-gone]')) {
+      expect(gone.querySelectorAll('line.cross').length).toBe(2); // la ✕
+      expect(gone.querySelectorAll('rect').length).toBeGreaterThan(0); // y el bloque debajo
+    }
+    const label = blocks.getAttribute('aria-label')!;
+    expect(label).toBe('5 barras de diez y 6 cubitos. Tachados, para quitar: 2 barras y 3 cubitos.');
+    expect(label).not.toMatch(/33|treinta/); // el resultado
+  });
+
+  it('el lector no dice "0 cubitos" ni "0 barras"', () => {
+    expect(GAME_TEXT.blocksLabel(4, 0)).toBe('4 barras de diez');
+    expect(GAME_TEXT.blocksLabel(0, 7)).toBe('7 cubitos');
+    expect(GAME_TEXT.blocksTakeAwayLabel(5, 0, 2, 0)).toBe('5 barras de diez. Tachados, para quitar: 2 barras.');
+    expect(GAME_TEXT.blocksTakeAwayLabel(5, 6, 5, 0)).toBe(
+      '5 barras de diez y 6 cubitos. Tachados, para quitar: 5 barras.',
+    );
+  });
+
+  it('resta sin decenas que quitar: solo cubitos tachados', () => {
+    const { q } = render(base({ blocks: { tens: 3, ones: 9 }, removed: { tens: 0, ones: 8 } }));
+    const blocks = q('visual-blocks')!;
+    expect(blocks.querySelectorAll('.rod[data-gone]').length).toBe(0);
+    expect(blocks.querySelectorAll('.cube[data-gone]').length).toBe(8);
+    expect(blocks.getAttribute('aria-label')).toBe('3 barras de diez y 9 cubitos. Tachados, para quitar: 8 cubitos.');
+  });
+
+  it.each([
+    [2, 1, 2],
+    [5, 1, 5],
+    [10, 2, 5],
+  ])('bandejas de %i huevos: cada bandeja con todos sus huevos y la etiqueta sin el total', (size, rows, cols) => {
+    const { q } = render(base({ boxes: { count: 4, size } }));
+    const boxes = q('visual-boxes')!;
+    const drawn = [...boxes.querySelectorAll('svg.box')];
+    expect(drawn.length).toBe(4);
+    for (const box of drawn) {
+      expect(box.querySelectorAll('ellipse.egg').length).toBe(size);
+      expect(box.getAttribute('aria-hidden')).toBe('true');
+    }
+    // Filas y columnas de huevos: posiciones distintas, sin encimarse.
+    const eggs = [...drawn[0].querySelectorAll('ellipse.egg')].map((e) => `${e.getAttribute('cx')},${e.getAttribute('cy')}`);
+    expect(new Set(eggs).size).toBe(size);
+    expect(new Set(eggs.map((p) => p.split(',')[1])).size).toBe(rows);
+    expect(new Set(eggs.map((p) => p.split(',')[0])).size).toBe(cols);
+    expect(boxes.getAttribute('role')).toBe('img');
+    expect(boxes.getAttribute('aria-label')).toBe(`4 bandejas de ${size} huevos`);
+    expect(boxes.getAttribute('aria-label')).not.toContain(String(4 * size));
+  });
+
+  it('una sola bandeja: "1 bandeja"', () => {
+    const { q } = render(base({ boxes: { count: 1, size: 5 } }));
+    expect(q('visual-boxes')!.getAttribute('aria-label')).toBe('1 bandeja de 5 huevos');
   });
 
   it('medición: lo medido tiene el mismo largo que la fila de clips, y cada clip se puede contar', () => {

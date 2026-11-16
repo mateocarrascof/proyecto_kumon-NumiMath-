@@ -62,6 +62,10 @@ class GameExercise:
     picto: tuple[PictoRow, ...] | None = None  # pictograma: una fila por categoría
     measure: GameMeasure | None = None  # un objeto medido con clips o pasos
     blocks: tuple[int, int] | None = None  # (decenas, unidades) en bloques (2°, parte 4)
+    # Restas con bloques (2-08): de `blocks`, las (decenas, unidades) que se quitan (tachadas).
+    removed: tuple[int, int] | None = None
+    # Tablas del 2, 5 y 10 (2-12 a 2-14): (cantidad de bandejas, huevos por bandeja), dibujadas.
+    boxes: tuple[int, int] | None = None
     figure: GameOption | None = None  # una figura grande sobre las opciones (2°)
     clock: tuple[int, int] | None = None  # (hora 1 a 12, minuto 0 o 30): reloj dibujado (2°)
     scale: int | None = None  # pictograma con escala: cada ícono vale `scale` (2°)
@@ -614,6 +618,62 @@ def _blocks_sum(rng: random.Random) -> GameExercise:
     )
 
 
+def _blocks_subtract(rng: random.Random) -> GameExercise:
+    """Restas hasta 100 sin reserva (2°, tema 2-08): el primer número en bloques y lo que se resta
+    TACHADO; el niño cuenta lo que queda. Mitad 2 cifras − 1 cifra y mitad 2 cifras − 2 cifras.
+    Distractores: sumar en vez de restar (si no pasa de 100), una decena de más o de menos y ±1."""
+    two_digits = rng.random() < 0.5
+    while True:
+        a = rng.randint(11, 99)
+        b = rng.randint(10, 99) if two_digits else rng.randint(1, 9)
+        if b < a and b // 10 <= a // 10 and b % 10 <= a % 10:
+            break
+    rest = a - b
+    # Un candidato de cada error y se eligen 2 al azar: mezcla pareja de "sumar", "una decena" y
+    # "±1" (sin repetir). `rest` ≥ 1 y ≤ 98, así que siempre hay decena y ±1 válidos.
+    tens_slip = rng.choice([v for v in (rest + 10, rest - 10) if 0 <= v <= 99])
+    near = rng.choice([v for v in (rest + 1, rest - 1) if 0 <= v <= 99])
+    pool = ([a + b] if a + b <= 100 else []) + [tens_slip, near]
+    pool = [v for v in dict.fromkeys(pool) if v != rest]
+    wrong = rng.sample(pool, 2)
+    return GameExercise(
+        "choice",
+        f"{a} − {b} = ? Los bloques tachados se quitan. ¿Cuántos quedan?",
+        _shuffled(rng, [_number(v) for v in (rest, *wrong)]),
+        (f"n:{rest}",),
+        blocks=(a // 10, a % 10),
+        removed=(b // 10, b % 10),
+    )
+
+
+def _egg_boxes(size: int) -> Callable[[random.Random], GameExercise]:
+    """Tablas del 2, 5 y 10 (2°, temas 2-12 a 2-14), con la misma mecánica: de 1 a 10 bandejas
+    iguales de `size` huevos dibujadas, y "¿Cuántos huevos hay?". Solo palabras, sin "×" (la
+    práctica ya pregunta "5 × 4 = ?"). Distractores: una bandeja de más o de menos, sumar en vez
+    de multiplicar (bandejas + huevos) y contar las bandejas en vez de los huevos. Los ids dicen
+    "cajas" (internos, sin cambiar); el niño ve y oye "bandejas"."""
+
+    def make(rng: random.Random) -> GameExercise:
+        count = rng.randint(1, 10)
+        total = count * size
+        errors = [total - size, total + size, count + size, count]
+        pool = [v for v in dict.fromkeys(errors) if 0 < v <= 100 and v != total]
+        boxes = (
+            f"Hay 1 bandeja. Tiene {size} huevos."
+            if count == 1
+            else f"Hay {count} bandejas. Cada bandeja tiene {size} huevos."
+        )
+        return GameExercise(
+            "choice",
+            f"{boxes} ¿Cuántos huevos hay?",
+            _shuffled(rng, [_number(v) for v in (total, *rng.sample(pool, 2))]),
+            (f"n:{total}",),
+            boxes=(count, size),
+        )
+
+    return make
+
+
 def _equal_groups(rng: random.Random) -> GameExercise:
     """Multiplicación como suma repetida (2°, tema 5): grupos iguales de 2, 5 o 10 objetos.
     Distractores: un grupo de más o de menos (contar mal los grupos)."""
@@ -802,6 +862,13 @@ GAMES: dict[str, Game] = {
         Game("lee-numero-2", "Lee el número", NUMBERS, 2, "choice", "2-02", _read_number),
         Game("arma-numero-2", "Decenas y unidades", NUMBERS, 2, "choice", "2-04", _blocks_number),
         Game("suma-bloques-2", "Suma con bloques", NUMBERS, 2, "choice", "2-07", _blocks_sum),
+        # CU-A21, restas y tablas de 2° (un juego por tema). Ids nuevos.
+        Game("resta-bloques-2", "Quita bloques", NUMBERS, 2, "choice", "2-08", _blocks_subtract),
+        Game("cajas-de-2-2", "Bandejas de 2 huevos", NUMBERS, 2, "choice", "2-12", _egg_boxes(2)),
+        Game("cajas-de-5-2", "Bandejas de 5 huevos", NUMBERS, 2, "choice", "2-13", _egg_boxes(5)),
+        Game(
+            "cajas-de-10-2", "Bandejas de 10 huevos", NUMBERS, 2, "choice", "2-14", _egg_boxes(10)
+        ),
         Game("grupos-iguales-2", "Grupos iguales", NUMBERS, 2, "choice", "2-11", _equal_groups),
         Game("cuenta-lados-2", "Lados y vértices", GEOMETRY, 2, "choice", "2-18", _count_sides),
         Game(

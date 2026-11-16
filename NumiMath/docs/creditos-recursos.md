@@ -13,6 +13,8 @@ Actualizar cada vez que se agregue o reemplace una fuente, ilustración, sonido 
 | Bloques de decenas y unidades: barras de diez y cubitos (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
 | Pentágono y hexágono (SVG, se suman a las figuras de los juegos) | `app/src/app/core/games/figure.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
 | Reloj analógico (esfera, números y manecillas; SVG) | `app/src/app/core/games/game-visual.component.ts` | Hecho por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
+| Bloques tachados para restar: borde punteado y ✕ sobre barras y cubitos (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechos por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
+| Bandejas de huevos de 2, 5 y 10 (SVG) | `app/src/app/core/games/game-visual.component.ts` | Hechas por el equipo del proyecto | Propia | En uso (CU-A21, 2°) |
 
 Notas:
 - La fuente se sirve desde los archivos de la app, nunca desde un CDN, para no enviar la IP del dispositivo a terceros.

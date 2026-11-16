@@ -63,23 +63,55 @@ export const MEASURE_UNIT_PX = 34;
     } @else if (exercise.blocks; as b) {
       <!-- Bloques: barras de diez (con sus 10 cuadritos) y cubitos sueltos. La forma los
            distingue (barra larga y cubito), no solo el color. -->
-      <div class="blocks" role="img" [attr.aria-label]="text.blocksLabel(b.tens, b.ones)" data-testid="visual-blocks">
+      <!-- Restas (removed): los ÚLTIMOS bloques se dibujan tachados. Siguen viéndose (misma forma y
+           color, más tenues) con borde punteado y una ✕ gruesa encima: "se quita", no "no hay". -->
+      <div class="blocks" role="img" [attr.aria-label]="blocksAria(b)" data-testid="visual-blocks">
         <div class="rods">
           @for (r of units(b.tens); track r) {
-            <svg class="rod" viewBox="0 0 14 104" aria-hidden="true" focusable="false">
+            @let gone = r >= b.tens - (exercise.removed?.tens ?? 0);
+            <svg class="rod" [class.gone]="gone" viewBox="0 0 14 104" aria-hidden="true" focusable="false"
+              [attr.data-gone]="gone ? '' : null">
               @for (i of units(10); track i) {
                 <rect x="2" [attr.y]="2 + i * 10" width="10" height="10" fill="#90cdf4" stroke="#1a202c" stroke-width="1.5" />
+              }
+              @if (gone) {
+                <!-- Dentro del viewBox con el trazo de 3 y punta redonda (no se recorta). -->
+                <line x1="1.5" y1="1.5" x2="12.5" y2="102.5" class="cross" />
+                <line x1="12.5" y1="1.5" x2="1.5" y2="102.5" class="cross" />
               }
             </svg>
           }
         </div>
         <div class="cubes">
           @for (c of units(b.ones); track c) {
-            <svg class="cube" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+            @let gone = c >= b.ones - (exercise.removed?.ones ?? 0);
+            <svg class="cube" [class.gone]="gone" viewBox="0 0 14 14" aria-hidden="true" focusable="false"
+              [attr.data-gone]="gone ? '' : null">
               <rect x="2" y="2" width="10" height="10" fill="#faf089" stroke="#1a202c" stroke-width="1.5" />
+              @if (gone) {
+                <!-- ✕ dentro del cubito: el borde punteado y el color se siguen viendo. -->
+                <line x1="4" y1="4" x2="10" y2="10" class="cross thin" />
+                <line x1="10" y1="4" x2="4" y2="10" class="cross thin" />
+              }
             </svg>
           }
         </div>
+      </div>
+    } @else if (exercise.boxes; as bx) {
+      <!-- Tablas del 2, 5 y 10: bandejas iguales de huevos (SVG propio). Bandeja de 2 = 1 × 2, de 5
+           = 1 × 5 y de 10 = 2 × 5 huecos, todos con su huevo: se cuentan de a bandeja. -->
+      <div class="boxes" role="img" [attr.aria-label]="text.boxesLabel(bx.count, bx.size)" data-testid="visual-boxes"
+        [attr.data-size]="bx.size">
+        @for (k of units(bx.count); track k) {
+          <svg class="box" [attr.viewBox]="boxViewBox(bx.size)" aria-hidden="true" focusable="false">
+            <rect x="1" y="1" [attr.width]="boxCols(bx.size) * 12 + 4" [attr.height]="boxRows(bx.size) * 14 + 4"
+              rx="4" fill="#d69e5a" stroke="#1a202c" stroke-width="1.5" />
+            @for (e of units(bx.size); track e) {
+              <ellipse class="egg" [attr.cx]="9 + (e % boxCols(bx.size)) * 12" [attr.cy]="10 + floor(e / boxCols(bx.size)) * 14"
+                rx="4.6" ry="5.6" fill="#fffaf0" stroke="#1a202c" stroke-width="1.2" />
+            }
+          </svg>
+        }
       </div>
     } @else if (exercise.measure; as m) {
       <figure class="measure" data-testid="visual-measure">
@@ -186,7 +218,8 @@ export const MEASURE_UNIT_PX = 34;
         height: 128px;
         margin: 0 auto;
       }
-      /* 9 barras y 18 cubitos caben en 360 px: 9 × 18 + 12 + 5 × 17 = 259 px. */
+      /* 9 barras y hasta 18 cubitos caben en 360 px (328 útiles): barras 9 × 14 + 8 × 4 = 158,
+         separación 12 y cubitos 5 × 18 + 4 × 3 = 102: 272 px. */
       .blocks {
         display: flex;
         justify-content: center;
@@ -203,12 +236,71 @@ export const MEASURE_UNIT_PX = 34;
       }
       .cubes {
         display: grid;
-        grid-template-columns: repeat(5, 14px);
+        grid-template-columns: repeat(5, 18px);
         gap: 3px;
       }
       .cube {
-        width: 14px;
-        height: 14px;
+        width: 18px;
+        height: 18px;
+      }
+      /* Tachado: el bloque sigue ahí (más tenue, borde punteado) y una ✕ oscura lo cruza. */
+      .gone rect {
+        fill-opacity: 0.45;
+        stroke-dasharray: 2 1.5;
+      }
+      .cross {
+        stroke: #2d3748; /* tinta oscura neutra: no rojo, que se lee como "error" */
+        stroke-width: 3; /* más gruesa que los bordes de los cuadritos: resalta sin color */
+        stroke-linecap: round;
+      }
+      .cross.thin {
+        stroke-width: 1.6;
+      }
+      /* Bandejas: se envuelven en filas; a 360 px caben 5 de 2 o 4 de 5 y de 10 por fila. */
+      .boxes {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 10px;
+        max-width: 340px;
+        margin: 0 auto;
+      }
+      .box {
+        display: block;
+        height: auto;
+      }
+      .boxes[data-size='2'] .box {
+        width: 56px;
+      }
+      .boxes[data-size='5'] .box,
+      .boxes[data-size='10'] .box {
+        width: 72px;
+      }
+      /* Pantallas altas (tablet): bandejas más grandes, huevos más fáciles de contar. */
+      @media (min-height: 800px) {
+        .boxes {
+          max-width: 400px;
+        }
+        .boxes[data-size='2'] .box {
+          width: 64px;
+        }
+        .boxes[data-size='5'] .box,
+        .boxes[data-size='10'] .box {
+          width: 88px;
+        }
+      }
+      /* Tablet (ancha y alta): aún más grandes, sobra espacio. */
+      @media (min-width: 600px) and (min-height: 800px) {
+        .boxes {
+          max-width: 520px;
+        }
+        .boxes[data-size='2'] .box {
+          width: 80px;
+        }
+        .boxes[data-size='5'] .box,
+        .boxes[data-size='10'] .box {
+          width: 112px;
+        }
       }
       .measure {
         margin: 0 auto;
@@ -250,6 +342,31 @@ export class GameVisualComponent {
 
   protected get patternLabel(): string {
     return GAME_TEXT.patternRow((this.exercise.pattern ?? []).map((f) => f.label));
+  }
+
+  /** Etiqueta de los bloques: en las restas dice además qué está tachado (nunca cuánto queda). */
+  protected blocksAria(b: { tens: number; ones: number }): string {
+    const gone = this.exercise.removed;
+    return gone
+      ? GAME_TEXT.blocksTakeAwayLabel(b.tens, b.ones, gone.tens, gone.ones)
+      : GAME_TEXT.blocksLabel(b.tens, b.ones);
+  }
+
+  /** Bandeja de 10: 2 filas de 5; de 2 y de 5: una fila. */
+  protected boxCols(size: number): number {
+    return size === 10 ? 5 : size;
+  }
+
+  protected boxRows(size: number): number {
+    return Math.ceil(size / this.boxCols(size));
+  }
+
+  protected boxViewBox(size: number): string {
+    return `0 0 ${this.boxCols(size) * 12 + 6} ${this.boxRows(size) * 14 + 6}`;
+  }
+
+  protected floor(n: number): number {
+    return Math.floor(n);
   }
 
   protected readonly hours = Array.from({ length: 12 }, (_, i) => i + 1);

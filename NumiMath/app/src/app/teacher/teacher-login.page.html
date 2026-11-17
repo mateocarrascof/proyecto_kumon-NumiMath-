@@ -48,5 +48,16 @@
     <ion-button fill="clear" size="small" color="medium" routerLink="/login" data-testid="teacher-back-link">
       Volver
     </ion-button>
+    <!-- Único acceso al administrador dentro de la app (la seguridad la pone el servidor). -->
+    <ion-button
+      fill="clear"
+      size="small"
+      color="medium"
+      routerLink="/admin/login"
+      aria-label="Acceso para administración"
+      data-testid="admin-access-link"
+    >
+      Acceso para administración
+    </ion-button>
   </main>
 </ion-content>

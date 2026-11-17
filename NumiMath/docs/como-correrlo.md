@@ -51,8 +51,9 @@ Pide la contraseña (mínimo 8) dos veces, sin mostrarla. Luego entra en http://
 Desde ahí se crean las cuentas de docentes; la contraseña inicial se muestra una sola vez.
 
 **Cómo se llega a cada acceso:** en el inicio de sesión del tutor (`/login`) hay un enlace discreto "Acceso para
-docentes" que lleva a `/docente/login` (y ahí un "Volver"). **No hay ningún enlace al administrador dentro de la
-app**: el administrador entra por la versión web escribiendo la dirección `/admin/login`.
+docentes" que lleva a `/docente/login` (y ahí un "Volver"). Desde esa pantalla de docentes, un enlace discreto
+"Acceso para administración" lleva a `/admin/login` (con su "Volver"), así que se llega también desde el celular, sin
+escribir la dirección. **El tutor no ve ningún enlace al administrador.**
 
 ### Probar docentes a mano (sin escribir contraseñas en ningún chat)
 1. Entra como administrador en http://localhost:8100/admin/login.

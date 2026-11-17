@@ -70,6 +70,8 @@ describe('LoginPage: recuperar contraseña', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('[data-testid="teacher-access-link"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="admin-access-link"]')).toBeNull();
+    expect(root.innerHTML).not.toMatch(/\/admin\/login/);
     fixture.componentInstance.setMode('signup');
     fixture.detectChanges();
     expect(root.querySelector('[data-testid="teacher-access-link"]')).toBeNull();

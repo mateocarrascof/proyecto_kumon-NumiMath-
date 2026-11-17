@@ -51,6 +51,15 @@ describe('AdminLoginPage (AD1)', () => {
     expect(page.password).toBe('');
   });
 
+  it('tiene un "Volver" al login de docentes, sin usar la URL', () => {
+    setup({ ok: true }, ADMIN);
+    const fixture = TestBed.createComponent(AdminLoginPage);
+    fixture.detectChanges();
+    const back = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="admin-back-link"]') as HTMLElement;
+    expect(back.textContent).toContain('Volver');
+    expect(back.getAttribute('routerLink')).toBe('/docente/login');
+  });
+
   it('credenciales incorrectas: informa y permite reintentar', async () => {
     const { page, navigateRoot } = setup({ ok: false, reason: 'invalid_credentials' }, null);
     await page.submit();

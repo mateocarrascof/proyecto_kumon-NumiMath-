@@ -587,9 +587,10 @@ no genera registro.
   llega a la lista de docentes. Su cuenta **no se crea desde la app**: la crea la empresa directamente en
   Supabase (`api/scripts/create_admin.py`, ver `docs/como-correrlo.md`). Credenciales incorrectas: se
   informa y puede reintentar; una cuenta válida que no sea de administrador recibe el mismo mensaje.
-  **No hay ningún enlace al administrador dentro de la app**: se entra por la versión web escribiendo
-  `/admin/login`. En cambio, el inicio de sesión del tutor tiene un enlace discreto "Acceso para docentes"
-  (`/docente/login`) y esa pantalla un "Volver" al inicio de sesión del tutor.
+  **Cómo se llega desde la app (sin escribir URL):** el inicio de sesión del tutor tiene un enlace discreto
+  "Acceso para docentes" (`/docente/login`); esa pantalla tiene "Volver" (al inicio de sesión del tutor) y un
+  enlace discreto "Acceso para administración" (`/admin/login`), que tiene su propio "Volver" a `/docente/login`.
+  **El tutor no ve ningún enlace al administrador.** Es solo un atajo de navegación: la seguridad sigue en el servidor.
 - **AD2 Crear cuenta de docente:** el administrador escribe nombre (hasta 60), correo y contraseña
   inicial (mínimo 8). El sistema crea la cuenta (`POST /v1/admin/teachers`, con la llave de servicio y
   `app_metadata.role = teacher`) y genera el código de vínculo de 8 caracteres; la app muestra correo,

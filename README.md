@@ -43,7 +43,7 @@ Aplicación móvil de matemáticas adaptativas para niños de 6 a 12 años, insp
 ## 🔗 Enlaces Oficiales
 
 - **Repositorio GitHub (Público):** [https://github.com/mateocarrascof/proyecto_kumon-NumiMath-.git](https://github.com/mateocarrascof/proyecto_kumon-NumiMath-.git)
-- **Evidencias de la Fase 1:** carpeta [`FINAL FASE 1`](FINAL%20FASE%201) de este repositorio.
+- **Evidencias de la Fase 1:** carpeta [`FASE 1`](FASE%201) de este repositorio.
 - **Evidencias de la Fase 2:** carpeta [`FASE 2`](FASE%202) de este repositorio (ver [Documentación del Proyecto](#documentacion)).
 - **Carpeta Compartida Google Drive:** *https://drive.google.com/drive/folders/1QN-TKWRHs6uAoAOnti-yZrDHZnuX4E15?usp=drive_link*
 
@@ -237,7 +237,7 @@ El script pide la contraseña (mínimo 8 caracteres) dos veces, sin mostrarla. L
 ```
 proyecto_kumon-NumiMath-/
 ├── NumiMath/                  aplicación (detalle abajo)
-├── FINAL FASE 1/              evidencias individuales y grupales de la Fase 1
+├── FASE 1/                    evidencias individuales y grupales de la Fase 1
 ├── FASE 2/                    evidencias de la Fase 2 (ver Documentación del Proyecto)
 └── README.md
 
@@ -322,4 +322,4 @@ Las evidencias de la Fase 2 están en la carpeta [`FASE 2`](FASE%202):
 | `Evidencias Grupales` | Guía de desarrollo del proyecto (2.4). |
 | `Evidencias Proyecto` | Resumen del estado de avance de los casos de uso. |
 
-Las evidencias de la Fase 1 están en la carpeta [`FINAL FASE 1`](FINAL%20FASE%201).
+Las evidencias de la Fase 1 están en la carpeta [`FASE 1`](FASE%201).

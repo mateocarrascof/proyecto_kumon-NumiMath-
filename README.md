@@ -41,7 +41,7 @@ Documentación del Proyecto
 Repositorio GitHub (Público): https://github.com/mateocarrascof/proyecto_kumon-NumiMath-.git
 Evidencias de la Fase 1: carpeta FINAL FASE 1 de este repositorio.
 Evidencias de la Fase 2: carpeta FASE 2 de este repositorio (ver Documentación del Proyecto).
-Carpeta Compartida Google Drive: (pegar aquí el enlace de la carpeta compartida)
+Carpeta Compartida Google Drive: https://drive.google.com/drive/folders/1QN-TKWRHs6uAoAOnti-yZrDHZnuX4E15?usp=drive_link
 
 <a id="descripcion-y-alcance" name="descripcion-y-alcance"></a>
 

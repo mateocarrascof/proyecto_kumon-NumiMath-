@@ -1,0 +1,72 @@
+===============================================================================
+REPOSITORIO GITHUB DEL PROYECTO
+NumiMath | IA Matemática para Triskeledu
+Capstone PTY4614 · Ingeniería en Informática · Duoc UC, sede Padre Alonso de Ovalle
+===============================================================================
+
+ENLACES
+  Repositorio (público):  https://github.com/mateocarrascof/proyecto_kumon-NumiMath-
+  Clonar:                 git clone https://github.com/mateocarrascof/proyecto_kumon-NumiMath-.git
+
+EQUIPO
+  Adolfo Cartes       Jefe de Proyecto y Desarrollador        ad.cartes@duocuc.cl
+  Mateo Carrasco      Analista de Requerimientos y QA         ma.carrascof@duocuc.cl
+
+DESCRIPCIÓN
+  Aplicación móvil de matemáticas adaptativas para niños de 6 a 12 años (1° a 4° básico),
+  inspirada en el método Kumon. Cada niño practica a su nivel con corrección instantánea;
+  el tutor ve el progreso, asigna tareas propias y exporta el historial; los docentes y el
+  administrador tienen sus propios módulos. La IA solo explica los ejercicios, detrás de
+  filtros de seguridad. Se entregó como MVP al cliente Triskeledu el 18 de noviembre de 2026.
+
+VERSIÓN DOCUMENTADA
+  MVP del 18 de noviembre de 2026: 62 casos de uso completos, 43 requerimientos
+  funcionales y 14 no funcionales.
+
+TECNOLOGÍA
+  Ionic 9 · Angular 22 · Capacitor 8 · TypeScript  (app)
+  Python 3.12 · FastAPI  (API)
+  Supabase: PostgreSQL, Auth y seguridad por fila, local sobre Docker  (base de datos)
+  Gemini API, solo para explicar ejercicios (por defecto, proveedor simulado)
+  pytest · Ruff · pgTAP · Vitest · ESLint  (pruebas y calidad)
+
+ESTRUCTURA DEL REPOSITORIO
+  README.md                        Documentación general del proyecto
+  NumiMath/                        Código de la aplicación
+      app/                         App Ionic + Angular + Capacitor
+      api/                         Servidor FastAPI, scripts y pruebas
+      supabase/                    Migraciones, pruebas pgTAP, datos iniciales y configuración
+      docs/                        Especificación, ADR, privacidad y guías
+      README.md                    Puesta en marcha y pruebas
+  Fase 1/                          Evidencias de la Fase 1 (individuales y grupales)
+  Fase 2/                          Evidencias de la Fase 2
+
+PUESTA EN MARCHA (resumen, Windows)
+  cd NumiMath
+  docker info
+  supabase start
+  python -m venv api/.venv
+  api/.venv/Scripts/python -m pip install -r api/requirements.txt
+  powershell -ExecutionPolicy Bypass -File api/scripts/crear-env.ps1
+  npm --prefix app ci
+  api/.venv/Scripts/python -m uvicorn app.main:app --app-dir api --port 8000
+  npm --prefix app start            → http://localhost:8100
+
+PRUEBAS AUTOMÁTICAS
+  supabase test db                                          (pgTAP: seguridad y aislamiento)
+  api/.venv/Scripts/python -m pytest -q api                 (1.497 pruebas de la API)
+  npm --prefix app run test:ci                              (pruebas de la app)
+
+DOCUMENTACIÓN EN EL REPOSITORIO
+  - README.md de la raíz: descripción, alcance, stack, arquitectura, estado, usuarios,
+    estructura y metodología.
+  - NumiMath/README.md: puesta en marcha, cuentas, pruebas y carpetas de la aplicación.
+  - NumiMath/docs/como-correrlo.md: recorrido de prueba paso a paso.
+  - NumiMath/docs/SPEC.md y NumiMath/docs/adr/: especificación y decisiones de arquitectura.
+  - NumiMath/docs/privacy/: evaluación de impacto, inventario de datos y pendientes legales.
+
+NOTA SOBRE LA COPIA ENTREGADA EN «Código sistema»
+  Corresponde a la rama main del repositorio. No incluye claves ni datos reales: el archivo
+  api/.env se genera en cada equipo con api/scripts/crear-env.ps1 y la base de datos parte
+  vacía con «supabase start».
+===============================================================================

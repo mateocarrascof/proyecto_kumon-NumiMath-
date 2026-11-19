@@ -134,7 +134,7 @@ La versión vigente es el **MVP entregado a Triskeledu el 18 de noviembre de 202
 * **Perfiles de alumno:** solo apodo y curso; el apodo es único por tutor y curso.
 * **Práctica adaptativa:** 101 habilidades, corrección instantánea, diagnóstico inicial opcional y explicación de la IA con «Explícame».
 * **Juegos de refuerzo:** 32 juegos para 1° y 2° básico, uno por tema.
-* **Engagement:** racha diaria, estrellas y medallas, mascota Numi (provisional) y recordatorio local de racha opcional.
+* **Engagement:** racha diaria, estrellas y medallas, mascota Numi y recordatorio local de racha opcional.
 * **Panel del tutor:** PIN de 4 dígitos, pestañas por perfil, informe con gráfico semanal y aciertos por tema, tareas propias con edición, exportación a CSV, vínculo con docentes y hojas guardadas.
 * **Docente y administrador:** el administrador crea, edita y elimina docentes con auditoría; el docente consulta el progreso y el historial desde el vínculo.
 * **Uso sin conexión:** lote de ejercicios firmados, corrección provisional en el dispositivo y sincronización al recuperar la red.
@@ -147,11 +147,9 @@ La versión vigente es el **MVP entregado a Triskeledu el 18 de noviembre de 202
 * **Verificación manual** en el navegador al cierre de cada etapa.
 
 #### Fuera del alcance y trabajo futuro
-* Pruebas de usabilidad con niños y pruebas de carga.
+* Pruebas de usabilidad con niños.
 * Exportación de informes en PDF (se exporta en CSV).
-* Misiones y desafío final por bloque.
 * Notificaciones *push* (solo hay un recordatorio local opcional).
-* Publicación en producción y en tiendas de aplicaciones.
 * Validación legal definitiva de los textos y de la IA con menores. Los textos están marcados «NO VÁLIDO LEGALMENTE».
 
 #### Tecnologías Utilizadas
